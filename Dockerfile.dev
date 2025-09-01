@@ -1,0 +1,23 @@
+# Development Dockerfile - Optimized for local development
+FROM node:24-alpine
+
+# Install git (needed for some packages)
+RUN apk add --no-cache git
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install ALL dependencies (including dev dependencies for development)
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Default command for development
+CMD ["npm", "run", "dev"]
