@@ -12,7 +12,10 @@ This project uses Docker Compose for development. All commands should be run thr
 ### Start the development environment
 
 ```bash
-# Start all services (app and database)
+# Start all services with hot reloading (recommended)
+docker-compose up --build --watch
+
+# Or start without watch mode
 docker-compose up -d
 
 # View logs
@@ -25,11 +28,13 @@ docker-compose down
 ### Development Workflow
 
 ```bash
-# Start development server
-docker-compose up -d
+# Start development server with hot reloading
+docker-compose up --build --watch
 
 # Run the application at http://localhost:3000
 ```
+
+**Note**: The `--watch` flag enables automatic file synchronization between your host and container, providing hot reloading during development.
 
 ## Available Commands
 
@@ -38,13 +43,13 @@ All npm scripts are run through the Docker container:
 ### Database Operations
 
 ```bash
-# Generate database schema
+# Generate database schema from your Drizzle definitions
 docker-compose exec app npm run db:generate
 
-# Run database migrations
+# Run pending database migrations
 docker-compose exec app npm run db:migrate
 
-# Open Drizzle Studio (database GUI)
+# Open Drizzle Studio (database GUI) at http://localhost:4983
 docker-compose exec app npm run db:studio
 ```
 
@@ -59,6 +64,19 @@ docker-compose exec app npm run lint:fix
 
 # Run tests
 docker-compose exec app npm run test
+```
+
+### Development Commands
+
+```bash
+# Start with hot reloading (recommended for development)
+docker-compose up --build --watch
+
+# Start without watch mode
+docker-compose up -d
+
+# Restart only the app container
+docker-compose restart app
 ```
 
 ### Build Operations
@@ -102,35 +120,52 @@ docker-compose exec app npm run db:studio
 
 ## Troubleshooting
 
-### Hot Reloading Limitations
+### Hot Reloading Issues
 
-⚠️ **Known Issue**: Hot reloading does not work inside Docker containers with Next.js/Turbopack.
+If hot reloading isn't working, try these solutions:
 
-**Problem**: Changes made to source files are not automatically reflected in the browser when running the development server inside Docker. The host's `.next` directory gets updated, but the container's `.next` directory remains unchanged.
+1. **Use watch mode (recommended)**:
+   ```bash
+   docker-compose up --build --watch
+   ```
 
-**Workaround**:
-- For development, consider running Next.js directly on your host machine instead of Docker
-- If using Docker is required, manually restart the container after code changes
-- Track this issue: [Next.js GitHub Issue #71622](https://github.com/vercel/next.js/issues/71622)
+2. **Restart the development server**:
+   ```bash
+   docker-compose restart app
+   ```
 
-**Alternative Development Setup**:
-```bash
-# Run Next.js directly on host (recommended for development)
-npm run dev
+3. **Alternative: Run Next.js directly on host**:
+   ```bash
+   # Start only the database in Docker
+   docker-compose up -d db
 
-# Database still runs in Docker
-docker-compose up -d postgres
-```
+   # Run Next.js on host
+   npm run dev
+   ```
 
 ### Rebuild containers
 
 If you need to rebuild after dependency changes:
 
 ```bash
-# Rebuild and restart
+# Rebuild with watch mode (recommended)
+docker-compose down
+docker-compose up --build --watch
+
+# Or rebuild without watch mode
 docker-compose down
 docker-compose up --build -d
 ```
+
+### About Watch Mode
+
+The `--watch` flag enables:
+- **Automatic file synchronization** between host and container
+- **Hot reloading** when you make changes to source files
+- **Automatic container rebuilds** when package.json or package-lock.json changes
+- **Better development experience** with instant feedback
+
+Use this for active development work.
 
 ### Clean up
 
