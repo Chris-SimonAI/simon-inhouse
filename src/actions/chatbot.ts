@@ -3,16 +3,31 @@
 import 'server-only';
 import { createStreamableValue } from '@ai-sdk/rsc';
 import { streamAgent, type ConciergeStreamEvent } from '@/lib/agent';
-import { v4 as uuidv4 } from 'uuid';
 
-export async function processChatMessageStream(
-  args: { message: string; threadId?: string; extra?: { headers?: Record<string, string>; body?: Record<string, unknown>; data?: unknown } }
-) {
+export type ExtraData = {
+  headers?: Record<string, string>;
+  body?: Record<string, unknown>;
+  data?: unknown;
+};
+
+export type ChatRequestOptions = ExtraData;
+
+export type RscServerAction = (args: {
+  message: string;
+  threadId: string;
+  extra?: ExtraData;
+}) => Promise<{ stream: unknown }>;
+
+export async function processChatMessageStream(args: {
+  message: string;
+  threadId: string;
+  extra?: ExtraData;
+}) {
   const stream = createStreamableValue<ConciergeStreamEvent | null>(null);
 
   (async () => {
     try {
-      const { message, threadId = uuidv4() } = args;
+      const { message, threadId } = args;
 
       for await (const evt of streamAgent({
         message,

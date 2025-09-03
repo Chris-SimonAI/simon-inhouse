@@ -19,31 +19,16 @@ import { useRscChat } from "@/hooks/useRscChat";
 import { Loader } from "@/components/ai-elements/loader";
 import { Home, Building2, MapPin, Utensils, Mic, ArrowLeft } from 'lucide-react'
 import { Suggestion, Suggestions } from "./suggestion";
+import { RestaurantCard } from "./RestaurantCard";
+import { type RestaurantResult } from "@/lib/places";
 import { cn } from "@/lib/utils";
-
-type ExtraData = {
-  headers?: Record<string, string>;
-  body?: Record<string, unknown>;
-  data?: unknown;
-};
+import { type RscServerAction } from "@/actions/chatbot";
 
 type Props = {
-  processChatMessageStream: (args: {
-    message: string;
-    threadId?: string;
-    extra?: ExtraData;
-  }) => Promise<{ stream: unknown }>
-  threadId?: string
+  processChatMessageStream: RscServerAction
+  threadId: string
 };
 
-type RestaurantResult = {
-  name: string;
-  distanceKm: number;
-  cuisine: string;
-  priceRange: string;
-  description: string;
-  imageUrl?: string;
-};
 
 const suggestions = [
   {
@@ -68,7 +53,7 @@ const suggestions = [
   },
 ] as const;
 
-export default function Chatbot({ processChatMessageStream, threadId = Math.random().toString(36).substring(2, 15) }: Props) {
+export default function Chatbot({ processChatMessageStream, threadId }: Props) {
   const { messages, sendMessage, status, error } = useRscChat({
     action: processChatMessageStream,
     threadId: threadId,
@@ -105,7 +90,7 @@ export default function Chatbot({ processChatMessageStream, threadId = Math.rand
           <div className="w-12"></div>
         </div>
 
-        <Conversation className="flex-1 bg-gray-50">
+        <Conversation className="flex-1">
           <ConversationContent>
 
             {messages.map((message) => (
@@ -116,25 +101,16 @@ export default function Chatbot({ processChatMessageStream, threadId = Math.rand
 
                 <div className={cn(
                   "flex flex-col",
-                  message.role === 'assistant' ? 'items-start !min-w-full' : 'items-end max-w-xs'
+                  message.role === 'assistant' ? 'items-start !min-w-full' : 'items-end !min-w-full'
                 )}>
 
                   <MessageContent className={cn(
                     message.role === 'assistant'
-                      ? '!bg-white rounded-2xl rounded-tl-md p-4 shadow-sm !min-w-full'
-                      : 'bg-orange-400 text-white rounded-2xl rounded-tr-md p-3 shadow-sm'
+                      ? '!bg-transparent rounded-2xl rounded-tl-md !min-w-full max-w-full p-0 py-1'
+                      : '!bg-gray-200 !text-gray-700 rounded-full pl-6 pr-4 py-2 pl-6 shadow-sm !min-w-full text-right max-w-full [&>div]:flex [&>div]:items-center [&>div]:gap-2'
                   )}>
-                    {message.role === 'assistant' && (
-                      <span className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center flex-shrink-0">
-                          <div className="text-white text-sm font-bold">∞</div>
-                        </div>
-
-                        <span className="text-sm font-medium text-gray-900 mb-1">Simon</span>
-                      </span>
-                    )}
-
-                    {status === 'submitted' && message.role === 'assistant' && (
+                    {/* only show */}
+                    {status === 'submitted' && message.role === 'assistant' && message.id === messages[messages.length - 1].id && (
                       <Loader />
                     )}
 
@@ -143,39 +119,25 @@ export default function Chatbot({ processChatMessageStream, threadId = Math.rand
                         case 'text':
                           return (
                             <Response key={`${message.id}-${i}`} className={cn(
-                              "text-sm",
                               message.role === 'assistant'
                                 ? 'text-gray-700 leading-relaxed'
-                                : 'text-white'
+                                : 'text-gray-700'
                             )}>
                               {part.text}
                             </Response>
                           );
                         case 'tool-search_places':
-                          const results = JSON.parse(part.output as string).results || [];
+                          const results = JSON.parse(part.output as string).data as RestaurantResult[] || [];
                           return (
-                            <div key={`${message.id}-${i}`} className="space-y-4">
+                            <div key={`${message.id}-${i}`} className="space-y-2 py-2">
                               {results.map((result: RestaurantResult, index: number) => (
-                                <div key={`${message.id}-${i}-${index}`} className="bg-white border rounded-lg p-4 shadow-sm">
-                                  <h3 className="font-semibold text-lg text-gray-900 mb-1">
-                                    {result.name}
-                                  </h3>
-                                  <p className="text-sm text-indigo-600 font-medium mb-2">
-                                    {result.cuisine}
-                                  </p>
-                                  <p className="text-gray-600 text-sm mb-3">
-                                    {result.description}
-                                  </p>
-                                  <div className="flex items-center justify-between text-sm text-gray-500">
-                                    <span className="flex items-center">
-                                      <MapPin className="w-4 h-4 mr-1" />
-                                      {result.distanceKm}
-                                    </span>
-                                    <span className="font-medium text-gray-900">
-                                      {result.priceRange}
-                                    </span>
-                                  </div>
-                                </div>
+                                <RestaurantCard
+                                  key={`${message.id}-${i}-${index}`}
+                                  result={result}
+                                  index={index}
+                                  messageId={message.id}
+                                  partIndex={i}
+                                />
                               ))}
                             </div>
                           );
@@ -183,14 +145,16 @@ export default function Chatbot({ processChatMessageStream, threadId = Math.rand
                           return null;
                       }
                     })}
+
+                      {/* if not assistant, an S character in a white circle */}
+                {message.role !== 'assistant' && (
+                  <div className="w-6 h-6 border border-gray-700/50 bg-white rounded-full flex items-center justify-center">
+                    <span className="text-gray-700 text-xs">S</span>
+                  </div>
+                )}
                   </MessageContent>
 
-                  <span className={cn(
-                    "text-xs text-gray-500 mt-2",
-                    message.role === 'assistant' ? 'ml-1' : 'mr-1'
-                  )}>
-                    {new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                  </span>
+              
                 </div>
               </Message>
             ))}
@@ -205,11 +169,8 @@ export default function Chatbot({ processChatMessageStream, threadId = Math.rand
               onChange={(e) => setInput(e.target.value)}
               value={input}
               placeholder="Ask Simon anything"
-              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none min-h-[50px] rounded-full pl-12 pr-16 pt-4"
+              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none min-h-[50px] rounded-full pl-4 pr-16 pt-4"
             />
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-black text-lg pointer-events-none">
-              ∞
-            </div>
             <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
               <PromptInputTools>
                 <PromptInputButton
@@ -233,10 +194,6 @@ export default function Chatbot({ processChatMessageStream, threadId = Math.rand
 
       <div className="px-6 text-center mb-2">
         <h1 className="text-3xl font-light text-gray-800 mb-6">Simon</h1>
-
-        <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center mx-auto mb-6">
-          <div className="text-white text-2xl font-bold">∞</div>
-        </div>
 
         <p className="text-gray-600 text-base leading-relaxed mb-8">
           Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here.
@@ -278,11 +235,8 @@ export default function Chatbot({ processChatMessageStream, threadId = Math.rand
             onChange={(e) => setInput(e.target.value)}
             value={input}
             placeholder="Ask Simon anything"
-            className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none min-h-[50px] rounded-full pl-12 pr-16 pt-4"
+            className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none min-h-[50px] rounded-full pl-4 pr-16 pt-4"
           />
-          <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-black text-lg pointer-events-none">
-            ∞
-          </div>
           <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
             <PromptInputTools>
               <PromptInputButton

@@ -7,20 +7,7 @@ import type {
   CreateUIMessage,
 } from 'ai';
 import { type ConciergeStreamEvent } from '@/lib/agent';
-
-
-/** Your server action (RSC transport).
- * You can ignore `extra` on the server if you don't need it.
- */
-export type RscServerAction = (args: {
-  message: string;
-  threadId?: string;
-  extra?: {
-    headers?: Record<string, string>;
-    body?: Record<string, unknown>;
-    data?: unknown;
-  };
-}) => Promise<{ stream: unknown }>;
+import { type RscServerAction, type ChatRequestOptions } from '@/actions/chatbot';
 
 function rid() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
@@ -36,8 +23,8 @@ export type UseRscChatOptions<M extends UIMessage = UIMessage> = {
   /** Stable chat id (used for reconnections/routing) */
   id?: string;
 
-  /** Optional thread id passed to your action */
-  threadId?: string;
+  /** Required thread id passed to your action */
+  threadId: string;
 
   /** Initial messages (UIMessage[]) */
   messages?: M[];
@@ -56,13 +43,6 @@ export type UseRscChatOptions<M extends UIMessage = UIMessage> = {
 
   /** Optional auto-send policy hook (mirrors useChat). */
   sendAutomaticallyWhen?: (options: { messages: M[] }) => boolean | Promise<boolean>;
-};
-
-/** Request-level options (mirrors useChat's second arg to sendMessage). */
-export type ChatRequestOptions = {
-  headers?: Record<string, string>;
-  body?: Record<string, unknown>;
-  data?: unknown;
 };
 
 /** Result shape mirrors `useChat` public API. */
@@ -98,18 +78,30 @@ function getFirstTextPart(m: UIMessage | CreateUIMessage<UIMessage>) {
   return (m.parts.find((p) => p.type === 'text') as { type: 'text'; text: string } | undefined) ?? null;
 }
 
-function appendTextPart(m: UIMessage, text: string, append = true, metadata: Record<string, unknown> = {}): UIMessage {
-  const textPart = getFirstTextPart(m);
-  const updatedText = append ? (textPart?.text || '') + text : text;
+function appendTextPart(
+  m: UIMessage,
+  text: string,
+  append = true,
+  metadata: Record<string, unknown> = {}
+): UIMessage {
+  const parts = [...m.parts];
+  const last = parts[parts.length - 1];
 
-  const partsWithoutText = m.parts.filter((p) => p.type !== 'text');
+  if (append && last?.type === 'text') {
+    const prev = last as { type: 'text'; text: string };
+    parts[parts.length - 1] = { ...prev, text: (prev.text || '') + text };
+  } else {
+    // Last part isn’t text (e.g., a tool just rendered) → start a new text block
+    parts.push({ type: 'text', text });
+  }
 
   return {
     ...m,
-    parts: [...partsWithoutText, { type: 'text', text: updatedText }] as UIMessage['parts'],
-    metadata: { ...metadata },
+    parts,
+    metadata: { ...(m.metadata ?? {}), ...metadata },
   };
 }
+
 
 function appendToolResult(m: UIMessage, tool: string, output: unknown, metadata: Record<string, unknown> = {}): UIMessage {
   return {

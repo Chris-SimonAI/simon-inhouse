@@ -4,6 +4,14 @@ const nextConfig: NextConfig = {
   experimental: {
     reactCompiler: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'places.googleapis.com',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

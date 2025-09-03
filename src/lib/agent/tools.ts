@@ -14,7 +14,9 @@ export const searchPlaces = new DynamicStructuredTool({
   func: async (args) => {
     try {
       const result = await googlePlacesSearch(args as SearchPlacesArgsInput);
-      return JSON.stringify(result);
+      return JSON.stringify({  
+        data: result,
+      });
     } catch (err) {
       return JSON.stringify({
         error: "GOOGLE_PLACES_SEARCH_FAILED",

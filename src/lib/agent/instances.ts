@@ -19,12 +19,12 @@ async function getCheckpointer(): Promise<PostgresSaver> {
 
 const concierge = createReactAgent({
   llm: model,
-  name: "Concierge",
+  name: AGENTS.CONCIERGE,
   prompt: CONCIERGE_PROMPT,
   tools: [
     check_availability_stub,
     createHandoffTool({
-      agentName: "Restaurants",
+      agentName: AGENTS.RESTAURANTS,
       description:
         "Transfer to Restaurants specialist for nearby dining discovery and reservations.",
     }),
@@ -33,12 +33,12 @@ const concierge = createReactAgent({
 
 const restaurants = createReactAgent({
   llm: model,
-  name: "Restaurants",
+  name: AGENTS.RESTAURANTS,
   prompt: RESTAURANTS_PROMPT,
   tools: [
     searchPlaces,
     createHandoffTool({
-      agentName: "Concierge",
+      agentName: AGENTS.CONCIERGE,
       description: "Transfer back to Concierge for general hotel topics and non-restaurant questions.",
     }),
   ],
