@@ -1,45 +1,39 @@
 import "server-only";
 import { env } from "@/env";
 import { type SearchPlacesArgsInput } from "@/validations/places";
+import { formatPriceLevel } from "@/lib/price";
 
 interface GooglePlace {
   id: string;
   displayName?: { text?: string } | string;
-  shortFormattedAddress?: string;
-  location?: { latitude: number; longitude: number };
   types?: string[];
   rating?: number;
-  userRatingCount?: number;
   priceLevel?: string;
-  googleMapsUri?: string;
-}
-
-interface GooglePlaceDetails {
-  id: string;
-  displayName?: { text?: string } | string;
-  nationalPhoneNumber?: string;
-  internationalPhoneNumber?: string;
-  websiteUri?: string;
+  editorialSummary?: string;
+  photos?: Array<{
+    name: string;
+    widthPx: number;
+    heightPx: number;
+    authorAttributions: Array<{
+      displayName: string;
+      uri: string;
+      photoUri: string;
+    }>;
+  }>;
 }
 
 export type SearchPlacesArgs = SearchPlacesArgsInput;
 
-export type SearchResults = {
-  results: Array<{
-    name: string;
-    distanceKm: number;
-    cuisine: string;
-    priceRange?: string;
-    description?: string;
-    rating?: number;
-    reviewCount?: number;
-    address?: string;
-    phone?: string;
-    url?: string;
-  }>;
-  searchQuery: string;
-  radiusSearched: number;
+export type RestaurantResult = {
+  name: string;
+  price?: string;
+  rating?: number;
+  photo?: string;
+  cuisine: string;
+  editorialSummary?: string;
 };
+
+export type SearchResults = Array<RestaurantResult>;
 
 const GOOGLE_PLACES_ENDPOINT = "https://places.googleapis.com/v1";
 
@@ -66,9 +60,8 @@ export async function googlePlacesSearch(args: SearchPlacesArgs): Promise<Search
     rankPreference: "RELEVANCE"
   };
   const fieldMask = [
-    "places.name", "places.id", "places.displayName", "places.shortFormattedAddress",
-    "places.location", "places.types", "places.rating", "places.userRatingCount",
-    "places.priceLevel", "places.googleMapsUri"
+    "places.id", "places.displayName", "places.types", "places.rating",
+    "places.priceLevel", "places.photos", "places.editorialSummary"
   ].join(",");
   const data = await callPlaces("/places:searchText", {
     method: "POST",
@@ -77,51 +70,20 @@ export async function googlePlacesSearch(args: SearchPlacesArgs): Promise<Search
   });
   const places = data.places ?? [];
 
-  const base = places.map((p: GooglePlace) => {
-    const lat = p.location?.latitude, lng = p.location?.longitude;
-    const dist = (lat && lng) ? +Math.abs(args.latitude - lat).toFixed(2) : 0;
+  const results = places.map((p: GooglePlace) => {
     const cats = (p.types || []).filter((t: string) => !t.includes("point_of_interest") && !t.includes("establishment"));
+    const photo = p.photos?.[0] ? `https://places.googleapis.com/v1/${p.photos[0].name}/media?maxHeightPx=400&maxWidthPx=400&key=${env.GOOGLE_PLACES_API_KEY}` : undefined;
+
     return {
       id: p.id,
       name: typeof p.displayName === 'object' ? p.displayName?.text ?? "" : p.displayName ?? "",
-      distanceKm: dist,
-      cuisine: cats.join(" • ") || "Restaurant",
-      priceRange: p.priceLevel,
+      price: formatPriceLevel(p.priceLevel),
       rating: p.rating,
-      reviewCount: p.userRatingCount,
-      address: p.shortFormattedAddress,
-      url: p.googleMapsUri
+      photo,
+      cuisine: cats.length > 0 ? cats[0].replace(/_restaurant$/, '').replace(/_/g, ' ') : "Restaurant",
+      editorialSummary: p.editorialSummary
     };
   });
 
-  let enriched = base;
-  if (args.enrichDetails && base.length) {
-    const fieldMask = [
-      "id", "displayName", "nationalPhoneNumber", "internationalPhoneNumber", "websiteUri"
-    ].join(",");
-    const updates = await Promise.all(
-      base.slice(0, args.detailsLimit).map(async (b: { id: string; name: string; distanceKm: number; cuisine: string; priceRange: string; rating: number; reviewCount: number; address: string; url: string; }) => {
-        const details: GooglePlaceDetails = await callPlaces(`/places/${encodeURIComponent(b.id)}`, {
-          method: "GET",
-          fieldMask
-        });
-        return {
-          ...b,
-          phone: details.nationalPhoneNumber ?? details.internationalPhoneNumber,
-          url: details.websiteUri ?? b.url
-        };
-      })
-    );
-    enriched = [...updates, ...base.slice(args.detailsLimit)];
-  }
-
-  return {
-    results: enriched.map((place: { id: string; name: string; distanceKm: number; cuisine: string; priceRange: string; rating: number; reviewCount: number; address: string; url: string; }) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id, ...rest } = place;
-      return rest;
-    }),
-    searchQuery: args.query,
-    radiusSearched: +(radiusMeters / 1000).toFixed(2)
-  };
+  return results;
 }

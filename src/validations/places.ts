@@ -7,7 +7,6 @@ export const SearchPlacesArgsSchema = z.object({
   longitude: z.number().min(-180).max(180),
   openNow: z.boolean().optional().default(true),
   maxResults: z.number().int().min(1).max(5).optional().default(5),
-  enrichDetails: z.boolean().optional().default(true),
   detailsLimit: z.number().int().min(1).max(5).optional().default(5),
 });
 
