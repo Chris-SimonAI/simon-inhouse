@@ -5,8 +5,8 @@ import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { createSwarm, createHandoffTool } from "@langchain/langgraph-swarm";
 
 import { model, AGENTS } from "./config";
-import { CONCIERGE_PROMPT, RESTAURANTS_PROMPT } from "./prompts";
-import { searchPlaces, check_availability_stub } from "./tools";
+import { CONCIERGE_PROMPT, DISCOVERY_PROMPT } from "./prompts";
+import { searchRestaurantsTool, searchAttractionsTool, check_availability_stub } from "./tools";
 
 let checkpointer: PostgresSaver | null = null;
 async function getCheckpointer(): Promise<PostgresSaver> {
@@ -24,28 +24,29 @@ const concierge = createReactAgent({
   tools: [
     check_availability_stub,
     createHandoffTool({
-      agentName: AGENTS.RESTAURANTS,
+      agentName: AGENTS.DISCOVERY,
       description:
-        "Transfer to Restaurants specialist for nearby dining discovery and reservations.",
+        "Transfer to Discovery specialist for restaurants and attractions.",
     }),
   ],
 });
 
-const restaurants = createReactAgent({
+const discovery = createReactAgent({
   llm: model,
-  name: AGENTS.RESTAURANTS,
-  prompt: RESTAURANTS_PROMPT,
+  name: AGENTS.DISCOVERY,
+  prompt: DISCOVERY_PROMPT,
   tools: [
-    searchPlaces,
+    searchRestaurantsTool,
+    searchAttractionsTool,
     createHandoffTool({
       agentName: AGENTS.CONCIERGE,
-      description: "Transfer back to Concierge for general hotel topics and non-restaurant questions.",
+      description: "Transfer back to Concierge for general hotel topics and non-discovery questions.",
     }),
   ],
 });
 
 const workflow = createSwarm({
-  agents: [concierge, restaurants],
+  agents: [concierge, discovery],
   defaultActiveAgent: AGENTS.CONCIERGE,
 });
 

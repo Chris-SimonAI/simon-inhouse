@@ -1,20 +1,20 @@
 import { DynamicStructuredTool, DynamicTool } from "@langchain/core/tools";
-import { googlePlacesSearch } from "@/lib/places";
+import { searchRestaurants, searchAttractions } from "@/lib/places";
 import { SearchPlacesArgsSchema, SearchPlacesArgsInput } from "@/validations/places";
 
 
-export const searchPlaces = new DynamicStructuredTool({
-  name: "search_places",
+export const searchRestaurantsTool = new DynamicStructuredTool({
+  name: "search_restaurants",
   description:
   `Find restaurants near a lat/lng (Google Places).
   ALWAYS call this for dining requests—even with defaults.
-  Args: lat, lng, radius_m, query, open_now, price_level(1–4), sort(rating|distance), reservation_time(ISO 8601), party_size.
-  Example call: {"lat":37.7749,"lng":-122.4194,"radius_m":2000,"query":"sushi","open_now":true,"sort":"rating"}`,
+  Args: lat, lng, radiusKm, query, open_now, maxResults.
+  Example call: {"lat":37.7749,"lng":-122.4194,"radiusKm":2,"query":"italian dinner","open_now":true}`,
   schema: SearchPlacesArgsSchema,
   func: async (args) => {
     try {
-      const result = await googlePlacesSearch(args as SearchPlacesArgsInput);
-      return JSON.stringify({  
+      const result = await searchRestaurants(args as SearchPlacesArgsInput);
+      return JSON.stringify({
         data: result,
       });
     } catch (err) {
@@ -25,6 +25,32 @@ export const searchPlaces = new DynamicStructuredTool({
     }
   },
 });
+
+export const searchAttractionsTool = new DynamicStructuredTool({
+  name: "search_attractions",
+  description:
+  `Find tourist attractions near a lat/lng (Google Places).
+  ALWAYS call this for attraction requests—even with defaults.
+  Args: lat, lng, radiusKm, query, open_now, maxResults.
+  Example call: {"lat":37.7749,"lng":-122.4194,"radiusKm":2,"query":"attraction","open_now":true}`,
+  schema: SearchPlacesArgsSchema,
+  func: async (args) => {
+    try {
+      const result = await searchAttractions(args as SearchPlacesArgsInput);
+      return JSON.stringify({
+        data: result,
+      });
+    } catch (err) {
+      return JSON.stringify({
+        error: "GOOGLE_PLACES_SEARCH_FAILED",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  },
+});
+
+// Legacy tool for backward compatibility
+export const searchPlaces = searchRestaurantsTool;
 
 
 export const check_availability_stub = new DynamicTool({

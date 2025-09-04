@@ -17,10 +17,11 @@ import {
 import { Response } from "@/components/ai-elements/response";
 import { useRscChat } from "@/hooks/useRscChat";
 import { Loader } from "@/components/ai-elements/loader";
-import { Home, Building2, MapPin, Utensils, Mic, ArrowLeft } from 'lucide-react'
+import { Home, Building2, MapPin, Utensils, Mic, ArrowLeft, MessageSquare } from 'lucide-react'
 import { Suggestion, Suggestions } from "./suggestion";
-import { RestaurantCard } from "./RestaurantCard";
-import { type RestaurantResult } from "@/lib/places";
+import { PlaceCard } from "./PlaceCard";
+import { AttractionsView } from "./AttractionsView";
+import { type PlaceResult } from "@/lib/places";
 import { cn } from "@/lib/utils";
 import { type RscServerAction } from "@/actions/chatbot";
 
@@ -43,13 +44,18 @@ const suggestions = [
   },
   {
     icon: <MapPin className="w-5 h-5" />,
-    label: "Can you recommend nearby attractions?",
-    action: "Can you recommend nearby attractions and things to do around Los Angeles and Santa Monica?"
+    label: "Nearby attractions",
+    action: "Can you recommend nearby attractions and things to do in the area?"
   },
   {
     icon: <Building2 className="w-5 h-5" />,
     label: "What hotel amenities do you offer?",
     action: "What hotel amenities do you offer?"
+  },
+  {
+    icon: <MessageSquare className="w-5 h-5" />,
+    label: "Show chat history",
+    action: null // Special case - just opens L1 without sending a message
   },
 ] as const;
 
@@ -126,21 +132,35 @@ export default function Chatbot({ processChatMessageStream, threadId }: Props) {
                               {part.text}
                             </Response>
                           );
-                        case 'tool-search_places':
-                          const results = JSON.parse(part.output as string).data as RestaurantResult[] || [];
-                          return (
-                            <div key={`${message.id}-${i}`} className="space-y-2 py-2">
-                              {results.map((result: RestaurantResult, index: number) => (
-                                <RestaurantCard
-                                  key={`${message.id}-${i}-${index}`}
-                                  result={result}
-                                  index={index}
+                        case 'tool-search_restaurants':
+                        case 'tool-search_attractions':
+                          const results = JSON.parse(part.output as string).data as PlaceResult[] || [];
+
+                          if (part.type === 'tool-search_attractions') {
+                            return (
+                              <div key={`${message.id}-${i}`} className="py-2">
+                                <AttractionsView
+                                  attractions={results}
                                   messageId={message.id}
                                   partIndex={i}
                                 />
-                              ))}
-                            </div>
-                          );
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div key={`${message.id}-${i}`} className="space-y-2 py-2">
+                                {results.map((result: PlaceResult, index: number) => (
+                                  <PlaceCard
+                                    key={`${message.id}-${i}-${index}`}
+                                    result={result}
+                                    index={index}
+                                    messageId={message.id}
+                                    partIndex={i}
+                                  />
+                                ))}
+                              </div>
+                            );
+                          }
                         default:
                           return null;
                       }
@@ -205,22 +225,28 @@ export default function Chatbot({ processChatMessageStream, threadId }: Props) {
 
 
       <Suggestions className="px-6 space-y-3 mb-6 flex flex-col w-full">
-        {suggestions.map((suggestion) => (
-          <Suggestion
-            key={suggestion.label}
-            onClick={() => {
-              setOpenL1(true);
-              sendMessage(suggestion.action);
-            }}
-            suggestion={suggestion.label}
-            className="w-full flex items-center gap-3 p-4 bg-gray-50 rounded-2xl text-left text-gray-700 transition-colors justify-start"
-          >
-            <div className="text-gray-500">
-              {suggestion.icon}
-            </div>
-            <span className="text-sm">{suggestion.label}</span>
-          </Suggestion>
-        ))}
+        {suggestions
+          .filter((suggestion) =>
+            suggestion.label !== "Show chat history" || messages.length > 0
+          )
+          .map((suggestion) => (
+            <Suggestion
+              key={suggestion.label}
+              onClick={() => {
+                setOpenL1(true);
+                if (suggestion.action) {
+                  sendMessage(suggestion.action);
+                }
+              }}
+              suggestion={suggestion.label}
+              className="w-full flex items-center gap-3 p-4 bg-gray-50 rounded-2xl text-left text-gray-700 transition-colors justify-start hover:text-gray-700 hover:bg-gray-100"
+            >
+              <div className="text-gray-500">
+                {suggestion.icon}
+              </div>
+              <span className="text-sm">{suggestion.label}</span>
+            </Suggestion>
+          ))}
       </Suggestions>
 
       {errorMessage && (
