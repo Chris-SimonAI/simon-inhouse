@@ -1,12 +1,12 @@
-import { pgTable, uuid, varchar, text, real, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, text, decimal, jsonb } from "drizzle-orm/pg-core";
 import { timestamps } from "../columns.helpers";
 
 export const hotels = pgTable("hotels", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
   address: text("address"),
-  latitude: real("latitude").notNull(),
-  longitude: real("longitude").notNull(),
+  latitude: decimal("latitude", { precision: 15, scale: 8 }).notNull(),
+  longitude: decimal("longitude", { precision: 15, scale: 8 }).notNull(),
   metadata: jsonb("metadata"),
   ...timestamps,
 });

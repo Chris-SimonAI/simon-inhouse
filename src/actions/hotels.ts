@@ -12,13 +12,21 @@ export async function createHotel(input: unknown) {
   try {
     const validatedInput = HotelInsertSchema.parse(input);
     
-    const [newHotel] = await db.insert(hotels).values(validatedInput).returning();
+    // Convert numbers to strings for decimal database fields
+    const dbInput = {
+      ...validatedInput,
+      latitude: validatedInput.latitude.toString(),
+      longitude: validatedInput.longitude.toString(),
+    };
+    
+    const [newHotel] = await db.insert(hotels).values(dbInput).returning();
     
     // Revalidate cache
     revalidateTag('hotels');
     
     return { ok: true, data: newHotel };
   } catch (error) {
+    console.error("Error in createHotel:", error);
     if (error instanceof z.ZodError) {
       return { ok: false, message: "Validation failed", errors: error.issues };
     }
@@ -38,6 +46,7 @@ export async function getHotelById(id: string) {
     
     return { ok: true, data: hotel };
   } catch (error) {
+    console.error("Error in getHotelById:", error);
     return { ok: false, message: "Failed to fetch hotel" };
   }
 }
@@ -47,9 +56,18 @@ export async function updateHotel(id: string, input: unknown) {
   try {
     const validatedInput = HotelUpdateSchema.parse(input);
     
+    // Convert numbers to strings for decimal database fields if they exist
+    const dbInput: Record<string, unknown> = { ...validatedInput };
+    if (validatedInput.latitude !== undefined) {
+      dbInput.latitude = validatedInput.latitude.toString();
+    }
+    if (validatedInput.longitude !== undefined) {
+      dbInput.longitude = validatedInput.longitude.toString();
+    }
+    
     const [updatedHotel] = await db
       .update(hotels)
-      .set(validatedInput)
+      .set(dbInput)
       .where(eq(hotels.id, id))
       .returning();
     
@@ -62,6 +80,7 @@ export async function updateHotel(id: string, input: unknown) {
     
     return { ok: true, data: updatedHotel };
   } catch (error) {
+    console.error("Error in updateHotel:", error);
     if (error instanceof z.ZodError) {
       return { ok: false, message: "Validation failed", errors: error.issues };
     }
@@ -86,6 +105,7 @@ export async function deleteHotel(id: string) {
     
     return { ok: true, data: deletedHotel };
   } catch (error) {
+    console.error("Error in deleteHotel:", error);
     return { ok: false, message: "Failed to delete hotel" };
   }
 }
