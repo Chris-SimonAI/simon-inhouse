@@ -1,6 +1,6 @@
 services:
 
-  migrate: # 👈 one-off service for migrations
+  migrate: # one-off service for migrations
     build:
       context: .
       dockerfile: Dockerfile.dev
@@ -9,7 +9,7 @@ services:
       db:
         condition: service_healthy
     working_dir: /app
-    command: npm run setup # runs db:generate + db:migrate, then exits
+    command: sh -c "npm run setup"
     restart: "no"
 
   db:

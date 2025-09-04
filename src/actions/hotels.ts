@@ -25,7 +25,7 @@ export async function createHotel(input: unknown, revalidate = true) {
     // Revalidate cache
     revalidateTag('hotels');
     }
-    
+
     return { ok: true, data: newHotel };
   } catch (error) {
     console.error("Error in createHotel:", error);
@@ -109,5 +109,16 @@ export async function deleteHotel(id: string) {
   } catch (error) {
     console.error("Error in deleteHotel:", error);
     return { ok: false, message: "Failed to delete hotel" };
+  }
+}
+
+// Get all hotels
+export async function getAllHotels() {
+  try {
+    const allHotels = await db.select().from(hotels);
+    return { ok: true, data: allHotels };
+  } catch (error) {
+    console.error("Error in getAllHotels:", error);
+    return { ok: false, message: "Failed to fetch hotels" };
   }
 }
