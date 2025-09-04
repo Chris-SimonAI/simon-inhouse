@@ -1,21 +1,22 @@
 "use client";
 
 import Image from "next/image";
-import { type RestaurantResult } from "@/lib/places";
+import { MapPin, ExternalLink } from "lucide-react";
+import { type PlaceResult } from "@/lib/places";
 
-interface RestaurantCardProps {
-  result: RestaurantResult;
+interface PlaceCardProps {
+  result: PlaceResult;
   index: number;
   messageId: string;
   partIndex: number;
 }
 
-export function RestaurantCard({
+export function PlaceCard({
   result,
   index,
   messageId,
   partIndex,
-}: RestaurantCardProps) {
+}: PlaceCardProps) {
   return (
     <div
       key={`${messageId}-${partIndex}-${index}`}
@@ -39,7 +40,7 @@ export function RestaurantCard({
 
         <div className="flex-1 min-w-0 flex flex-col self-stretch">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-semibold text-gray-800 text-lg leading-tight flex-1 min-w-0 truncate underline decoration-dotted decoration-warm underline-offset-2 decoration-2">
+            <h3 className="font-semibold text-gray-800 text-lg leading-tight flex-1 min-w-0 truncate">
               <span className="mr-0.5">{result.name}</span>
             </h3>
             {result.rating && (
@@ -50,14 +51,15 @@ export function RestaurantCard({
             )}
           </div>
 
-          <p className="text-sm text-gray-600">{result.cuisine}</p>
-
+          <p className="text-sm text-gray-600 capitalize">{result.category}</p>
 
 {/* needs to be at bottom with top accounted for  dynamically */}
           <div className="flex items-end justify-between gap-3 mt-auto">
-            <button className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex-shrink-0">
-              More Info
-            </button>
+            <div className="flex gap-2">
+              <button className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0">
+                More Info
+              </button>
+            </div>
             {result.price && (
               <span className="text-gray-700 font-medium text-sm flex-shrink-0">
                 {result.price}

@@ -4,7 +4,7 @@ import { ChatOpenAI } from "@langchain/openai";
 
 export const AGENTS = {
   CONCIERGE: "Concierge",
-  RESTAURANTS: "Restaurants",
+  DISCOVERY: "Discovery",
 } as const;
 
 export type AgentName = (typeof AGENTS)[keyof typeof AGENTS];
