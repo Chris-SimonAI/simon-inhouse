@@ -1,17 +1,4 @@
 services:
-
-  migrate: # one-off service for migrations
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: meet-simon-migrate
-    depends_on:
-      db:
-        condition: service_healthy
-    working_dir: /app
-    command: sh -c "npm run setup"
-    restart: "no"
-
   db:
     image: postgres:17
     container_name: meet-simon-postgres

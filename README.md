@@ -12,8 +12,6 @@ This project uses Docker Compose for development. All commands should be run thr
 ### Start the development environment
 
 ```bash
-# migrate all tables in postgres
-docker-compose run migrate
 
 # Start all services with hot reloading (recommended)
 docker-compose up --build --watch
@@ -197,3 +195,26 @@ docker stats
 - `Dockerfile` - Production container configuration
 - `src/` - Application source code
 - `package.json` - Node.js dependencies and scripts
+
+
+# Demo Preparation Guide
+
+Run the following commands in order to prepare the demo:
+
+```sh
+# 1. Start all services with hot reloading (recommended)
+docker-compose up --build --watch
+
+# 2. Generate database schema from your Drizzle definitions
+docker-compose exec app npm run db:generate
+
+# 3. Run pending database migrations
+docker-compose exec app npm run db:migrate
+
+# 4. Seed initial data
+
+# On macOS / Linux
+curl -X POST http://localhost:3000/api/demo
+
+# On Windows
+curl.exe -X POST http://localhost:3000/api/demo
