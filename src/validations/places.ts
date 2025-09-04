@@ -8,6 +8,7 @@ export const SearchPlacesArgsSchema = z.object({
   openNow: z.boolean().optional().default(true),
   maxResults: z.number().int().min(1).max(5).optional().default(5),
   detailsLimit: z.number().int().min(1).max(5).optional().default(5),
+  placeType: z.enum(['restaurant', 'attraction']).optional(),
 });
 
 export type SearchPlacesArgsInput = z.infer<typeof SearchPlacesArgsSchema>;
