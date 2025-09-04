@@ -8,7 +8,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 
 // Create a new hotel
-export async function createHotel(input: unknown) {
+export async function createHotel(input: unknown, revalidate = true) {
   try {
     const validatedInput = HotelInsertSchema.parse(input);
     
@@ -21,8 +21,10 @@ export async function createHotel(input: unknown) {
     
     const [newHotel] = await db.insert(hotels).values(dbInput).returning();
     
+    if(revalidate) {
     // Revalidate cache
     revalidateTag('hotels');
+    }
     
     return { ok: true, data: newHotel };
   } catch (error) {

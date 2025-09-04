@@ -11,6 +11,5 @@ export const hotels = pgTable("hotels", {
   ...timestamps,
 });
 
-// Export types for use in other parts of the application
 export type Hotel = typeof hotels.$inferSelect;
 export type NewHotel = typeof hotels.$inferInsert;

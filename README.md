@@ -12,6 +12,9 @@ This project uses Docker Compose for development. All commands should be run thr
 ### Start the development environment
 
 ```bash
+# migrate all tables in postgres
+docker-compose run migrate
+
 # Start all services with hot reloading (recommended)
 docker-compose up --build --watch
 

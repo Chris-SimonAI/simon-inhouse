@@ -16,11 +16,7 @@ export const HotelSchema = z.object({
 
 
 export const HotelInsertSchema = HotelSchema;
-
-
 export const HotelSelectSchema = HotelSchema;
-
-
 export const HotelUpdateSchema = HotelSchema.partial();
 
 export type HotelInput = z.infer<typeof HotelInsertSchema>;
