@@ -1,30 +1,18 @@
-import { pgTable, uuid, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { hotels } from "./hotels";
+import { pgTable, bigserial, bigint, varchar, text, jsonb } from "drizzle-orm/pg-core";
+import { timestamps } from "../columns.helpers";
+
 
 export const amenities = pgTable("amenities", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  hotelId: uuid("hotel_id").notNull().references(() => hotels.id),
-
-  roomTypes: jsonb("room_types"),
-  diningOptions: jsonb("dining_options"),
-  poolOptions: jsonb("pool_options"),
-  spaServices: jsonb("spa_services"),
-  fitnessCenters: jsonb("fitness_centers"),
-  businessCenters: jsonb("business_centers"),
-  meetingSpaces: jsonb("meeting_spaces"),
-  accessibilityFeatures: jsonb("accessibility_features"),
-  entertainment: jsonb("entertainment"),
-  kidsFacilities: jsonb("kids_facilities"),
-  outdoorActivities: jsonb("outdoor_activities"),
-  transportServices: jsonb("transport_services"),
-  retailShops: jsonb("retail_shops"),
-  laundryServices: jsonb("laundry_services"),
-  conciergeServices: jsonb("concierge_services"),
-  roomServices: jsonb("room_services"),
-
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  modifiedAt: timestamp("modified_at").defaultNow().notNull().$onUpdate(() => new Date()),
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  hotelId: bigint("hotel_id", { mode: "number" }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  imageUrls: text("image_urls").array().$type<string[]>(),
+  tags: varchar("tags", { length: 255 }).array().$type<string[]>(),
+  metadata: jsonb("metadata"),
+  ...timestamps,
 });
 
 // Relations
@@ -35,5 +23,5 @@ export const amenitiesRelations = relations(amenities, ({ one }) => ({
   }),
 }));
 
-export type Amenities = typeof amenities.$inferSelect;
-export type NewAmenities = typeof amenities.$inferInsert;
+export type Amenity = typeof amenities.$inferSelect;
+export type NewAmenity = typeof amenities.$inferInsert;

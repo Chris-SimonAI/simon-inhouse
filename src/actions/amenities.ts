@@ -1,113 +1,97 @@
 'use server';
+'use cache';
 
 import { db } from "@/db";
 import { amenities } from "@/db/schemas/amenities";
-import { AmenitiesInsertSchema, AmenitiesUpdateSchema } from "@/validations/amenities";
-import { revalidateTag } from "next/cache";
+import { insertAmenitySchema, updateAmenitySchema } from "@/validations/amenities";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
-// Create a new amenities
-export async function createAmenities(input: unknown, revalidate = true) {
-    try {
-      const validatedInput = AmenitiesInsertSchema.parse(input);
-      
-      const [newAmenities] = await db.insert(amenities).values(validatedInput).returning();
-      
-      // Revalidate cache
-      if(revalidate) {
-        revalidateTag('amenities');
-      }
-      
-      return { ok: true, data: newAmenities };
-    } catch (error) {
-      console.error("Error in createAmenities:", error);
-      if (error instanceof z.ZodError) {
-        return { ok: false, message: "Validation failed", errors: error.issues };
-      }
-      return { ok: false, message: "Failed to create amenities" };
+// Create a new amenity
+export async function createAmenity(input: unknown) {
+  try {
+    const validatedInput = insertAmenitySchema.parse(input);  
+    
+    const [newAmenity] = await db.insert(amenities).values(validatedInput).returning();   
+    
+    return { ok: true, data: newAmenity };
+  } catch (error) {
+    console.error("Error in createAmenity:", error);  
+    if (error instanceof z.ZodError) {
+      return { ok: false, message: "Validation failed", errors: error.issues };
     }
+    return { ok: false, message: "Failed to create amenity" };
   }
-  
-  
-  // Get amenties by ID
-  export async function getAmenitiesByID(id: string) {
-    try {
-      const [amenity] = await db.select().from(amenities).where(eq(amenities.id, id));
-      
-      if (!amenity) {
-        return { ok: false, message: "Amenity not found" };
-      }
-      
-      return { ok: true, data: amenity };
-    } catch (error) {
-      console.error("Error in getAmentiesByID:", error);
-      return { ok: false, message: "Failed to fetch amenities" };
-    }
-  }
+}
 
-  // Get amenities by hotel ID
-  export async function getAmenitiesByHotelID(hotelId: string) {
-    try {
-      const amenity = await db.select().from(amenities).where(eq(amenities.hotelId, hotelId));
+// Get amenity by ID
+export async function getAmenityById(id: number, hotelId: number) {  
+  try {
+    const [amenity] = await db.select().from(amenities).where((eq(amenities.id, id), eq(amenities.hotelId, hotelId)));
+    
+    if (!amenity) {
+      return { ok: false, message: "Amenity not found" };
+    }
+    
+    return { ok: true, data: amenity };
+  } catch (error) {
+    console.error("Error in getAmenityById:", error); 
+    return { ok: false, message: "Failed to fetch amenity" };
+  }
+}
 
-      if (!amenity) {
-        return { ok: false, message: "Amenity not found" };
-      }
+// Get amenities by hotel ID
+export async function getAmenitiesByHotelId(hotelId: number) {
+  try {
+    const amenitiesList = await db.select().from(amenities).where(and(eq(amenities.hotelId, hotelId)));
 
-      return { ok: true, data: amenity };
-    } catch (error) {
-      console.error("Error in getAmenitiesByHotelID:", error);
-      return { ok: false, message: "Failed to fetch amenities by hotel ID" };
-    }
+    return { ok: true, data: amenitiesList };
+  } catch (error) {
+    console.error("Error in getAmenitiesByHotelID:", error);
+    return { ok: false, message: "Failed to fetch amenities by hotel ID" };
   }
+}
   
-  // Update amenities
-  export async function updateAmenities(id: string, input: unknown) {
-    try {
-      const validatedInput = AmenitiesUpdateSchema.parse(input);
-      
-      const [updatedAmenity] = await db
-        .update(amenities)
-        .set(validatedInput)
-        .where(eq(amenities.id, id))
-        .returning();
-      
-      if (!updatedAmenity) {
-        return { ok: false, message: "Amenity not found" };
-      }
-      
-      // Revalidate cache
-      revalidateTag('amenities');
-      
-      return { ok: true, data: updatedAmenity };
-    } catch (error) {
-      console.error("Error in updateAmenities:", error);
-      if (error instanceof z.ZodError) {
-        return { ok: false, message: "Validation failed", errors: error.issues };
-      }
-      return { ok: false, message: "Failed to update amenities" };
+// Update amenity
+export async function updateAmenity(id: number, input: unknown, hotelId: number) {
+  try {
+    const validatedInput = updateAmenitySchema.parse(input);    
+    
+    const [updatedAmenity] = await db
+      .update(amenities)
+      .set(validatedInput)
+      .where(and(eq(amenities.id, id), eq(amenities.hotelId, hotelId)))
+      .returning();
+    
+    if (!updatedAmenity) {
+      return { ok: false, message: "Amenity not found" };
     }
+    
+    return { ok: true, data: updatedAmenity };
+  } catch (error) {
+    console.error("Error in updateAmenity:", error);
+    if (error instanceof z.ZodError) {
+      return { ok: false, message: "Validation failed", errors: error.issues };
+    }
+    return { ok: false, message: "Failed to update amenity" };
   }
+}
   
-  // Delete amenties
-  export async function deleteAmenities(id: string) {
-    try {
-      const [deletedAmenities] = await db
-        .delete(amenities)
-        .where(eq(amenities.id, id))
-        .returning();
-      
-      if (!deletedAmenities) {
-        return { ok: false, message: "Amenity not found" };
-      }
-      
-      // Revalidate cache
-      revalidateTag('amenities');
-      
-      return { ok: true, data: deletedAmenities };
-    } catch (error) {
-      console.error("Error in deleteAmenities:", error);
-      return { ok: false, message: "Failed to delete amenities" };
+// Delete amenity
+export async function deleteAmenity(id: number, hotelId: number) {
+  try {
+    const [deletedAmenity] = await db
+      .delete(amenities)
+      .where(and(eq(amenities.id, id), eq(amenities.hotelId, hotelId)))
+      .returning();
+    
+    if (!deletedAmenity) {
+      return { ok: false, message: "Amenity not found" };
     }
+    
+    return { ok: true, data: deletedAmenity };
+  } catch (error) {
+    console.error("Error in deleteAmenity:", error);  
+    return { ok: false, message: "Failed to delete amenity" };
   }
+}

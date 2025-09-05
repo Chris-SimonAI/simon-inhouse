@@ -1,29 +1,20 @@
+import { createInsertSchema, createSelectSchema, createUpdateSchema } from "drizzle-zod";
 import { z } from "zod";
+import { amenities } from "@/db/schemas/amenities";
 
-export const AmenitiesSchema = z.object({
-  hotelId: z.uuid(),
-  roomTypes: z.array(z.any()),
-  diningOptions: z.array(z.any()),
-  poolOptions: z.array(z.any()).optional(),
-  spaServices: z.array(z.any()).optional(),
-  fitnessCenters: z.array(z.any()).optional(),
-  businessCenters: z.array(z.any()).optional(),
-  meetingSpaces: z.array(z.any()).optional(),
-  accessibilityFeatures: z.array(z.any()).optional(),
-  entertainment: z.array(z.any()).optional(),
-  kidsFacilities: z.array(z.any()).optional(),
-  outdoorActivities: z.array(z.any()).optional(),
-  transportServices: z.array(z.any()).optional(),
-  retailShops: z.array(z.any()).optional(),
-  laundryServices: z.array(z.any()).optional(),
-  conciergeServices: z.array(z.any()).optional(),
-  roomServices: z.array(z.any()).optional(),
+const nameValidation = (schema: z.ZodString) =>
+  schema.min(1, "Amenity name is required").max(255, "Amenity name too long");
+
+export const insertAmenitySchema = createInsertSchema(amenities, {
+  name: nameValidation,
 });
 
-export const AmenitiesInsertSchema = AmenitiesSchema;
-export const AmenitiesUpdateSchema = AmenitiesSchema.partial();
-export const AmenitiesSelectSchema = AmenitiesSchema;
+export const updateAmenitySchema = createUpdateSchema(amenities, {
+  name: (schema) => nameValidation(schema).optional(),
+});
 
-export type AmenitiesInput = z.infer<typeof AmenitiesInsertSchema>;
-export type AmenitiesUpdate = z.infer<typeof AmenitiesUpdateSchema>;
-export type AmenitiesSelect = z.infer<typeof AmenitiesSelectSchema>;
+export const selectAmenitySchema = createSelectSchema(amenities);
+
+export type InsertAmenity = z.infer<typeof insertAmenitySchema>;
+export type SelectAmenity = z.infer<typeof selectAmenitySchema>;
+export type UpdateAmenity = z.infer<typeof updateAmenitySchema>;

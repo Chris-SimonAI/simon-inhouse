@@ -1,16 +1,16 @@
 'use server';
+'use cache';
 
 import { db } from "@/db";
 import { hotels } from "@/db/schemas/hotels";
-import { HotelInsertSchema, HotelUpdateSchema } from "@/validations/hotels";
-import { revalidateTag } from "next/cache";
+import { insertHotelSchema, updateHotelSchema } from "@/validations/hotels";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 
 // Create a new hotel
-export async function createHotel(input: unknown, revalidate = true) {
+export async function createHotel(input: unknown) {
   try {
-    const validatedInput = HotelInsertSchema.parse(input);
+    const validatedInput = insertHotelSchema.parse(input);
     
     // Convert numbers to strings for decimal database fields
     const dbInput = {
@@ -20,11 +20,6 @@ export async function createHotel(input: unknown, revalidate = true) {
     };
     
     const [newHotel] = await db.insert(hotels).values(dbInput).returning();
-    
-    if(revalidate) {
-    // Revalidate cache
-    revalidateTag('hotels');
-    }
 
     return { ok: true, data: newHotel };
   } catch (error) {
@@ -38,7 +33,7 @@ export async function createHotel(input: unknown, revalidate = true) {
 
 
 // Get hotel by ID
-export async function getHotelById(id: string) {
+export async function getHotelById(id: number) {
   try {
     const [hotel] = await db.select().from(hotels).where(eq(hotels.id, id));
     
@@ -54,9 +49,9 @@ export async function getHotelById(id: string) {
 }
 
 // Update hotel
-export async function updateHotel(id: string, input: unknown) {
+export async function updateHotel(id: number, input: unknown) {
   try {
-    const validatedInput = HotelUpdateSchema.parse(input);
+    const validatedInput = updateHotelSchema.parse(input);
     
     // Convert numbers to strings for decimal database fields if they exist
     const dbInput: Record<string, unknown> = { ...validatedInput };
@@ -77,9 +72,6 @@ export async function updateHotel(id: string, input: unknown) {
       return { ok: false, message: "Hotel not found" };
     }
     
-    // Revalidate cache
-    revalidateTag('hotels');
-    
     return { ok: true, data: updatedHotel };
   } catch (error) {
     console.error("Error in updateHotel:", error);
@@ -91,7 +83,7 @@ export async function updateHotel(id: string, input: unknown) {
 }
 
 // Delete hotel
-export async function deleteHotel(id: string) {
+export async function deleteHotel(id: number) {
   try {
     const [deletedHotel] = await db
       .delete(hotels)
@@ -101,9 +93,6 @@ export async function deleteHotel(id: string) {
     if (!deletedHotel) {
       return { ok: false, message: "Hotel not found" };
     }
-    
-    // Revalidate cache
-    revalidateTag('hotels');
     
     return { ok: true, data: deletedHotel };
   } catch (error) {
