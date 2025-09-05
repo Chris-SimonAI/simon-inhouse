@@ -17,7 +17,10 @@ export async function* streamAgent({
     { messages: [new HumanMessage(message)] },
     {
       version: "v2",
-      configurable: { thread_id: threadId },
+      configurable: {
+        thread_id: threadId,
+        ...(typeof metadata.hotelId === 'number' && { hotelId: metadata.hotelId })
+      },
       tags,
       metadata: { threadId, ...metadata },
       runName: "concierge-swarm",

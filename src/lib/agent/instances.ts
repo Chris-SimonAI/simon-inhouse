@@ -3,14 +3,21 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { createSwarm, createHandoffTool } from "@langchain/langgraph-swarm";
 
 import { model, AGENTS } from "./config";
-import { CONCIERGE_PROMPT, DISCOVERY_PROMPT } from "./prompts";
+import { createConciergePrompt, createDiscoveryPrompt } from "./prompts";
 import { searchRestaurantsTool, searchAttractionsTool, check_availability_stub } from "./tools";
 import { getCheckpointer } from "./checkpointer";
 
 const concierge = createReactAgent({
   llm: model,
   name: AGENTS.CONCIERGE,
-  prompt: CONCIERGE_PROMPT,
+  prompt: async (state, config) => {
+    const hotelId = config.metadata!.hotelId! as number;
+    const prompt = await createConciergePrompt(hotelId);
+
+    const filtered = state.messages.filter(m => m.getType() !== "system");
+
+    return [prompt, ...filtered];
+  },
   tools: [
     check_availability_stub,
     createHandoffTool({
@@ -24,7 +31,15 @@ const concierge = createReactAgent({
 const discovery = createReactAgent({
   llm: model,
   name: AGENTS.DISCOVERY,
-  prompt: DISCOVERY_PROMPT,
+  prompt: async (state, config) => {
+
+    const hotelId = config.metadata!.hotelId! as number;
+    const prompt = await createDiscoveryPrompt(hotelId);
+
+    const filtered = state.messages.filter(m => m.getType() !== "system");
+
+    return [prompt, ...filtered]; 
+   },
   tools: [
     searchRestaurantsTool,
     searchAttractionsTool,

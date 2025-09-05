@@ -12,11 +12,14 @@ import {
 } from "@langchain/core/messages";
 import type { UIMessage } from 'ai';
 
+const DEFAULT_HOTEL_ID = 1;
+
 export type ExtraData = {
   inputType?: 'voice' | 'text';
   headers?: Record<string, string>;
   body?: Record<string, unknown>;
   data?: unknown;
+  hotelId?: number;
 };
 
 export type ChatRequestOptions = ExtraData
@@ -38,12 +41,13 @@ export async function processChatMessageStream(args: {
     try {
       const { message, threadId, extra = {} } = args;
       const inputType = extra.inputType || 'text';
+      const hotelId = extra.hotelId || DEFAULT_HOTEL_ID; 
 
       for await (const evt of streamAgent({
         message,
         threadId,
         tags: ['chat'],
-        metadata: { surface: 'concierge', inputType },
+        metadata: { surface: 'concierge', inputType, hotelId },
       })) {
         stream.update(evt);
       }

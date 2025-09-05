@@ -1,5 +1,4 @@
 'use server';
-'use cache';
 
 import { db } from "@/db";
 import { amenities } from "@/db/schemas/amenities";
