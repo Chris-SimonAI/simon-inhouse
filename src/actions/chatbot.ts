@@ -5,12 +5,13 @@ import { createStreamableValue } from '@ai-sdk/rsc';
 import { streamAgent, type ConciergeStreamEvent } from '@/lib/agent';
 
 export type ExtraData = {
+  inputType?: 'voice' | 'text';
   headers?: Record<string, string>;
   body?: Record<string, unknown>;
   data?: unknown;
 };
 
-export type ChatRequestOptions = ExtraData;
+export type ChatRequestOptions = ExtraData
 
 export type RscServerAction = (args: {
   message: string;
@@ -27,13 +28,14 @@ export async function processChatMessageStream(args: {
 
   (async () => {
     try {
-      const { message, threadId } = args;
+      const { message, threadId, extra = {} } = args;
+      const inputType = extra.inputType || 'text';
 
       for await (const evt of streamAgent({
         message,
         threadId,
         tags: ['chat'],
-        metadata: { surface: 'concierge' },
+        metadata: { surface: 'concierge', inputType },
       })) {
         stream.update(evt);
       }
