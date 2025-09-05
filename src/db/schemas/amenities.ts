@@ -6,7 +6,7 @@ import { timestamps } from "../columns.helpers";
 
 export const amenities = pgTable("amenities", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
-  hotelId: bigint("hotel_id", { mode: "number" }).notNull(),
+  hotelId: bigint("hotel_id", { mode: "number" }).notNull().references(() => hotels.id),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   imageUrls: text("image_urls").array().$type<string[]>(),

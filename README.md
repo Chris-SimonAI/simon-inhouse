@@ -205,16 +205,8 @@ Run the following commands in order to prepare the demo:
 # 1. Start all services with hot reloading (recommended)
 docker-compose up --build --watch
 
-# 2. Generate database schema from your Drizzle definitions
-docker-compose exec app npm run db:generate
-
-# 3. Run pending database migrations
+# 2. Run pending database migrations
 docker-compose exec app npm run db:migrate
 
-# 4. Seed initial data
-
-# On macOS / Linux
-curl -X POST http://localhost:3000/api/demo
-
-# On Windows
-curl.exe -X POST http://localhost:3000/api/demo
+# 3. Seed initial data
+docker-compose exec app npm run db:seed

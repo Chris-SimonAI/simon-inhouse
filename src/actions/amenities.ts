@@ -24,10 +24,28 @@ export async function createAmenity(input: unknown) {
   }
 }
 
+
+export async function createManyAmenities(input: unknown) {
+  try {
+    const insertManyAmenitiesSchema = z.array(insertAmenitySchema);
+    const validatedInput = insertManyAmenitiesSchema.parse(input);   
+    
+    const newAmenities = await db.insert(amenities).values(validatedInput).returning();
+    
+    return { ok: true, data: newAmenities };
+  } catch (error) {
+    console.error("Error in createManyAmenities:", error);
+    if (error instanceof z.ZodError) {
+      return { ok: false, message: "Validation failed", errors: error.issues };
+    }
+    return { ok: false, message: "Failed to create amenities" };
+  }
+}
+
 // Get amenity by ID
 export async function getAmenityById(id: number, hotelId: number) {  
   try {
-    const [amenity] = await db.select().from(amenities).where((eq(amenities.id, id), eq(amenities.hotelId, hotelId)));
+    const [amenity] = await db.select().from(amenities).where(and(eq(amenities.id, id), eq(amenities.hotelId, hotelId)));
     
     if (!amenity) {
       return { ok: false, message: "Amenity not found" };
@@ -43,11 +61,11 @@ export async function getAmenityById(id: number, hotelId: number) {
 // Get amenities by hotel ID
 export async function getAmenitiesByHotelId(hotelId: number) {
   try {
-    const amenitiesList = await db.select().from(amenities).where(and(eq(amenities.hotelId, hotelId)));
+    const amenitiesList = await db.select().from(amenities).where(eq(amenities.hotelId, hotelId));
 
     return { ok: true, data: amenitiesList };
   } catch (error) {
-    console.error("Error in getAmenitiesByHotelID:", error);
+    console.error("Error in getAmenitiesByHotelId:", error);
     return { ok: false, message: "Failed to fetch amenities by hotel ID" };
   }
 }
