@@ -28,7 +28,7 @@ export const insertHotelSchema = createInsertSchema(hotels, {
 });
 
 export const updateHotelSchema = createUpdateSchema(hotels, {
-  name: (schema) => nameValidation(schema).optional(),
+  name: (schema) => nameValidation(schema),
   latitude: (schema) => latitudeValidation(schema).optional(),
   longitude: (schema) => longitudeValidation(schema).optional(),
 });
