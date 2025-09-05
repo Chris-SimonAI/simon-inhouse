@@ -1,6 +1,6 @@
 import "server-only";
 import { env } from "@/env";
-import { type SearchPlacesArgsInput } from "@/validations/places";
+import { type SearchPlacesArgsInput, PlaceIdSchema } from "@/validations/places";
 import { parseCategory, formatPriceLevel } from "@/lib/place-utils";
 
 interface GooglePlace {
@@ -48,6 +48,26 @@ export type PlaceResult = {
   address?: string;
   placeType: 'restaurant' | 'attraction';
 };
+
+export type PlaceDetails = {
+  id: string;
+  name: string;
+  description?: string;
+  reviewSummary?: string;
+  neighborhoodSummary?: string;
+  photos: Array<string>;
+  rating?: number;
+  priceLevel?: string;
+  address?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+  types?: string[];
+  websiteUri?: string;
+  internationalPhoneNumber?: string;
+};
+
 
 export type SearchResults = PlaceResult[];
 
@@ -152,4 +172,66 @@ export async function searchAttractions(args: SearchPlacesArgs): Promise<SearchR
   });
 
   return results;
+}
+
+export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
+  const validatedPlaceId = PlaceIdSchema.parse(placeId);
+
+  const fieldMask = [
+    "id",
+    "displayName",
+    "editorialSummary",
+    "reviewSummary",
+    "generativeSummary",
+    "neighborhoodSummary",
+    "photos",
+    "rating",
+    "priceLevel",
+    "formattedAddress",
+    "location",
+    "types",
+    "websiteUri",
+    "internationalPhoneNumber",
+  ].join(",");
+
+  const data = await callPlaces(`/places/${validatedPlaceId}`, {
+    method: "GET",
+    fieldMask
+  });
+
+  const editorialSummary = data.editorialSummary?.text || "";
+
+
+  const generativeSummary = data.generativeSummary?.overview?.text || "";
+
+  const description = editorialSummary ||
+    generativeSummary ||
+    "";
+
+  const reviewSummary = data.reviewSummary?.text?.text || "";
+
+  const neighborhoodSummary = data.neighborhoodSummary?.overview?.content?.text || "" + " " + data.neighborhoodSummary?.description?.content?.text || "";
+
+  const photos = (data.photos || []).map((photo: { name: string }) => `https://places.googleapis.com/v1/${photo.name}/media?maxHeightPx=800&maxWidthPx=800&key=${env.GOOGLE_PLACES_API_KEY}`);
+
+  const result: PlaceDetails = {
+    id: data.id,
+    name: typeof data.displayName === 'object' ? data.displayName?.text ?? "" : data.displayName ?? "",
+    description,
+    reviewSummary,
+    neighborhoodSummary,
+    photos,
+    rating: data.rating,
+    priceLevel: data.priceLevel,
+    address: data.formattedAddress,
+    location: data.location ? {
+      latitude: data.location.latitude,
+      longitude: data.location.longitude
+    } : undefined,
+    types: data.types,
+    websiteUri: data.websiteUri,
+    internationalPhoneNumber: data.internationalPhoneNumber
+  };
+
+  return result;
 }

@@ -12,3 +12,7 @@ export const SearchPlacesArgsSchema = z.object({
 });
 
 export type SearchPlacesArgsInput = z.infer<typeof SearchPlacesArgsSchema>;
+
+export const PlaceIdSchema = z.string().min(1).regex(/^Ch[A-Za-z0-9_-]+$/);
+
+export type PlaceIdInput = z.infer<typeof PlaceIdSchema>;

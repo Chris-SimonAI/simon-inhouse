@@ -26,9 +26,11 @@ import { AttractionsView } from "./AttractionsView";
 import { type PlaceResult } from "@/lib/places";
 import { cn } from "@/lib/utils";
 import { type RscServerAction } from "@/actions/chatbot";
+import type { UIMessage } from "ai";
 
 type Props = {
   processChatMessageStream: RscServerAction
+  getThreadMessages: (threadId: string) => Promise<UIMessage[]>
   threadId: string
 };
 
@@ -60,10 +62,11 @@ const suggestions = [
   },
 ] as const;
 
-export default function Chatbot({ processChatMessageStream, threadId }: Props) {
+export default function Chatbot({ processChatMessageStream, getThreadMessages, threadId }: Props) {
   const { messages, sendMessage, status, error } = useRscChat({
     action: processChatMessageStream,
     threadId: threadId,
+    getThreadMessages,
   });
 
   const [openL1, setOpenL1] = useState(false);
@@ -192,6 +195,8 @@ export default function Chatbot({ processChatMessageStream, threadId }: Props) {
                                     index={index}
                                     messageId={message.id}
                                     partIndex={i}
+                                    type="restaurant"
+                                    id={result.id}
                                   />
                                 ))}
                               </div>

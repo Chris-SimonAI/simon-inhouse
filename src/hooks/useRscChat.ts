@@ -29,6 +29,9 @@ export type UseRscChatOptions<M extends UIMessage = UIMessage> = {
   /** Initial messages (UIMessage[]) */
   messages?: M[];
 
+  /** Optional function to fetch initial thread messages */
+  getThreadMessages?: (threadId: string) => Promise<M[]>;
+
   /** Called on assistant message finish */
   onFinish?: (options: { message: M }) => void;
 
@@ -118,6 +121,7 @@ export function useRscChat<M extends UIMessage = UIMessage>(
     id: chatIdProp,
     threadId,
     messages: initialMessages = [],
+    getThreadMessages,
     onFinish,
     onError,
     onData,
@@ -232,6 +236,19 @@ export function useRscChat<M extends UIMessage = UIMessage>(
       pendingInitRef.current = true;
     }
   }, [isPending]);
+
+  // Load initial messages from database when component mounts
+  useEffect(() => {
+    if (initialMessages.length === 0 && threadId && getThreadMessages) {
+      getThreadMessages(threadId).then((fetchedMessages) => {
+        if (fetchedMessages.length > 0) {
+          setMessages(fetchedMessages as M[]);
+        }
+      }).catch((error) => {
+        console.error('Failed to load thread messages:', error);
+      });
+    }
+  }, [threadId, initialMessages.length, getThreadMessages]);
 
 
   useEffect(() => {

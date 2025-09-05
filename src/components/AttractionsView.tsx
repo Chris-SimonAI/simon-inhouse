@@ -73,6 +73,8 @@ export function AttractionsView({
                                         index={index}
                                         messageId={messageId}
                                         partIndex={partIndex}
+                                        type="attraction"
+                                        id={attraction.id}
                                     />
                                 </div>
                             </CarouselItem>
