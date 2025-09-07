@@ -4,7 +4,7 @@ import { createSwarm, createHandoffTool } from "@langchain/langgraph-swarm";
 
 import { model, AGENTS } from "./config";
 import { createConciergePrompt, createDiscoveryPrompt } from "./prompts";
-import { searchRestaurantsTool, searchAttractionsTool, check_availability_stub } from "./tools";
+import { searchRestaurantsTool, searchAttractionsTool, getAmenitiesTool } from "./tools";
 import { getCheckpointer } from "./checkpointer";
 
 const concierge = createReactAgent({
@@ -19,7 +19,7 @@ const concierge = createReactAgent({
     return [prompt, ...filtered];
   },
   tools: [
-    check_availability_stub,
+    getAmenitiesTool,
     createHandoffTool({
       agentName: AGENTS.DISCOVERY,
       description:

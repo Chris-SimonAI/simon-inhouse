@@ -6,10 +6,15 @@ const nextConfig: NextConfig = {
     useCache: true,
   },
   images: {
+    // allow all domains for now for demo purposes
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'places.googleapis.com',
+        hostname: '**',
+      },
+      {
+        protocol: 'http',
+        hostname: '**',
       },
     ],
   },

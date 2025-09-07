@@ -22,8 +22,10 @@ import { Loader } from "@/components/ai-elements/loader";
 import { Home, Building2, MapPin, Utensils, Mic, ArrowLeft, MessageSquare, MicOff } from 'lucide-react'
 import { Suggestion, Suggestions } from "./suggestion";
 import { PlaceCard } from "./PlaceCard";
+import { AmenityCard } from "./AmenityCard";
 import { AttractionsView } from "./AttractionsView";
 import { type PlaceResult } from "@/lib/places";
+import { type Amenity } from "@/db/schemas/amenities";
 import { cn } from "@/lib/utils";
 import { type RscServerAction } from "@/actions/chatbot";
 import type { UIMessage } from "ai";
@@ -202,6 +204,21 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
                               </div>
                             );
                           }
+                        case 'tool-get_amenities':
+                          const amenityResults = JSON.parse(part.output as string).data as Amenity[] || [];
+                          return (
+                            <div key={`${message.id}-${i}`} className="space-y-2 py-2">
+                              {amenityResults.map((amenity: Amenity, index: number) => (
+                                <AmenityCard
+                                  key={`${message.id}-${i}-${index}`}
+                                  amenity={amenity}
+                                  index={index}
+                                  messageId={message.id}
+                                  partIndex={i}
+                                />
+                              ))}
+                            </div>
+                          );
                         default:
                           return null;
                       }
