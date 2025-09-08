@@ -1,6 +1,7 @@
 import { hotels } from "@/db/schemas/hotels";
 import { amenities } from "@/db/schemas/amenities";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { sql } from "drizzle-orm";
 import "dotenv/config";
 
 export const db = drizzle({
@@ -123,12 +124,28 @@ const DEMO_AMENITIES = [
   }
 ];
 
+async function resetTable(tableName: string, idColumn: string) {
+  await db.execute(sql.raw(`DELETE FROM ${tableName}`));
+
+  // Fetch the sequence name for the given table + column
+  const result: any = await db.execute(
+    sql`SELECT pg_get_serial_sequence(${tableName}, ${idColumn}) as seq;`
+  );
+  const seqName = result[0]?.seq ?? result.rows?.[0]?.seq;
+
+  if (seqName) {
+    await db.execute(sql.raw(`ALTER SEQUENCE ${seqName} RESTART WITH 1`));
+    console.log(`Reset sequence for ${tableName}.${idColumn}: ${seqName}`);
+  } else {
+    console.warn(`No sequence found for ${tableName}.${idColumn}`);
+  }
+}
+
 async function main() {
   console.log("Starting seed...");
 
-  // Clear existing
-  await db.delete(amenities);
-  await db.delete(hotels);
+  await resetTable("amenities", "id");
+  await resetTable("hotels", "id");
 
   // Insert hotel
   const insertedHotel = await db.insert(hotels).values(DEMO_HOTEL).returning();
