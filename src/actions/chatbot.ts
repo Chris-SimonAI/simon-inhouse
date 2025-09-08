@@ -11,8 +11,7 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 import type { UIMessage } from 'ai';
-
-const DEFAULT_HOTEL_ID = 1;
+import { DEFAULT_HOTEL_ID } from '@/constants';
 
 export type ExtraData = {
   inputType?: 'voice' | 'text';

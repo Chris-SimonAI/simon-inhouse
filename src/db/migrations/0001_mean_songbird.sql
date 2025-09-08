@@ -1,0 +1,1 @@
+ALTER TABLE "amenities" ADD COLUMN "long_description" text;

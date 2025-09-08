@@ -9,6 +9,7 @@ export const amenities = pgTable("amenities", {
   hotelId: bigint("hotel_id", { mode: "number" }).notNull().references(() => hotels.id),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  longDescription: text("long_description"),
   imageUrls: text("image_urls").array().$type<string[]>(),
   tags: varchar("tags", { length: 255 }).array().$type<string[]>(),
   metadata: jsonb("metadata"),

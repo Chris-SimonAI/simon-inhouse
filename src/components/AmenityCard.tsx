@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { type Amenity } from "@/db/schemas/amenities";
+import Link from "next/link";
 
 interface AmenityCardProps {
     amenity: Amenity;
@@ -52,14 +53,16 @@ export function AmenityCard({
                         </p>
                     )}
 
-                    {/* we dont have any more info to show */}
-                    {/* <div className="flex items-end justify-between gap-3 mt-auto">
-            <div className="flex gap-2">
-              <button className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0">
-                More Info
-              </button>
-            </div>
-          </div> */}
+                    <div className="flex items-end justify-between gap-3 mt-auto">
+                        <div className="flex gap-2">
+                            <Link
+                                href={`/amenities/${amenity.id}`}
+                                className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
+                            >
+                                More Info
+                            </Link>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
