@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import { Star, MapPin, Phone, Globe, X } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface PlaceDetailsPageProps {
   placeDetails: PlaceDetails;
@@ -20,12 +20,18 @@ interface PlaceDetailsPageProps {
 }
 
 export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) {
+  const router = useRouter();
+
   const handleDirections = () => {
     if (placeDetails.location) {
       const { latitude, longitude } = placeDetails.location;
       const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
       window.open(url, '_blank');
     }
+  };
+
+  const handleBackToChat = () => {
+    router.push('/?l1=open');
   };
 
   return (
@@ -36,12 +42,12 @@ export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) 
           <h1 className="text-lg font-semibold text-gray-900 truncate pr-4">
             {placeDetails.name}
           </h1>
-          <Link
-            href="/"
-            className="flex-shrink-0 p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors"
+          <Button
+            onClick={handleBackToChat}
+            className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
-          </Link>
+          </Button>
         </div>
       </div>
 
