@@ -12,21 +12,25 @@ export default async function AttractionsPage({ params }: PageProps) {
 
   const idNumber = Number(id);
 
-  if(Number.isNaN(idNumber)) {
+  if (Number.isNaN(idNumber)) {
     notFound();
   }
 
   const response = await getAmenityById(idNumber, DEFAULT_HOTEL_ID);
 
-  if(!response.ok) {
+  if (!response.ok) {
     notFound();
   }
 
   const amenity = response.data;
 
-  if(!amenity) {
+  if (!amenity) {
     notFound();
   }
 
-  return <AmenityDetailsPage amenity={amenity} />;
+  return (
+    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+      <AmenityDetailsPage amenity={amenity} />
+    </div>
+  )
 }
