@@ -29,6 +29,9 @@ export type UseRscChatOptions<M extends UIMessage = UIMessage> = {
   /** Initial messages (UIMessage[]) */
   messages?: M[];
 
+  /** Optional function to fetch initial thread messages */
+  getThreadMessages?: (threadId: string) => Promise<M[]>;
+
   /** Called on assistant message finish */
   onFinish?: (options: { message: M }) => void;
 
@@ -118,6 +121,7 @@ export function useRscChat<M extends UIMessage = UIMessage>(
     id: chatIdProp,
     threadId,
     messages: initialMessages = [],
+    getThreadMessages,
     onFinish,
     onError,
     onData,
@@ -233,6 +237,19 @@ export function useRscChat<M extends UIMessage = UIMessage>(
     }
   }, [isPending]);
 
+  // Load initial messages from database when component mounts
+  useEffect(() => {
+    if (initialMessages.length === 0 && threadId && getThreadMessages) {
+      getThreadMessages(threadId).then((fetchedMessages) => {
+        if (fetchedMessages.length > 0) {
+          setMessages(fetchedMessages as M[]);
+        }
+      }).catch((error) => {
+        console.error('Failed to load thread messages:', error);
+      });
+    }
+  }, [threadId, initialMessages.length, getThreadMessages]);
+
 
   useEffect(() => {
     if (!resume || !lastHandleRef.current || handle) return;
@@ -264,7 +281,11 @@ export function useRscChat<M extends UIMessage = UIMessage>(
     async (nextUserText: string, request?: ChatRequestOptions) => {
       if (!nextUserText.trim()) return;
 
-      const userMsg: M = { ...userTextMessage(nextUserText), id: rid() } as M;
+      const userMsg: M = { 
+        ...userTextMessage(nextUserText), 
+        id: rid(),
+        metadata: { inputType: request?.inputType || 'text' }
+      } as M;
       const assistantMsg: M = assistantEmptyMessage() as M;
 
       setMessages((prev) => [...prev, userMsg, assistantMsg] as M[]);
@@ -277,7 +298,7 @@ export function useRscChat<M extends UIMessage = UIMessage>(
         const { stream } = await action({
           message: nextUserText,
           threadId,
-          extra: request,
+          extra: request || {},
         });
         const s = stream as StreamableValue<ConciergeStreamEvent>;
         lastHandleRef.current = s;
@@ -339,13 +360,12 @@ export function useRscChat<M extends UIMessage = UIMessage>(
       if (userIdx === -1) return;
 
       const userText = getFirstTextPart(messages[userIdx])?.text ?? '';
+      const originalInputType = (messages[userIdx] as { metadata?: { inputType?: 'text' | 'voice' } })?.metadata?.inputType || 'text';
       setMessages((prev) => prev.slice(0, userIdx + 1) as M[]);
-      sendMessage(userText);
+      sendMessage(userText, { inputType: originalInputType as 'text' | 'voice' });
     },
     [messages, sendMessage],
   );
-
-
 
   return {
     id: chatId,

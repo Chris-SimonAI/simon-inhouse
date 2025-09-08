@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { MapPin, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { type PlaceResult } from "@/lib/places";
 
 interface PlaceCardProps {
@@ -9,6 +9,8 @@ interface PlaceCardProps {
   index: number;
   messageId: string;
   partIndex: number;
+  type?: 'restaurant' | 'attraction';
+  id?: string;
 }
 
 export function PlaceCard({
@@ -16,6 +18,8 @@ export function PlaceCard({
   index,
   messageId,
   partIndex,
+  type,
+  id,
 }: PlaceCardProps) {
   return (
     <div
@@ -56,9 +60,18 @@ export function PlaceCard({
 {/* needs to be at bottom with top accounted for  dynamically */}
           <div className="flex items-end justify-between gap-3 mt-auto">
             <div className="flex gap-2">
-              <button className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0">
-                More Info
-              </button>
+              {type && id ? (
+                <Link
+                  href={`/${type === 'restaurant' ? 'restaurants' : 'attractions'}/${id}`}
+                  className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
+                >
+                  More Info
+                </Link>
+              ) : (
+                <button className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0">
+                  More Info
+                </button>
+              )}
             </div>
             {result.price && (
               <span className="text-gray-700 font-medium text-sm flex-shrink-0">

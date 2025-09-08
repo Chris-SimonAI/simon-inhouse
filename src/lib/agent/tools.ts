@@ -1,6 +1,7 @@
 import { DynamicStructuredTool, DynamicTool } from "@langchain/core/tools";
 import { searchRestaurants, searchAttractions } from "@/lib/places";
 import { SearchPlacesArgsSchema, SearchPlacesArgsInput } from "@/validations/places";
+import { getAmenitiesByHotelId } from "@/actions/amenities";
 
 
 export const searchRestaurantsTool = new DynamicStructuredTool({
@@ -49,24 +50,36 @@ export const searchAttractionsTool = new DynamicStructuredTool({
   },
 });
 
-// Legacy tool for backward compatibility
-export const searchPlaces = searchRestaurantsTool;
+export const getAmenitiesTool = new DynamicTool({
+  name: "get_amenities",
+  description: "Get all amenities available at the hotel. Use this for questions about hotel facilities, services, and amenities like pool, gym, spa, restaurant, bar, etc. Input: hotel ID as a string (e.g., '1')",
+  func: async (input: string) => {
+    try {
+      // The hotelId will be passed through the tool context, but for now we take it as input
+      const hotelId = parseInt(input);
+      if (isNaN(hotelId)) {
+        return JSON.stringify({
+          error: "INVALID_HOTEL_ID",
+          message: "Hotel ID must be a valid number"
+        });
+      }
 
+      const result = await getAmenitiesByHotelId(hotelId);
+      if (!result.ok) {
+        return JSON.stringify({
+          error: "AMENITIES_FETCH_FAILED",
+          message: result.message || "Failed to fetch amenities"
+        });
+      }
 
-export const check_availability_stub = new DynamicTool({
-  name: "check_availability",
-  description: "Check room availability for dates",
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async func(_input: string) {
-    const availabilityData = {
-      available: true,
-      rooms: [
-        { type: "Standard", price: 150 },
-        { type: "Deluxe", price: 200 }
-      ],
-      dates: "2024-03-15 to 2024-03-17"
-    };
-
-    return availabilityData;
+      return JSON.stringify({
+        data: result.data
+      });
+    } catch (err) {
+      return JSON.stringify({
+        error: "AMENITIES_TOOL_ERROR",
+        message: err instanceof Error ? err.message : String(err)
+      });
+    }
   },
 });

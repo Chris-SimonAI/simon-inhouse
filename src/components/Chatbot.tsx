@@ -16,20 +16,25 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Response } from "@/components/ai-elements/response";
 import { useRscChat } from "@/hooks/useRscChat";
+import { useVoiceFlowManager } from "@/components/voice/VoiceFlowManager";
+import { useTTSTiming } from "@/hooks/useTTSTiming";
 import { Loader } from "@/components/ai-elements/loader";
-import { Home, Building2, MapPin, Utensils, Mic, ArrowLeft, MessageSquare } from 'lucide-react'
+import { Home, Building2, MapPin, Utensils, Mic, ArrowLeft, MessageSquare, MicOff } from 'lucide-react'
 import { Suggestion, Suggestions } from "./suggestion";
 import { PlaceCard } from "./PlaceCard";
+import { AmenityCard } from "./AmenityCard";
 import { AttractionsView } from "./AttractionsView";
 import { type PlaceResult } from "@/lib/places";
+import { type Amenity } from "@/db/schemas/amenities";
 import { cn } from "@/lib/utils";
 import { type RscServerAction } from "@/actions/chatbot";
+import type { UIMessage } from "ai";
 
 type Props = {
   processChatMessageStream: RscServerAction
+  getThreadMessages: (threadId: string) => Promise<UIMessage[]>
   threadId: string
 };
-
 
 const suggestions = [
   {
@@ -59,31 +64,67 @@ const suggestions = [
   },
 ] as const;
 
-export default function Chatbot({ processChatMessageStream, threadId }: Props) {
+export default function Chatbot({ processChatMessageStream, getThreadMessages, threadId }: Props) {
   const { messages, sendMessage, status, error } = useRscChat({
     action: processChatMessageStream,
     threadId: threadId,
+    getThreadMessages,
   });
 
   const [openL1, setOpenL1] = useState(false);
-
-
   const [input, setInput] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Voice flow manager
+  const voiceFlow = useVoiceFlowManager({
+    onVoiceComplete: (text) => {
+      setOpenL1(true);
+      // Reset response tracking for new message
+      ttsTiming.resetResponseTracking();
+      
+      sendMessage(text, { inputType: 'voice' } );
+    },
+    onError: (error) => {
+      console.error('Voice flow error:', error);
+    },
+    isStreaming: status === 'submitted'
+  });
+
+  // TTS timing hook
+  const ttsTiming = useTTSTiming({ messages, voiceFlow, status });
+
+  // Handle sending text input (not voice-initiated)
+  const handleTextSubmit = () => {
     if (input.trim()) {
       setOpenL1(true);
-      sendMessage(input);
+      // Reset response tracking for new message
+      ttsTiming.resetResponseTracking();
+      
+      sendMessage(input, { inputType: 'text' });
       setInput("");
     }
   };
 
-  const errorMessage = error ? (error.message || String(error)) : null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleTextSubmit();
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+  };
+
+  const handleVoiceToggle = () => {
+    voiceFlow.handleVoiceToggle();
+  };
+
+  const displayError = error ? (error.message || String(error)) : null;
 
   if (openL1) {
     return (
-      <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-white relative">
+      <>
+        {voiceFlow.modal}
+        <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-white relative">
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white">
           <button
             onClick={() => setOpenL1(false)}
@@ -156,11 +197,28 @@ export default function Chatbot({ processChatMessageStream, threadId }: Props) {
                                     index={index}
                                     messageId={message.id}
                                     partIndex={i}
+                                    type="restaurant"
+                                    id={result.id}
                                   />
                                 ))}
                               </div>
                             );
                           }
+                        case 'tool-get_amenities':
+                          const amenityResults = JSON.parse(part.output as string).data as Amenity[] || [];
+                          return (
+                            <div key={`${message.id}-${i}`} className="space-y-2 py-2">
+                              {amenityResults.map((amenity: Amenity, index: number) => (
+                                <AmenityCard
+                                  key={`${message.id}-${i}-${index}`}
+                                  amenity={amenity}
+                                  index={index}
+                                  messageId={message.id}
+                                  partIndex={i}
+                                />
+                              ))}
+                            </div>
+                          );
                         default:
                           return null;
                       }
@@ -186,7 +244,7 @@ export default function Chatbot({ processChatMessageStream, threadId }: Props) {
         <div className="px-6 pb-8 pt-4 mt-auto">
           <PromptInput onSubmit={handleSubmit} className="bg-gray-50 rounded-full border-0 relative">
             <PromptInputTextarea
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
               value={input}
               placeholder="Ask Simon anything"
               className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none min-h-[50px] rounded-full pl-4 pr-16 pt-4"
@@ -195,32 +253,40 @@ export default function Chatbot({ processChatMessageStream, threadId }: Props) {
               <PromptInputTools>
                 <PromptInputButton
                   variant="ghost"
-                  onClick={() => {/* Add voice functionality here */ }}
-                  className="text-gray-400 hover:text-gray-600 p-1 h-8 w-8"
+                  onClick={handleVoiceToggle}
+                  className={cn(
+                    "p-1 h-8 w-8 transition-colors",
+                    voiceFlow.isRecording 
+                      ? "text-red-500 hover:text-red-600 animate-pulse" 
+                      : "text-gray-400 hover:text-gray-600"
+                  )}
                 >
-                  <Mic className="w-5 h-5" />
+                  {voiceFlow.isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                 </PromptInputButton>
               </PromptInputTools>
             </PromptInputToolbar>
           </PromptInput>
         </div>
-      </div>
+        </div>
+      </>
     )
   }
 
   return (
-    <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-white">
-      <div className="w-32 h-1 bg-gray-400 rounded-full mx-auto mt-2 mb-6"></div>
+    <>
+      {voiceFlow.modal}
+      <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-white">
+        <div className="w-32 h-1 bg-gray-400 rounded-full mx-auto mt-2 mb-6"></div>
 
-      <div className="px-6 text-center mb-2">
-        <h1 className="text-3xl font-light text-gray-800 mb-6">Simon</h1>
+        <div className="px-6 text-center mb-2">
+          <h1 className="text-3xl font-light text-gray-800 mb-6">Simon</h1>
 
-        <p className="text-gray-600 text-base leading-relaxed mb-8">
-          Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here.
-        </p>
+          <p className="text-gray-600 text-base leading-relaxed mb-8">
+            Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here.
+          </p>
 
-        <h2 className="text-xl font-medium text-gray-800 mb-6">How can I help you?</h2>
-      </div>
+          <h2 className="text-xl font-medium text-gray-800 mb-6">How can I help you?</h2>
+        </div>
 
 
 
@@ -235,7 +301,7 @@ export default function Chatbot({ processChatMessageStream, threadId }: Props) {
               onClick={() => {
                 setOpenL1(true);
                 if (suggestion.action) {
-                  sendMessage(suggestion.action);
+                  sendMessage(suggestion.action, { inputType: 'text' });
                 }
               }}
               suggestion={suggestion.label}
@@ -249,9 +315,9 @@ export default function Chatbot({ processChatMessageStream, threadId }: Props) {
           ))}
       </Suggestions>
 
-      {errorMessage && (
+      {displayError && (
         <div className="mx-6 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-600">Error: {errorMessage}</p>
+          <p className="text-sm text-red-600">Error: {displayError}</p>
         </div>
       )}
 
@@ -267,18 +333,21 @@ export default function Chatbot({ processChatMessageStream, threadId }: Props) {
             <PromptInputTools>
               <PromptInputButton
                 variant="ghost"
-                onClick={() => {/* Add voice functionality here */ }}
-                className="text-gray-400 hover:text-gray-600 p-1 h-8 w-8"
+                onClick={handleVoiceToggle}
+                className={cn(
+                  "p-1 h-8 w-8 transition-colors",
+                  voiceFlow.isRecording 
+                    ? "text-red-500 hover:text-red-600 animate-pulse" 
+                    : "text-gray-400 hover:text-gray-600"
+                )}
               >
-                <Mic className="w-5 h-5" />
+                {voiceFlow.isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </PromptInputButton>
             </PromptInputTools>
           </PromptInputToolbar>
         </PromptInput>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
-
-
-
