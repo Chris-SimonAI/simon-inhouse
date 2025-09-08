@@ -10,7 +10,7 @@ export default async function Home() {
     existing ?? Math.random().toString(36).substring(2, 15);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 relative overflow-hidden">
+    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
       {/* TODO: This component is temporary and will be removed we plan cookies via better-auth */}
       <EnsureThreadCookie threadId={threadId} hasCookie={!!existing} />
 

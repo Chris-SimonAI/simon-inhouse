@@ -167,10 +167,20 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
                           return (
                             <Response key={`${message.id}-${i}`} className={cn(
                               message.role === 'assistant'
-                                ? 'text-gray-700 leading-relaxed'
-                                : 'text-gray-700'
+                                ? 'text-gray-700 leading-relaxed text-base'
+                                : 'text-gray-700 text-base'
                             )}>
                               {part.text}
+                            </Response>
+                          );
+                        case 'tool-emit_preface':
+                          return (
+                            <Response key={`${message.id}-${i}`} className={cn(
+                                message.role === 'assistant'
+                                ? 'text-gray-700 leading-relaxed text-base'
+                                : 'text-gray-700 text-base'
+                            )}>
+                              {part.output as string}
                             </Response>
                           );
                         case 'tool-search_restaurants':
