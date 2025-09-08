@@ -11,8 +11,33 @@ import {
 } from "@/components/ui/carousel";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Response } from "./ai-elements/response";
 import { Button } from "./ui/button";
+import React from "react";
+import ReactMarkdown, { Components } from "react-markdown";
+
+const markdownComponents: Components = {
+    ul: ({ children, ...props }) => (
+      <ul className="list-disc list-inside ml-5 space-y-1" {...props}>
+        {children}
+      </ul>
+    ),
+    li: ({ children, ...props }) => (
+      <li className="text-gray-700" {...props}>
+        {children}
+      </li>
+    ),
+    h3: ({ children, ...props }) => (
+      <h3 className="font-bold mt-8 mb-4 text-lg" {...props}>
+        {children}
+      </h3>
+    ),
+    p: ({ children, ...props }) => (
+      <p className="mb-4 leading-relaxed" {...props}>
+        {children}
+      </p>
+    ),
+  };
+
 
 interface AmenityDetailsPageProps {
     amenity: Amenity;
@@ -71,10 +96,9 @@ export function AmenityDetailsPage({ amenity }: AmenityDetailsPageProps) {
 
                 {/* Amenity Details */}
                 <div className="p-4 [&>div:last-child]:mb-0">
-                    {/* Long Description */}
                     {amenity.longDescription && (
-                        <div className="mb-6">
-                            <Response>{amenity.longDescription}</Response>
+                        <div className="prose max-w-none space-y-6">
+                            <ReactMarkdown components={markdownComponents}>{amenity.longDescription}</ReactMarkdown>
                         </div>
                     )}
                 </div>

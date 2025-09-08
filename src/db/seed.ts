@@ -41,7 +41,7 @@ const DEMO_AMENITIES = [
   {
     name: "Outdoor Pool",
     description: "Heated outdoor pool with cabanas and lounge seating.",
-    longDescription: "The Anza's outdoor pool is a perfect retreat in the California sun. Guests can relax on comfortable lounge chairs or enjoy shaded seating in private cabanas. The pool is heated, making it enjoyable year-round, and is surrounded by modern landscaping for a calm atmosphere. Open 9am to 9 pm, complimentary towels are provided, and food and drinks can be ordered from staff during opening hours.",
+    longDescription: "The hotel's fitness center is open 24 hours a day, allowing guests to fit a workout into their schedule at any time.\n\n\n\n**The Setting**  \n\nEquipped with modern cardio and strength-training equipment, including Peloton bikes for cycling enthusiasts. The space is bright, contemporary, and reflects the hotel’s stylish design.\n\n\n\n**The Experience**  \n\nGuests can enjoy a workout at any time of day or night. Whether you prefer cardio, weight training, or cycling, the fitness center provides a convenient and comfortable environment.\n\n\n\n**Good To Know**  \n\n* **Hours:** Open 24 hours daily\n* **Equipment:** Cardio machines, strength-training equipment, and Peloton bikes\n* **Amenities:** Towels and water available nearby\n* **Ideal For:** Business and leisure travelers who want to stay active",
     imageUrls: [
       "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1684185767/sx7baz2izfawkj0dd6ij.jpg",
       "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1694192356/q8vdwgekwa3vgojsmrvx.jpg",
@@ -53,7 +53,7 @@ const DEMO_AMENITIES = [
   {
     name: "Fitness Center",
     description: "24-hour fitness center with weights and Peloton bikes.",
-    longDescription: "The hote's fitness center is open 24 hours a day, so guests can fit a workout into their schedule at any time. It is equipped with modern cardio and strength-training equipment, including Peloton bikes for cycling enthusiasts. Towels and water are available nearby, and the space is bright and contemporary, reflecting the hotel’s stylish design. This amenity is ideal for business travelers and leisure guests alike who want to stay active while on the road.",
+    longDescription: "The hotel's fitness center is open 24 hours a day, allowing guests to fit a workout into their schedule at any time.\n\n\n\n### The Setting\n\nEquipped with modern cardio and strength-training equipment, including Peloton bikes for cycling enthusiasts. The space is bright, contemporary, and reflects the hotel’s stylish design.\n\n\n\n### The Experience\n\nStay active on the road with a workout that suits your routine. Whether you prefer cardio, strength training, or cycling, the center provides a comfortable environment for all fitness levels.\n\n\n\n### Good To Know\n\n* **Hours:** Open 24 hours daily\n* **Equipment:** Cardio machines, strength-training equipment, and Peloton bikes\n* **Amenities:** Towels and water provided nearby\n* **Ideal For:** Business and leisure travelers looking to stay active",
     imageUrls: [
       "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1684185771/hy3cieskbf656vpvjh71.jpg",
     ],
