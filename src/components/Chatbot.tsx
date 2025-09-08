@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -29,6 +29,7 @@ import { type Amenity } from "@/db/schemas/amenities";
 import { cn } from "@/lib/utils";
 import { type RscServerAction } from "@/actions/chatbot";
 import type { UIMessage } from "ai";
+import { useSearchParams, useRouter } from "next/navigation";
 
 type Props = {
   processChatMessageStream: RscServerAction
@@ -71,8 +72,20 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
     getThreadMessages,
   });
 
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [openL1, setOpenL1] = useState(false);
   const [input, setInput] = useState("");
+
+  // Check for L1 parameter to open chat screen
+  useEffect(() => {
+    const l1Param = searchParams.get('l1');
+    if (l1Param === 'open') {
+      setOpenL1(true);
+      // Clean up the URL parameter
+      router.replace('/', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   // Voice flow manager
   const voiceFlow = useVoiceFlowManager({
@@ -144,7 +157,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
             {messages.map((message) => (
               <Message from={message.role} key={message.id} className={cn(
                 "flex gap-3",
-                message.role === 'assistant' ? 'items-start' : 'justify-end'
+                message.role === 'assistant' ? 'items-start' : 'justify-end py-0'
               )}>
 
                 <div className={cn(
