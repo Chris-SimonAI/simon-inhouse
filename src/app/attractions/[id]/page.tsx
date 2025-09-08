@@ -9,5 +9,9 @@ export default async function AttractionsPage({ params }: PageProps) {
   const { id } = await params;
   const placeDetails = await getPlaceDetails(id);
 
-  return <PlaceDetailsPage placeDetails={placeDetails} type="attraction" />;
+  return (
+  <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+    <PlaceDetailsPage placeDetails={placeDetails} type="attraction" />
+    </div>
+  );
 }

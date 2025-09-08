@@ -50,6 +50,9 @@ docker-compose exec app npm run db:generate
 # Run pending database migrations
 docker-compose exec app npm run db:migrate
 
+# Seed the dabase with default values
+docker-compose exec app npm run db:seed
+
 # Open Drizzle Studio (database GUI) at http://localhost:4983
 docker-compose exec app npm run db:studio
 ```

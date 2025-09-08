@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import { Star, MapPin, Phone, Globe, X } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface PlaceDetailsPageProps {
   placeDetails: PlaceDetails;
@@ -20,6 +20,8 @@ interface PlaceDetailsPageProps {
 }
 
 export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) {
+  const router = useRouter();
+
   const handleDirections = () => {
     if (placeDetails.location) {
       const { latitude, longitude } = placeDetails.location;
@@ -28,20 +30,24 @@ export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) 
     }
   };
 
+  const handleBackToChat = () => {
+    router.push('/?l1=open');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-white">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-lg font-semibold text-gray-900 truncate pr-4">
             {placeDetails.name}
           </h1>
-          <Link
-            href="/"
-            className="flex-shrink-0 p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors"
+          <Button
+            onClick={handleBackToChat}
+            className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
-          </Link>
+          </Button>
         </div>
       </div>
 
