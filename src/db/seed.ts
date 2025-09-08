@@ -67,7 +67,7 @@ const DEMO_AMENITIES = [
       "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1694192354/el1kvymi8djn8ygqbazd.jpg",
     ],
     tags: ["meeting", "conference"],
-    metadata: { capacity: 30 },
+    metadata: { capacity: 50 },
   },
   {
     name: "Graze Bistro (On-site Dining)",
