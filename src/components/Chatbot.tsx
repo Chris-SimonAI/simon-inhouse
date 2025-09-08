@@ -85,6 +85,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
     },
     onError: (error) => {
       console.error('Voice flow error:', error);
+      ttsTiming.resetTTSOnError();
     },
     isStreaming: status === 'submitted'
   });
