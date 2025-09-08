@@ -60,7 +60,9 @@ export function useVoiceFlowManager({
       console.error('TTS error:', error);
       setVoiceFlowState('complete');
       setIsModalOpen(false);
-      onError?.(error);
+      if (onError) {
+        onError(error);
+      }
     },
   });
 

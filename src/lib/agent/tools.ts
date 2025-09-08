@@ -83,3 +83,13 @@ export const getAmenitiesTool = new DynamicTool({
     }
   },
 });
+
+
+export const emitPrefaceTool = new DynamicTool({
+  name: "emit_preface",
+  description:
+    "Emit exactly ONE warm, personal, thoughtful preface sentence that acknowledges and connects with the guest's specific request (<=140 chars). Show genuine interest in their situation. Use at most once per turn.",
+  func: async (text: string) => {
+    return text;
+  },
+});

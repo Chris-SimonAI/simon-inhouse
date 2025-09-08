@@ -9,5 +9,9 @@ export default async function RestaurantsPage({ params }: PageProps) {
   const { id } = await params;
   const placeDetails = await getPlaceDetails(id);
 
-  return <PlaceDetailsPage placeDetails={placeDetails} type="restaurant" />;
+  return (
+    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+      <PlaceDetailsPage placeDetails={placeDetails} type="restaurant" />
+    </div>
+  );
 }

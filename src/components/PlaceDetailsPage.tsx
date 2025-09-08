@@ -29,7 +29,7 @@ export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) 
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-white">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">

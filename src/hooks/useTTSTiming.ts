@@ -86,25 +86,46 @@ export function useTTSTiming({ messages, voiceFlow, status }: UseTTSTimingProps)
   const currentResponseIdRef = useRef<string | null>(null);
   const hasSpokenForCurrentResponse = useRef<boolean>(false);
 
-  // TTS for streaming responses with smart timing
+  // TTS for emitPrefaceTool output OR regular text (for voice inputs)
   useEffect(() => {
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === 'assistant' && lastMessage.parts.length > 0) {
+        // Check if this is a new response (different ID or no current ID)
+        const isNewResponse = currentResponseIdRef.current !== lastMessage.id;
+        
+        if (isNewResponse) {
+          currentResponseIdRef.current = lastMessage.id;
+          lastSpokenTextRef.current = "";
+          hasSpokenForCurrentResponse.current = false;
+        }
+        
+        // Priority 1: Check for emitPrefaceTool output (for tool calls)
+        const prefacePart = lastMessage.parts.find(part => part.type === 'tool-emit_preface');
+        
+        if (prefacePart && 'output' in prefacePart && typeof prefacePart.output === 'string') {
+          const prefaceText = prefacePart.output;
+          
+          // Speak the preface text when it arrives
+          if (voiceFlow.lastUserMessageWasVoice && 
+              currentResponseIdRef.current === lastMessage.id && 
+              !hasSpokenForCurrentResponse.current &&
+              prefaceText.trim().length > 0) {
+            
+            lastSpokenTextRef.current = prefaceText;
+            hasSpokenForCurrentResponse.current = true;
+            voiceFlow.triggerTTS(prefaceText);
+            return; // Exit early since we found preface text
+          }
+        }
+        
+        // Priority 2: Check for regular text parts (for non-tool responses)
         const textPart = lastMessage.parts.find(part => part.type === 'text');
+        
         if (textPart && 'text' in textPart && textPart.text) {
           const currentText = textPart.text;
           
-          // Check if this is a new response (different ID or no current ID)
-          const isNewResponse = currentResponseIdRef.current !== lastMessage.id;
-          
-          if (isNewResponse) {
-            currentResponseIdRef.current = lastMessage.id;
-            lastSpokenTextRef.current = "";
-            hasSpokenForCurrentResponse.current = false;
-          }
-          
-          // Smart TTS timing: trigger when 100-150 chars are streamed OR stream ends
+          // Smart TTS timing: trigger when 100+ chars are streamed OR stream ends
           if (voiceFlow.lastUserMessageWasVoice && 
               currentResponseIdRef.current === lastMessage.id && 
               !hasSpokenForCurrentResponse.current) {
@@ -113,14 +134,14 @@ export function useTTSTiming({ messages, voiceFlow, status }: UseTTSTimingProps)
               // Case 1: Stream ended (status is ready and we have text)
               (status === 'ready' && currentText.length > 0) ||
               // Case 2: We have 100+ characters and still streaming
-              (status === 'submitted' && currentText.length >= 100);
+              (status === 'submitted' && currentText.length >= 100)
             
             if (shouldSpeak) {
-              // Smart text selection for TTS
               const textToSpeak = getSmartTTSText(currentText, status === 'ready');
               lastSpokenTextRef.current = textToSpeak;
               hasSpokenForCurrentResponse.current = true;
               voiceFlow.triggerTTS(textToSpeak);
+            } else {
             }
           }
         }
@@ -134,10 +155,15 @@ export function useTTSTiming({ messages, voiceFlow, status }: UseTTSTimingProps)
     hasSpokenForCurrentResponse.current = false;
   }, []);
 
+  const resetTTSOnError = useCallback(() => {
+    hasSpokenForCurrentResponse.current = false;
+  }, []);
+
   return {
     lastSpokenTextRef,
     currentResponseIdRef,
     hasSpokenForCurrentResponse,
-    resetResponseTracking
+    resetResponseTracking,
+    resetTTSOnError
   };
 }
