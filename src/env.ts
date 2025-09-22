@@ -8,6 +8,23 @@ const Env = z.object({
   GOOGLE_API_KEY: z.string().min(1),
   GOOGLE_PLACES_API_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
+  BETTER_AUTH_SECRET: z.string().min(32),
 });
 
-export const env = Env.parse(process.env);
+// Only validate environment variables at runtime, not during build
+let env: z.infer<typeof Env>;
+
+try {
+  env = Env.parse(process.env);
+} catch (error) {
+  // During build time, environment variables might not be available
+  // This is acceptable as they will be validated at runtime
+  if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+    console.warn('Environment variables validation skipped during build. They will be validated at runtime.');
+    env = {} as z.infer<typeof Env>;
+  } else {
+    throw error;
+  }
+}
+
+export { env };

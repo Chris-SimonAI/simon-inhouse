@@ -55,7 +55,13 @@ const workflow = createSwarm({
   defaultActiveAgent: AGENTS.CONCIERGE,
 });
 
-export const app = (await (async () =>
-  workflow.compile({
-    checkpointer: await getCheckpointer(),
-  }))()) as ReturnType<typeof workflow.compile>;
+let app: ReturnType<typeof workflow.compile> | null = null;
+
+export async function getApp(): Promise<ReturnType<typeof workflow.compile>> {
+  if (!app) {
+    app = workflow.compile({
+      checkpointer: await getCheckpointer(),
+    });
+  }
+  return app;
+}

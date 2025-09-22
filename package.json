@@ -5,14 +5,16 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
-    "start": "next start",
+    "start": "npm run start:prod",
+    "start:prod": "npm run db:migrate && npm run db:seed && next start",
+    "start:only": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "test": "vitest",
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
     "db:studio": "drizzle-kit studio --config=drizzle.config.ts --verbose",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "node --experimental-strip-types scripts/seed.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^2.0.29",

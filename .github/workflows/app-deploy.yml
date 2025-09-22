@@ -1,0 +1,56 @@
+name: App Deploy (ECR → EC2 via SSM)
+on:
+  workflow_run:
+    workflows: ["Lint Code"]
+    types: [completed]
+    branches: [master]
+permissions: { id-token: write, contents: read }
+env:
+  AWS_REGION: us-west-1
+  AWS_ACCOUNT_ID: "461346075984"
+  ECR_REPO: "meetsimon/web"
+  IMAGE_TAG: ${{ github.sha }}
+  INSTANCE_TAG_NAME: "meet-simon-min-ec2"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::461346075984:role/gh-oidc-app-deploy
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Push (linux/arm64)
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG \
+            -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:latest \
+            --push .
+
+      - name: Restart on EC2 via SSM
+        run: |
+          IMG="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG"
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --comment "deploy ${{ github.sha }}" \
+            --targets "Key=tag:Name,Values=${INSTANCE_TAG_NAME}" \
+            --parameters commands="[
+              \"set -eux\",
+              \"aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com\",
+              \"docker pull $IMG\",
+              \"if docker ps -a --format '{{.Names}}' | grep -q '^web$'; then docker rm -f web || true; fi\",
+              \"docker run -d --name web --restart unless-stopped --env-file /opt/.env -p 3000:3000 $IMG\"
+            ]" \
+            --timeout-seconds 600 --max-concurrency "100%" --max-errors "0"
+
+      - name: Who am I? (sanity)
+        run: aws sts get-caller-identity

@@ -1,5 +1,5 @@
 import { HumanMessage, ToolMessage } from "@langchain/core/messages";
-import { app } from "./instances";
+import { getApp } from "./instances";
 import { AGENTS, type AgentName, type ConciergeStreamEvent, isAgentName } from "./config";
 
 export async function* streamAgent({
@@ -13,6 +13,7 @@ export async function* streamAgent({
   tags?: string[];
   metadata?: Record<string, unknown>;
 }) {
+  const app = await getApp();
   const stream = app.streamEvents(
     { messages: [new HumanMessage(message)] },
     {
