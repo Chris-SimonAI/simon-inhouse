@@ -13,30 +13,8 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "./ui/button";
 import React from "react";
-import ReactMarkdown, { Components } from "react-markdown";
-
-const markdownComponents: Components = {
-    ul: ({ children, ...props }) => (
-      <ul className="list-disc list-inside ml-5 space-y-1" {...props}>
-        {children}
-      </ul>
-    ),
-    li: ({ children, ...props }) => (
-      <li className="text-gray-700" {...props}>
-        {children}
-      </li>
-    ),
-    h3: ({ children, ...props }) => (
-      <h3 className="font-bold mt-8 mb-4 text-lg" {...props}>
-        {children}
-      </h3>
-    ),
-    p: ({ children, ...props }) => (
-      <p className="mb-4 leading-relaxed" {...props}>
-        {children}
-      </p>
-    ),
-  };
+import ReactMarkdown from "react-markdown";
+import { markdownComponents } from "@/components/ui/markdown";
 
 
 interface AmenityDetailsPageProps {
@@ -47,11 +25,11 @@ export function AmenityDetailsPage({ amenity }: AmenityDetailsPageProps) {
     const router = useRouter();
 
     const handleBackToChat = () => {
-        router.push('/?l1=open');
+        router.push('/?l1=open', { scroll: false });
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="flex flex-col">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-white shadow-sm">
                 <div className="flex items-center justify-between px-4 py-3">

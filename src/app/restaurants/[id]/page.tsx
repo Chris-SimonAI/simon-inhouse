@@ -10,7 +10,7 @@ export default async function RestaurantsPage({ params }: PageProps) {
   const placeDetails = await getPlaceDetails(id);
 
   return (
-    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+    <div className="min-h-screen bg-white">
       <PlaceDetailsPage placeDetails={placeDetails} type="restaurant" />
     </div>
   );

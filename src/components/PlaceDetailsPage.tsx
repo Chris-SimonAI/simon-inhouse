@@ -31,11 +31,11 @@ export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) 
   };
 
   const handleBackToChat = () => {
-    router.push('/?l1=open');
+    router.push('/?l1=open', { scroll: false });
   };
 
   return (
-    <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-white">
+    <div className="flex flex-col min-h-screen">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
@@ -54,29 +54,29 @@ export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) 
       <div className="bg-white flex-1 flex flex-col">
         {/* Photo Carousel */}
         {placeDetails.photos.length > 0 && (
-            <Carousel className="w-full px-4">
-              <CarouselContent>
-                {placeDetails.photos.map((photo, index) => (
-                  <CarouselItem key={index}>
-                    <div className="relative aspect-video w-full overflow-hidden">
-                      <Image
-                        src={photo}
-                        alt={`${placeDetails.name} - Photo ${index + 1}`}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      />
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              {placeDetails.photos.length > 1 && (
-                <>
-                  <CarouselPrevious className="left-4" />
-                  <CarouselNext className="right-4" />
-                </>
-              )}
-            </Carousel>
+          <Carousel className="w-full px-4">
+            <CarouselContent>
+              {placeDetails.photos.map((photo, index) => (
+                <CarouselItem key={index}>
+                  <div className="relative aspect-video w-full overflow-hidden">
+                    <Image
+                      src={photo}
+                      alt={`${placeDetails.name} - Photo ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            {placeDetails.photos.length > 1 && (
+              <>
+                <CarouselPrevious className="left-4" />
+                <CarouselNext className="right-4" />
+              </>
+            )}
+          </Carousel>
         )}
 
         {/* Place Details */}
@@ -137,10 +137,10 @@ export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) 
           {/* Description */}
           {placeDetails.description && (
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+              <h2 className="text-sm font-semibold text-black-400">
                 About this {type === 'restaurant' ? 'restaurant' : 'attraction'}
               </h2>
-              <div className="text-gray-700 leading-relaxed whitespace-pre-line">
+              <div className="text-black-400 leading-relaxed whitespace-pre-line text-sm">
                 {placeDetails.description}
               </div>
             </div>
@@ -149,10 +149,10 @@ export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) 
           {/* Review Summary */}
           {placeDetails.reviewSummary && placeDetails.reviewSummary.trim() !== "undefined" && (
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+              <h2 className="text-sm font-semibold text-black-400">
                 What people are saying
               </h2>
-              <div className="text-gray-700 leading-relaxed whitespace-pre-line">
+              <div className="text-black-400 leading-relaxed whitespace-pre-line text-sm">
                 {placeDetails.reviewSummary}
               </div>
             </div>
@@ -164,24 +164,24 @@ export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) 
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 About the neighborhood
               </h2>
-              <div className="text-gray-700 leading-relaxed whitespace-pre-line">
+              <div className="text-gray-700 leading-relaxed text-sm whitespace-pre-line">
                 {placeDetails.neighborhoodSummary}
               </div>
             </div>
           )}
 
         </div>
+      </div>
 
-        {/* Directions Button */}
-        <div className="mt-auto p-4">
-          <Button
-            onClick={handleDirections}
-            className="w-full text-white bg-black hover:bg-black/80 py-6 text-lg font-medium"
-            disabled={!placeDetails.location}
-          >
-            Get Directions
-          </Button>
-        </div>
+      {/* Directions Button */}
+      <div className="p-4 sticky bottom-0 z-30 bg-white">
+        <Button
+          onClick={handleDirections}
+          className="w-full text-white bg-black hover:bg-black py-6 text-lg font-medium"
+          disabled={!placeDetails.location}
+        >
+          Get Directions
+        </Button>
       </div>
     </div>
   );

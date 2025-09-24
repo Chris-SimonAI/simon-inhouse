@@ -17,6 +17,7 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
       'group flex w-full items-end justify-end gap-2 py-4',
       from === 'user' ? 'is-user' : 'is-assistant flex-row-reverse justify-end',
       '[&>div]:max-w-[80%]',
+      '[&.is-assistant:last-of-type]:min-h-[calc(100dvh-15rem)]',
       className
     )}
     {...props}

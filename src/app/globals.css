@@ -21,7 +21,7 @@
   --color-accent: oklch(70% 0.15 160);            /* #22C55E - Fresh green */
   --color-accent-foreground: oklch(98% 0.005 250);  /* #FAFAFA - White text on accent */
 
-  --color-warm: oklch(65% 0.2 65);                 /* #C28E42 - Warm brown */
+  --color-warm: oklch(0.6827 0.112 74.18);         /* #C28E42 - Warm brown */
   --color-warm-foreground: oklch(98% 0.005 250);   /* #FAFAFA - White text on warm */
 
   /* Status colors */
@@ -105,3 +105,12 @@
   --color-red-900: oklch(32% 0.12 25);     /* #7F1D1D */
 }
 
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}

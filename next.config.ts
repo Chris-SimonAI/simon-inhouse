@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     useCache: true,
   },
   images: {
+    unoptimized: true,
     // allow all domains for now for demo purposes
     remotePatterns: [
       {

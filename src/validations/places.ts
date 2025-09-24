@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const SearchPlacesArgsSchema = z.object({
-  query: z.string().min(1).optional().default("restaurants"),
+  query: z.string().min(1),
   radiusKm: z.number().min(0.1).max(15).optional().default(2),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),

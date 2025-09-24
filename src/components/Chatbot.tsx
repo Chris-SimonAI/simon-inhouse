@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, ChangeEvent, FormEvent, useRef, useLayoutEffect } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -16,56 +16,69 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Response } from "@/components/ai-elements/response";
 import { useRscChat } from "@/hooks/useRscChat";
-import { useVoiceFlowManager } from "@/components/voice/VoiceFlowManager";
-import { useTTSTiming } from "@/hooks/useTTSTiming";
+import { RealtimeVoiceAgent, RealtimeVoiceAgentRef } from "@/components/voice/RealtimeVoiceAgent";
+import VoiceIntroduction from "@/components/VoiceIntroduction";
 import { Loader } from "@/components/ai-elements/loader";
-import { Home, Building2, MapPin, Utensils, Mic, ArrowLeft, MessageSquare, MicOff } from 'lucide-react'
-import { Suggestion, Suggestions } from "./suggestion";
-import { PlaceCard } from "./PlaceCard";
-import { AmenityCard } from "./AmenityCard";
-import { AttractionsView } from "./AttractionsView";
+import { Suggestion } from "@/components/suggestion";
+import { PlaceCard } from "@/components/PlaceCard";
+import { AmenityCard } from "@/components/AmenityCard";
+import { AttractionsView } from "@/components/AttractionsView";
+import { DineInRestaurantCard } from "@/components/DineInRestaurantCard";
 import { type PlaceResult } from "@/lib/places";
 import { type Amenity } from "@/db/schemas/amenities";
+import { type Hotel } from "@/db/schemas/hotels";
 import { cn } from "@/lib/utils";
 import { type RscServerAction } from "@/actions/chatbot";
 import type { UIMessage } from "ai";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { toast } from "sonner";
+import { StickToBottomContext } from "use-stick-to-bottom";
+import { useScrollRestoration } from '@/hooks/useScrollRestoration';
+import { SCROLL_STOP_TYPES, UI_TOOLS, UiTool, AssistantTextType } from "@/constants/uiTools";
+import { ArrowLeft, Mic } from "lucide-react";
+import { MarkdownResponse } from "./ai-elements/markdown-response";
+import { AmenitiesLogo, AttractionsLogo, DiningLogo, HistoryLogo, InRoomDiningLogo } from "@/svgs";
+import { useNotification } from "@/contexts/NotificationContext";
+import { TipNotification } from "@/components/TipNotification";
+import { DineInRestaurant } from "@/db";
 
 type Props = {
   processChatMessageStream: RscServerAction
   getThreadMessages: (threadId: string) => Promise<UIMessage[]>
   threadId: string
+  hotel: Hotel
+  hotelContext: string
 };
 
 const suggestions = [
   {
-    icon: <Home className="w-5 h-5" />,
+    icon: <InRoomDiningLogo className="w-7 h-7" />,
     label: "What options are available for dining in?",
-    action: "What options are available for dining in? I'd like to know about in-room dining and room service options."
+    action: "I'd like to know about in-room dining options."
   },
   {
-    icon: <Utensils className="w-5 h-5" />,
+    icon: <DiningLogo className="w-7 h-7" />,
     label: "Recommended local dining",
-    action: "Can you recommend some great local restaurants near the hotel? I'm looking for good dining options in the area."
+    action: "Can you recommend some great local restaurants near the hotel?"
   },
   {
-    icon: <MapPin className="w-5 h-5" />,
+    icon: <AttractionsLogo className="w-7 h-7" />,
     label: "Nearby attractions",
     action: "Can you recommend nearby attractions and things to do in the area?"
   },
   {
-    icon: <Building2 className="w-5 h-5" />,
+    icon: <AmenitiesLogo className="w-7 h-7" />,
     label: "What hotel amenities do you offer?",
     action: "What hotel amenities do you offer?"
   },
   {
-    icon: <MessageSquare className="w-5 h-5" />,
+    icon: <HistoryLogo className="w-7 h-7" />,
     label: "Show chat history",
     action: null // Special case - just opens L1 without sending a message
   },
 ] as const;
 
-export default function Chatbot({ processChatMessageStream, getThreadMessages, threadId }: Props) {
+export default function Chatbot({ processChatMessageStream, getThreadMessages, threadId, hotel, hotelContext }: Props) {
   const { messages, sendMessage, status, error } = useRscChat({
     action: processChatMessageStream,
     threadId: threadId,
@@ -75,7 +88,16 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
   const searchParams = useSearchParams();
   const router = useRouter();
   const [openL1, setOpenL1] = useState(false);
+  const [scrollToBottom, setScrollToBottom] = useState(false);
   const [input, setInput] = useState("");
+
+  // Voice agent ref
+  const voiceAgentRef = useRef<RealtimeVoiceAgentRef>(null);
+
+
+  const [tippingCooldown, setTippingCooldown] = useState(false);
+  const [processedTippingMessages, setProcessedTippingMessages] = useState<Set<string>>(new Set());
+  const [historicalMessageIds, setHistoricalMessageIds] = useState<Set<string>>(new Set());
 
   // Check for L1 parameter to open chat screen
   useEffect(() => {
@@ -87,32 +109,40 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
     }
   }, [searchParams, router]);
 
-  // Voice flow manager
-  const voiceFlow = useVoiceFlowManager({
-    onVoiceComplete: (text) => {
-      setOpenL1(true);
-      // Reset response tracking for new message
-      ttsTiming.resetResponseTracking();
-      
-      sendMessage(text, { inputType: 'voice' } );
-    },
-    onError: (error) => {
-      console.error('Voice flow error:', error);
-      ttsTiming.resetTTSOnError();
-    },
-    isStreaming: status === 'submitted'
-  });
+  // Reset tipping cooldown after returning from tipping page
+  useEffect(() => {
+    const tippingReturn = searchParams.get('tipping_return');
+    if (tippingReturn === 'true') {
+      setTippingCooldown(true);
+      // Clean up the URL parameter
+      router.replace('/', { scroll: false });
+      // Reset cooldown after 30 seconds
+      const timer = setTimeout(() => {
+        setTippingCooldown(false);
+      }, 30000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, router]);
 
-  // TTS timing hook
-  const ttsTiming = useTTSTiming({ messages, voiceFlow, status });
+  // Track historical messages to prevent tipping detection on chat history load
+  useEffect(() => {
+    if (messages.length > 0) {
+      const _currentIds = new Set(messages.map(m => m.id));
+      const newHistoricalIds = new Set([...historicalMessageIds]);
+      
+      // If we have messages but no historical IDs yet, these are loaded from history
+      if (historicalMessageIds.size === 0 && messages.length > 0) {
+        messages.forEach(m => newHistoricalIds.add(m.id));
+        setHistoricalMessageIds(newHistoricalIds);
+      }
+    }
+  }, [messages, historicalMessageIds]);
 
   // Handle sending text input (not voice-initiated)
   const handleTextSubmit = () => {
     if (input.trim()) {
       setOpenL1(true);
-      // Reset response tracking for new message
-      ttsTiming.resetResponseTracking();
-      
+      setScrollToBottom(true);
       sendMessage(input, { inputType: 'text' });
       setInput("");
     }
@@ -129,16 +159,151 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
   };
 
   const handleVoiceToggle = () => {
-    voiceFlow.handleVoiceToggle();
+    // Check if hotel context is available
+    if (!hotelContext) {
+      toast.error("Voice assistant temporarily unavailable", {
+        description: "Please try again later.",
+      });
+      return;
+    }
+    
+    voiceAgentRef.current?.openVoiceAgent(hotelContext);
   };
 
   const displayError = error ? (error.message || String(error)) : null;
 
   if (openL1) {
-    return (
-      <>
-        {voiceFlow.modal}
-        <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-white relative">
+    return <ChatBotContent
+        openL1={openL1}
+        input={input}
+        messages={messages}
+        status={status}
+          setOpenL1={setOpenL1}
+        handleSubmit={handleSubmit}
+        handleInputChange={handleInputChange}
+        handleVoiceToggle={handleVoiceToggle}
+        scrollToBottom={scrollToBottom}
+        tippingCooldown={tippingCooldown}
+        processedTippingMessages={processedTippingMessages}
+        setProcessedTippingMessages={setProcessedTippingMessages}
+      historicalMessageIds={historicalMessageIds}
+      voiceAgentRef={voiceAgentRef}
+      sendMessage={sendMessage}
+      hotelContext={hotelContext}
+    />
+  }
+
+  return <ChatBotContentHome
+    openL1={openL1}
+    input={input}
+    messages={messages}
+    setOpenL1={setOpenL1}
+    handleSubmit={handleSubmit}
+    handleVoiceToggle={handleVoiceToggle}
+    displayError={displayError}
+    sendMessage={sendMessage}
+    setInput={setInput}
+    setScrollToBottom={setScrollToBottom}
+    hotel={hotel}
+    voiceAgentRef={voiceAgentRef}
+    hotelContext={hotelContext}
+  />
+}
+
+type ChatBotContentProps = {
+  openL1: boolean
+  input: string
+  messages: UIMessage[]
+  status: 'streaming' | 'error' | 'submitted' | 'ready'
+  setOpenL1: (open: boolean) => void
+  handleSubmit: (e: FormEvent<HTMLFormElement>) => void
+  handleInputChange: (e: ChangeEvent<HTMLTextAreaElement>) => void
+  handleVoiceToggle: () => void
+  scrollToBottom: boolean
+  tippingCooldown: boolean
+  processedTippingMessages: Set<string>
+  setProcessedTippingMessages: (messages: Set<string> | ((prev: Set<string>) => Set<string>)) => void
+  historicalMessageIds: Set<string>
+  voiceAgentRef: React.RefObject<RealtimeVoiceAgentRef | null>
+  sendMessage: (message: string, options: { inputType: 'text' | 'voice' }) => void
+  hotelContext: string
+}
+
+function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, tippingCooldown, processedTippingMessages, setProcessedTippingMessages, historicalMessageIds, voiceAgentRef, sendMessage, hotelContext }: ChatBotContentProps) {
+  const conversationScrollContextRef = useRef<StickToBottomContext>(null);
+  const latestMessage = messages[messages.length - 1];
+  // we stop if the latest message is assistant, and the part of the message is in the SCROLL_STOP_TYPES
+  const shouldStopScroll =
+    latestMessage?.role === "assistant" &&
+    SCROLL_STOP_TYPES.includes(
+      latestMessage?.parts?.[latestMessage.parts.length - 1]?.type as UiTool | AssistantTextType
+    );
+
+  const { ref: attachScrollEl } = useScrollRestoration(
+    "conversationScroll",
+    { debounceTime: 200, persist: "localStorage" }
+  );
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (shouldStopScroll) {
+      conversationScrollContextRef.current?.stopScroll?.();
+    }
+  }, [shouldStopScroll]);
+
+  useLayoutEffect(() => {
+    const ctx = conversationScrollContextRef.current;
+    const el =
+      ctx?.scrollRef?.current ??
+      null;
+
+    if (!el) return;
+
+    attachScrollEl(el);
+
+    if (scrollToBottom) {
+        el.scrollTo({
+          top: el.scrollHeight,
+          behavior: "instant"
+        });
+    }
+
+    return () => {
+      attachScrollEl(null);
+    };
+  }, [attachScrollEl, conversationScrollContextRef, messages.length, scrollToBottom]);
+
+
+  // this hook is to restore the scroll position when the user navigates back to the chatbot
+  useLayoutEffect(() => {
+    if (pathname !== "/") return;
+    const el = conversationScrollContextRef.current?.scrollRef?.current;
+    if (!el) return;
+
+    const raw = localStorage.getItem("scrollRestoration-conversationScroll");
+    if (!raw) return;
+
+    const saved = JSON.parse(raw) as { scrollTop?: number; };
+
+    if (!scrollToBottom) {
+      el.scrollTop = saved.scrollTop ?? 0;
+    }
+
+
+  }, [pathname, conversationScrollContextRef, messages.length, scrollToBottom]);
+
+  return (
+    <div className={cn(
+      openL1 ? "contents" : "hidden"
+    )}>
+      <RealtimeVoiceAgent
+          ref={voiceAgentRef}
+          onHandoffToLangGraph={(transcribedText) => {
+            setOpenL1(true);
+            sendMessage(transcribedText, { inputType: 'voice' });
+          }}
+        />
+      <div className="flex flex-col h-screen w-full mx-auto relative">
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white">
           <button
             onClick={() => setOpenL1(false)}
@@ -151,7 +316,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
           <div className="w-12"></div>
         </div>
 
-        <Conversation className="flex-1">
+        <Conversation initial={false} resize={undefined} className="flex-1" contextRef={conversationScrollContextRef}>
           <ConversationContent>
 
             {messages.map((message) => (
@@ -176,32 +341,38 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
                     )}
 
                     {message.parts.map((part, i) => {
+                      // AI agent will always render a message after a tool call
+                      // but incase of UI_TOOLS.GET_DINE_IN_RESTAURANTS we don't want to render the message
+                      if (i > 0 && message.parts[i - 1]?.type === UI_TOOLS.GET_DINE_IN_RESTAURANTS) {
+                        return null;
+                      }
+
                       switch (part.type) {
                         case 'text':
+                          return (
+                            <MarkdownResponse key={`${message.id}-${i}`} className={cn(
+                              message.role === 'assistant'
+                                ? 'text-gray-700 leading-relaxed text-base'
+                                : 'text-gray-700 text-base'
+                            )} enableMarkdown={message.role === 'assistant' ? true : false}>
+                              {part.text}
+                            </MarkdownResponse>
+                          );
+                        case UI_TOOLS.EMIT_PREFACE:
                           return (
                             <Response key={`${message.id}-${i}`} className={cn(
                               message.role === 'assistant'
                                 ? 'text-gray-700 leading-relaxed text-base'
                                 : 'text-gray-700 text-base'
                             )}>
-                              {part.text}
-                            </Response>
-                          );
-                        case 'tool-emit_preface':
-                          return (
-                            <Response key={`${message.id}-${i}`} className={cn(
-                                message.role === 'assistant'
-                                ? 'text-gray-700 leading-relaxed text-base'
-                                : 'text-gray-700 text-base'
-                            )}>
                               {part.output as string}
                             </Response>
                           );
-                        case 'tool-search_restaurants':
-                        case 'tool-search_attractions':
+                        case UI_TOOLS.SEARCH_RESTAURANTS:
+                        case UI_TOOLS.SEARCH_ATTRACTIONS:
                           const results = JSON.parse(part.output as string).data as PlaceResult[] || [];
 
-                          if (part.type === 'tool-search_attractions') {
+                          if (part.type === UI_TOOLS.SEARCH_ATTRACTIONS) {
                             return (
                               <div key={`${message.id}-${i}`} className="py-2">
                                 <AttractionsView
@@ -228,8 +399,9 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
                               </div>
                             );
                           }
-                        case 'tool-get_amenities':
-                          const amenityResults = JSON.parse(part.output as string).data as Amenity[] || [];
+                        case UI_TOOLS.GET_AMENITIES:
+                          const parsedAmenity = JSON.parse(part.output as string);
+                          const amenityResults = Array.isArray(parsedAmenity.data) ? parsedAmenity.data : [];
                           return (
                             <div key={`${message.id}-${i}`} className="space-y-2 py-2">
                               {amenityResults.map((amenity: Amenity, index: number) => (
@@ -243,20 +415,52 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
                               ))}
                             </div>
                           );
+                        case UI_TOOLS.GET_DINE_IN_RESTAURANTS:
+                          const parsed = JSON.parse(part.output as string);
+                          const restaurantResults = Array.isArray(parsed.data) ? parsed.data : [];
+                          
+                          return (
+                            <div key={`${message.id}-${i}`} className="space-y-2 py-2">
+                              <h4 className="font-semibold">Deliver to your room</h4>
+                              {restaurantResults.map((restaurant: DineInRestaurant) => (
+                                <DineInRestaurantCard
+                                  key={restaurant.restaurantGuid}
+                                  {...restaurant}
+                                />
+                              ))}
+                            </div>
+                          );
+                        case 'tool-initiate_tipping':
+                          const tippingData = JSON.parse(part.output as string);
+                          if (tippingData.action === 'navigate_to_tipping') {
+                            // Only navigate if not in cooldown, message hasn't been processed, and it's not a historical message
+                            const messageId = `${message.id}-${i}`;
+                            const isHistoricalMessage = historicalMessageIds.has(message.id);
+                            if (!tippingCooldown && !processedTippingMessages.has(messageId) && !isHistoricalMessage) {
+                              setProcessedTippingMessages(prev => new Set(prev).add(messageId));
+                              setTimeout(() => {
+                                // Add return parameter to track when user comes back
+                                const url = new URL(tippingData.url, window.location.origin);
+                                url.searchParams.set('return_to', window.location.pathname + window.location.search);
+                                window.location.href = url.toString();
+                              }, 100);
+                            }
+                          }
+                          return null;
                         default:
                           return null;
                       }
                     })}
 
-                      {/* if not assistant, an S character in a white circle */}
-                {message.role !== 'assistant' && (
-                  <div className="w-6 h-6 border border-gray-700/50 bg-white rounded-full flex items-center justify-center">
-                    <span className="text-gray-700 text-xs">S</span>
-                  </div>
-                )}
+                    {/* if not assistant, an S character in a white circle */}
+                    {message.role !== 'assistant' && (
+                      <div className="w-6 h-6 border border-gray-700/50 bg-white rounded-full flex items-center justify-center">
+                        <span className="text-gray-700 text-xs">S</span>
+                      </div>
+                    )}
                   </MessageContent>
 
-              
+
                 </div>
               </Message>
             ))}
@@ -264,9 +468,8 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
-
         <div className="px-6 pb-8 pt-4 mt-auto">
-          <PromptInput onSubmit={handleSubmit} className="bg-gray-50 rounded-full border-0 relative">
+          <PromptInput onSubmit={handleSubmit} className=" rounded-full border-0 relative">
             <PromptInputTextarea
               onChange={handleInputChange}
               value={input}
@@ -279,99 +482,162 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
                   variant="ghost"
                   onClick={handleVoiceToggle}
                   className={cn(
-                    "p-1 h-8 w-8 transition-colors",
-                    voiceFlow.isRecording 
-                      ? "text-red-500 hover:text-red-600 animate-pulse" 
-                      : "text-gray-400 hover:text-gray-600"
+                    "p-1 h-8 w-8 transition-colors text-gray-400 hover:text-gray-600",
+                    !hotelContext && "opacity-50 cursor-not-allowed"
                   )}
                 >
-                  {voiceFlow.isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                  <Mic className="w-5 h-5" />
                 </PromptInputButton>
               </PromptInputTools>
             </PromptInputToolbar>
           </PromptInput>
         </div>
-        </div>
-      </>
-    )
-  }
+      </div>
+    </div>
+  )
+}
 
+type ChatBotContentHomeProps = {
+  openL1: boolean
+  input: string
+  messages: UIMessage[]
+  setOpenL1: (open: boolean) => void
+  handleSubmit: (e: FormEvent<HTMLFormElement>) => void
+  handleVoiceToggle: () => void
+  displayError: string | null
+  sendMessage: (message: string, options: { inputType: 'text' | 'voice' }) => void
+  setInput: (input: string) => void
+  setScrollToBottom: (scrollToBottom: boolean) => void
+  hotel: Hotel
+  voiceAgentRef: React.RefObject<RealtimeVoiceAgentRef | null>
+  hotelContext: string
+}
+
+function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, handleVoiceToggle, displayError, sendMessage, setInput, setScrollToBottom, hotel, voiceAgentRef, hotelContext }: ChatBotContentHomeProps) {
+  const introText = `Hi, I'm Simon—your 24/7 concierge at ${hotel.name}. I can help with hotel amenities, great places to eat, and things to do around the city. If you are hungry, I can also place food-delivery orders from a variety of our partner restaurants. ${hotel.name} encourages you to place food orders through me, so that I can coordinate with the front desk to ensure your meal comes straight to your room. How can I help today?`
+  const displayText = "Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here."
+
+  const { notification, hideNotification } = useNotification();
+  
   return (
-    <>
-      {voiceFlow.modal}
-      <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-white">
+    <div className={cn(
+      openL1 ? "hidden" : "block"
+    )}>
+      <RealtimeVoiceAgent
+        ref={voiceAgentRef}
+        onHandoffToLangGraph={(transcribedText) => {
+          setOpenL1(true);
+          sendMessage(transcribedText, { inputType: 'voice' });
+        }}
+      />
+      <div className="flex flex-col h-screen relative">
+
+        
         <div className="w-32 h-1 bg-gray-400 rounded-full mx-auto mt-2 mb-6"></div>
 
         <div className="px-6 text-center mb-2">
           <h1 className="text-3xl font-light text-gray-800 mb-6">Simon</h1>
 
+          <VoiceIntroduction
+            introText={introText}
+            sessionKey="simon-intro-played"
+            autoPlayDelay={1000}
+            showHelpMessage={true}
+            className="mb-4"
+            logoClassName="w-16 h-16"
+          />
+
           <p className="text-gray-600 text-base leading-relaxed mb-8">
-            Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here.
+            {displayText}
           </p>
 
-          <h2 className="text-xl font-medium text-gray-800 mb-6">How can I help you?</h2>
+          <div className="px-2 mb-4">
+            <h2 className="text-base leading-relaxed text-black-400 mb-2 text-left">How can I help you?</h2>
+          </div>
+
+          <div className="px-2 space-y-3 mb-6 flex flex-col w-full">
+            {suggestions
+              .filter((suggestion) =>
+                suggestion.label !== "Show chat history" || messages.length > 0
+              )
+              .map((suggestion) => (
+                <div key={suggestion.label} className="flex items-center gap-3">
+                  <div className="text-gray-500 flex-shrink-0">
+                    {suggestion.icon}
+                  </div>
+                  <Suggestion
+                    onClick={() => {
+                      setOpenL1(true);
+                      setScrollToBottom(true);
+                      if (suggestion.action) {
+                        sendMessage(suggestion.action, { inputType: 'text' });
+                      }
+                    }}
+                    suggestion={suggestion.label}
+                    className={cn("p-4 bg-white rounded-2xl text-left text-gray-700 transition-colors justify-start hover:text-gray-700 hover:bg-gray-100",
+                      suggestion.label === "Show chat history"
+                        ? "border-0 shadow-none"
+                        : ""
+                    )}
+                  >
+                    <span className={cn("text-sm",
+                      suggestion.label === "Show chat history"
+                        ? "underline"
+                        : ""
+                    )}>
+                      {suggestion.label}
+                    </span>
+                  </Suggestion>
+                </div>
+              ))}
+          </div>
+
         </div>
 
 
 
-      <Suggestions className="px-6 space-y-3 mb-6 flex flex-col w-full">
-        {suggestions
-          .filter((suggestion) =>
-            suggestion.label !== "Show chat history" || messages.length > 0
-          )
-          .map((suggestion) => (
-            <Suggestion
-              key={suggestion.label}
-              onClick={() => {
-                setOpenL1(true);
-                if (suggestion.action) {
-                  sendMessage(suggestion.action, { inputType: 'text' });
-                }
-              }}
-              suggestion={suggestion.label}
-              className="w-full flex items-center gap-3 p-4 bg-gray-50 rounded-2xl text-left text-gray-700 transition-colors justify-start hover:text-gray-700 hover:bg-gray-100"
-            >
-              <div className="text-gray-500">
-                {suggestion.icon}
-              </div>
-              <span className="text-sm">{suggestion.label}</span>
-            </Suggestion>
-          ))}
-      </Suggestions>
+        {displayError && (
+          <div className="mx-6 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">Error: {displayError}</p>
+          </div>
+        )}
 
-      {displayError && (
-        <div className="mx-6 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-600">Error: {displayError}</p>
+        {/* Notification positioned above input field */}
+        {notification.isVisible && (
+          <div className="px-6 mb-4">
+            <TipNotification
+              amount={notification.amount?.toString() || "0"}
+              isVisible={notification.isVisible}
+              onClose={hideNotification}
+            />
+          </div>
+        )}
+
+        <div className="px-6 pb-8 pt-4 mt-auto">
+          <PromptInput onSubmit={handleSubmit} className=" rounded-full border-0 relative">
+            <PromptInputTextarea
+              onChange={(e) => setInput(e.target.value)}
+              value={input}
+              placeholder="Ask Simon anything"
+              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none min-h-[50px] rounded-full pl-4 pr-16 pt-4"
+            />
+            <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
+              <PromptInputTools>
+                <PromptInputButton
+                  variant="ghost"
+                  onClick={handleVoiceToggle}
+                  className={cn(
+                    "p-1 h-8 w-8 transition-colors text-gray-400 hover:text-gray-600",
+                    !hotelContext && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <Mic className="w-5 h-5" />
+                </PromptInputButton>
+              </PromptInputTools>
+            </PromptInputToolbar>
+          </PromptInput>
         </div>
-      )}
-
-      <div className="px-6 pb-8 pt-4 mt-auto">
-        <PromptInput onSubmit={handleSubmit} className="bg-gray-50 rounded-full border-0 relative">
-          <PromptInputTextarea
-            onChange={(e) => setInput(e.target.value)}
-            value={input}
-            placeholder="Ask Simon anything"
-            className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none min-h-[50px] rounded-full pl-4 pr-16 pt-4"
-          />
-          <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
-            <PromptInputTools>
-              <PromptInputButton
-                variant="ghost"
-                onClick={handleVoiceToggle}
-                className={cn(
-                  "p-1 h-8 w-8 transition-colors",
-                  voiceFlow.isRecording 
-                    ? "text-red-500 hover:text-red-600 animate-pulse" 
-                    : "text-gray-400 hover:text-gray-600"
-                )}
-              >
-                {voiceFlow.isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </PromptInputButton>
-            </PromptInputTools>
-          </PromptInputToolbar>
-        </PromptInput>
       </div>
-      </div>
-    </>
-  );
+    </div>
+  )
 }

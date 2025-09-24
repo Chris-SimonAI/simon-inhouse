@@ -48,7 +48,7 @@ export async function convertTextToSpeech(text: string): Promise<{ audioUrl: str
       },
       body: JSON.stringify({
         model: 'tts-1',
-        voice: 'alloy',
+        voice: 'echo',
         input: text,
         response_format: 'mp3',
       }),

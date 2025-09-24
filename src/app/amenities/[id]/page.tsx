@@ -29,7 +29,7 @@ export default async function AttractionsPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+    <div className="min-h-screen bg-white">
       <AmenityDetailsPage amenity={amenity} />
     </div>
   )

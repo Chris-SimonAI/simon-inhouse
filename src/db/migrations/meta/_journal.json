@@ -15,6 +15,20 @@
       "when": 1757312416346,
       "tag": "0001_mean_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1758279902623,
+      "tag": "0002_neat_proteus",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1758699348071,
+      "tag": "0003_fine_wallop",
+      "breakpoints": true
     }
   ]
 }

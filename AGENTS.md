@@ -183,6 +183,34 @@ export async function updateBooking(input: unknown) {
 await fetch('https://api.example.com/stats', { next: { revalidate: 3600, tags: ['stats'] } });
 ```
 
+#### 6) Function Response Pattern
+
+All agent functions must return a **standardized response shape** using the provided helpers.  
+This ensures consistent success/error handling across the codebase.
+
+```ts
+export type CreateSuccess<T> = {
+  ok: true;
+  data: T;
+};
+
+export type CreateError<T = never> =
+  | { ok: false; message: string }
+  | { ok: false; message: string; errors: T };
+
+export function createSuccess<T>(data: T): CreateSuccess<T> {
+  return { ok: true, data };
+}
+
+export function createError(message: string): CreateError;
+export function createError<T>(message: string, errors: T): CreateError<T>;
+export function createError(message: string, errors?: unknown) {
+  return errors === undefined
+    ? { ok: false, message }
+    : { ok: false, message, errors };
+}
+
+
 * Prefer **tagging** so mutations can `revalidateTag('stats')`.
 
 ### Notes & Gotchas
@@ -221,6 +249,18 @@ export async function createRoom(input: { roomNumber: string; capacity: number }
 ## UI Components
 
 * Keep UI components **pure** in `src/components/ui/*`. Fetch in a parent RSC and pass data as props to client components only when interactivity is needed.
+
+## cn() Utility
+
+Use cn() from @/lib/utils for all conditional classes:
+
+```tsx
+// Basic
+className={cn("base", condition && "extra")}
+
+// Variants
+className={cn("base", { "active": isActive }, className)}
+```
 
 ## Package Management
 * Vetting: Before adding a new package, always check against context7 for the latest documentation to ensure the choice is consistent with our stack and best practices.

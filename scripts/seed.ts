@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import "dotenv/config";
 import { type ClientConfig } from "pg";
 import fs from "fs";
-
+import { DEMO_HOTEL, DEMO_AMENITIES, DEMO_RESTAURANTS, DEMO_MENU, DEMO_MENU_GROUPS, DEMO_MENU_ITEMS, DEMO_MODIFIER_GROUPS, DEMO_MODIFIER_OPTIONS } from "./seed-data.ts";
 
 const USE_SSL = process.env.USE_SSL_FOR_POSTGRES === "true";
 
@@ -32,121 +32,6 @@ const db = drizzle({
   connection: poolConfig,
 });
 
-const DEMO_HOTEL = {
-  name: "The Anza Hotel",
-  address: "23627 Calabasas Road, Calabasas, CA 91302, USA",
-  latitude: "34.15667",
-  longitude: "-118.64204",
-  metadata: {
-    rooms_total: 122,
-    pet_friendly: true,
-    check_in: {
-      time: "16:00",
-      age_requirement: 18,
-      early_check_in_fee: {
-        amount: 45,
-        currency: "USD",
-        notes: "Plus tax, upon availability",
-      },
-    },
-    check_out: {
-      time: "11:00",
-      late_check_out_fee: {
-        amount: 45,
-        currency: "USD",
-        notes: "Plus tax, upon availability",
-      },
-    }
-  },
-};
-
-const DEMO_AMENITIES = [
-  {
-    name: "Outdoor Pool",
-    description: "Heated outdoor pool with cabanas and lounge seating.",
-    longDescription: "The Anza offers a relaxing outdoor pool area perfect for enjoying the California sun.\n\n\n\n**The Setting**  \nGuests can relax on comfortable lounge chairs or enjoy shaded seating in private cabanas. The pool is heated and surrounded by modern landscaping, creating a calm and serene atmosphere.\n\n\n\n**The Experience**  \nTake a refreshing swim, unwind on the poolside loungers, or enjoy food and drinks delivered by staff. The heated pool ensures year-round enjoyment.\n\n\n\n**Good To Know**\n* **Hours:** 9:00 am – 9:00 pm daily\n* **Amenities:** Heated pool, lounge chairs, private cabanas, towels provided\n* **Dining:** Food and drinks available from staff during opening hours\n* **Ideal For:** Guests seeking relaxation and leisure",
-    imageUrls: [
-      "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1684185767/sx7baz2izfawkj0dd6ij.jpg",
-      "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1694192356/q8vdwgekwa3vgojsmrvx.jpg",
-      "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1695637622/kibucfzcfg7wvrmh8huu.jpg"
-    ],
-    tags: ["pool"],
-    metadata: {},
-  },
-  {
-    name: "Fitness Center",
-    description: "24-hour fitness center with weights and Peloton bikes.",
-    longDescription: "The Anza offers a fully equipped fitness center available 24 hours a day, so guests can fit a workout into their schedule at any time.\n\n\n\n**The Setting**  \nThe fitness center is bright and contemporary, featuring modern cardio and strength-training equipment, including Peloton bikes. Towels and water are available nearby.\n\n\n\n**The Experience**  \nGuests can enjoy a flexible workout at any time, whether it's cardio, strength training, or cycling. The space is ideal for staying active while traveling.\n\n\n\n**Good To Know**  \n* **Hours:** Open 24 hours daily\n* **Equipment:** Cardio machines, strength-training equipment, Peloton bikes\n* **Amenities:** Towels and water provided\n* **Ideal For:** Business and leisure travelers who want to stay active",
-    imageUrls: [
-      "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1684185771/hy3cieskbf656vpvjh71.jpg",
-    ],
-    tags: ["fitness", "gym"],
-    metadata: {},
-  },
-  {
-    name: "Meeting & Event Space",
-    description: "Private meeting room ~800 sq ft; up to 50 guests.",
-    longDescription: "The Anza offers a flexible meeting room designed for small to mid-sized gatherings.\n\n\n\n**The Setting**  \nAt approximately 800 square feet, the room provides a bright and welcoming environment with contemporary design that aligns with the hotel’s modern aesthetic.\n\n\n\n**The Experience**  \nThe room can be arranged in theater, classroom, conference, or U-shape layouts to suit different events such as interviews, training sessions, or celebrations.\n\n\n\n**Good To Know**  \n* **Capacity:** Up to 50 guests\n* **Size:** Approximately 800 sq. ft.\n* **Ideal For:** Interviews, training, and celebrations\n* **Audiovisual:** Support available upon request",
-    imageUrls: [
-      "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1694192354/el1kvymi8djn8ygqbazd.jpg",
-    ],
-    tags: ["meeting", "conference"],
-    metadata: { capacity: 50 },
-  },
-  {
-    name: "Graze Bistro (On-site Dining)",
-    description:
-      "Graze Bistro with free morning breakfast.",
-    longDescription: "Graze Bistro is the hotel's on-site dining venue, offering a contemporary space for meals and drinks.\n\n\n\n**The Setting**  \nThe bistro provides a modern and inviting environment, perfect for enjoying breakfast or other meals in a bright, contemporary setting.\n\n\n\n**The Experience**  \nGuests can enjoy fresh, approachable dishes and a variety of drinks in a relaxed atmosphere, making it an ideal spot to start the day.\n\n\n\n**Good To Know**  \n* **Hours:** Breakfast served daily\n* **Cuisine:** Fresh, approachable dishes\n* **Setting:** Contemporary and inviting\n* **Ideal For:** Breakfast, casual meals, and drinks",
-    imageUrls: [
-      "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1684185696/uhiqlrsfrafrkehhof9h.jpg",
-    ],
-    tags: ["dining", "restaurant"],
-    metadata: {},
-  },
-  {
-    name: "Complimentary Wi-Fi",
-    description:
-      "Free Wi-Fi throughout the hotel.",
-    longDescription: "High-speed Wi-Fi is available throughout The Anza, ensuring seamless connectivity in guest rooms, public spaces, and meeting areas.\n\n\n\n**The Setting**  \nReliable Wi-Fi is provided in all guest rooms, public areas, and meeting spaces, allowing guests to stay connected at all times.\n\n\n\n**The Experience**  \nWhether streaming, attending video calls, or browsing casually, guests can enjoy high-speed internet access included at no extra cost.\n\n\n\n**Good To Know**  \n* **Availability:** Throughout the hotel, including guest rooms and public spaces\n* **Cost:** Complimentary for all guests\n* **Ideal For:** Business travelers, families, or anyone needing reliable internet access\n* **Ideal For:** Streaming, video calls, casual browsing",
-    imageUrls: [
-      "https://www.pembrokeshirepc.co.uk/images/2022/01/16/this-hotel-has-wi-fi-access.jpg",
-    ],
-    tags: ["wifi", "internet"],
-    metadata: {},
-  },
-  {
-    name: "Parking",
-    description: "On-site parking available; $15/night.",
-    longDescription: "Guests have access to convenient on-site parking, just steps away from the hotel entrance.\n\n\n\n**The Setting**  \nParking is located near the hotel entrance, providing easy and quick access for all guests.\n\n\n\n**The Experience**  \nGuests can park standard or accessible vehicles with ease, enjoying a hassle-free arrival and departure experience.\n\n\n\n**Good To Know**  \n* **Rate:** $15 per night\n* **Availability:** On-site, near the hotel entrance\n* **Accessibility:** ADA-designated spots provided\n* **Ideal For:** Guests arriving by car seeking convenience and affordability",
-    imageUrls: [
-      "https://hospitalityrisksolutions.files.wordpress.com/2010/07/hotel-parking-theft-1.jpg",
-    ],
-    tags: ["parking", "car", "parking lot"],
-    metadata: {},
-  },
-  {
-    name: "Pet-Friendly",
-    description: "Dogs welcome at The Anza!",
-    longDescription: "The Anza welcomes four-legged companions, making it an ideal choice for pet owners.\n\n\n\n**The Setting**  \nSelect rooms and floors are designated as pet-friendly, ensuring comfort for both pets and guests.\n\n\n\n**The Experience**  \nGuests can enjoy their stay with their pets, whether for short visits or extended vacations, while adhering to the hotel’s pet policy.\n\n\n\n**Good To Know**  \n* **Fee:** $35 per pet\n* **Limit:** Maximum of 2 dogs per room\n* **Rooms:** Pet-friendly rooms and floors only\n* **Contact:** Guests should contact the hotel in advance for full details",
-    imageUrls: [
-      "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1695637061/hfugoixcvrxhe6f542b9.jpg",
-    ],
-    tags: ["pet-friendly", "dogs", "pets"],
-    metadata: {},
-  },
-  {
-    name: "Marketplace & Boarding Pass Kiosk",
-    description: "24/7 marketplace and boarding pass printing kiosk.",
-    longDescription: "For added convenience, guests can use the 24/7 marketplace in the lobby to grab snacks, drinks, or essentials at any time.\n\n\n\n**The Setting**  \nThe lobby features a marketplace and boarding pass kiosk, designed for quick access to snacks, beverages, and travel essentials.\n\n\n\n**The Experience**  \nGuests can shop, grab refreshments, or print boarding passes 24/7, making travel or business trips more convenient.\n\n\n\n**Good To Know**  \n* **Marketplace:** Open 24/7 for snacks, drinks, and essentials\n* **Boarding Pass Kiosk:** Print flight passes quickly\n* **Ideal For:** Business travelers or guests with early flights\n* **Location:** Lobby area for easy access",
-    imageUrls: [
-      "https://res.cloudinary.com/traveltripperweb/image/upload/c_fit,f_auto,h_1200,q_auto,w_1200/v1684185710/zjkufqqi2mzenpzluorw.jpg",
-    ],
-    tags: ["marketplace", "boarding pass", "kiosk"],
-    metadata: {},
-  }
-];
-
 async function resetTable(tableName: string, idColumn: string) {
   await db.execute(sql.raw(`DELETE FROM ${tableName}`));
 
@@ -164,11 +49,212 @@ async function resetTable(tableName: string, idColumn: string) {
   }
 }
 
-async function main() {
-  console.log("Starting seed...");
+async function resetAllTables() {
+  console.log("Resetting all tables...");
 
-  await resetTable("amenities", "id");
-  await resetTable("hotels", "id");
+  // Reset in correct dependency order (children first, then parents)
+  const table_names = [
+    "modifier_options",    // No dependencies
+    "modifier_groups",     // Depends on menu_items
+    "menu_items",          // Depends on menu_groups
+    "menu_groups",         // Depends on menus
+    "menus",              // Depends on dine_in_restaurants
+    "tips",               // Depends on dine_in_restaurants
+    "dine_in_restaurants", // Depends on hotels
+    "amenities",          // Depends on hotels
+    "hotels"              // No dependencies
+  ];
+
+  for (const tableName of table_names) {
+    await resetTable(tableName, "id");
+  }
+  console.log("All tables reset successfully!");
+}
+
+async function insertedMenu(
+  restaurantId: number,
+  menuData: typeof DEMO_MENU,
+  menuGroups: typeof DEMO_MENU_GROUPS,
+  menuItems: typeof DEMO_MENU_ITEMS,
+  modifierGroups: typeof DEMO_MODIFIER_GROUPS,
+  modifierOptions: typeof DEMO_MODIFIER_OPTIONS
+) { 
+  const insertedMenu = await db.execute(sql`
+    INSERT INTO menus (restaurant_id, menu_guid, name, description, metadata, created_at, updated_at)
+    VALUES (${restaurantId}, ${menuData.menuGuid}, ${menuData.name}, ${menuData.description}, ${JSON.stringify(menuData.metadata)}, NOW(), NOW())
+    RETURNING id
+  `);
+  const menuId = insertedMenu.rows[0].id;
+  console.log(`Inserted menu with ID: ${menuId}`);
+
+  // Insert menu groups
+  const insertedMenuGroups = [];
+  for (const group of menuGroups) {
+    const imageUrlsArray = `{${group.imageUrls.map(url => `"${url.replace(/"/g, '\\"')}"`).join(',')}}`;
+    const result = await db.execute(sql`
+      INSERT INTO menu_groups (menu_id, menu_group_guid, name, image_urls, description, metadata, created_at, updated_at)
+      VALUES (${menuId}, ${group.menuGroupGuid}, ${group.name}, ${imageUrlsArray}::text[], ${group.description}, ${JSON.stringify(group.metadata)}, NOW(), NOW())
+      RETURNING id
+    `);
+    insertedMenuGroups.push(result);
+  }
+  console.log(`Inserted ${insertedMenuGroups?.length} menu groups`);
+
+  // Create mapping of group GUIDs to IDs
+  const groupIdMap = new Map<string, number>();
+  insertedMenuGroups.forEach((group, index) => {
+    groupIdMap.set(menuGroups[index].menuGroupGuid, group.rows[0].id as number);
+  });
+
+  // Create item to group mapping using direct menuGroupGuid references
+  const itemToGroupMapping: Record<string, string> = {};
+  
+  // Map items to groups using the menuGroupGuid field
+  menuItems.forEach(item => {
+    if (item.menuGroupGuid) {
+      itemToGroupMapping[item.menuItemGuid] = item.menuGroupGuid;
+    }
+  });
+
+  // Insert menu items
+  const insertedMenuItems = [];
+  for (const item of menuItems) {
+    const groupGuid = itemToGroupMapping[item.menuItemGuid];
+    const menuGroupId = groupIdMap.get(groupGuid);
+    if (!menuGroupId) {
+      throw new Error(`Menu group not found for item ${item.menuItemGuid}`);
+    }
+    const { modifierGroupsReferences: _modifierGroupsReferences, ...itemWithoutRefs } = item;
+    const imageUrlsArray = `{${itemWithoutRefs.imageUrls.map(img => `"${img.replace(/"/g, '\\"')}"`).join(',')}}`;
+    const allergensArray = `{${itemWithoutRefs.allergens.map(allergen => `"${allergen.replace(/"/g, '\\"')}"`).join(',')}}`;
+    const result = await db.execute(sql`
+      INSERT INTO menu_items (menu_group_id, menu_item_guid, name, description, price, calories, image_urls, allergens, modifier_groups_references, sort_order, metadata, created_at, updated_at)
+      VALUES (${menuGroupId}, ${itemWithoutRefs.menuItemGuid}, ${itemWithoutRefs.name}, ${itemWithoutRefs.description}, ${itemWithoutRefs.price}, ${itemWithoutRefs.calories}, ${imageUrlsArray}::text[], ${allergensArray}::text[], ARRAY[]::integer[], ${itemWithoutRefs.sortOrder}, ${JSON.stringify(itemWithoutRefs.metadata)}, NOW(), NOW())
+      RETURNING id
+    `);
+    insertedMenuItems.push(result);
+  }
+  console.log(`Inserted ${insertedMenuItems?.length} menu items`);
+
+  // Create mapping of item GUIDs to IDs
+  const itemIdMap = new Map<string, number>();
+  insertedMenuItems.forEach((item, index) => {
+    itemIdMap.set(menuItems[index].menuItemGuid, item.rows[0].id as number);
+  });
+
+  // Create modifier groups by name and category for better lookup
+  const modifierGroupsByCategory = new Map();
+  modifierGroups.forEach(group => {
+    const key = `${group.name}-${group.metadata.category}`;
+    modifierGroupsByCategory.set(key, group);
+  });
+
+  // Define modifier group to item mapping using optimized lookups
+  const modifierGroupToItemMapping = new Map();
+  
+  // Map modifier groups to items based on the modifierGroupsReferences in menu items
+  menuItems.forEach(item => {
+    item.modifierGroupsReferences.forEach(modifierGroupGuid => {
+      modifierGroupToItemMapping.set(modifierGroupGuid, item.menuItemGuid);
+    });
+  });
+
+  // Insert modifier groups
+  const insertedModifierGroups = [];
+  for (const group of modifierGroups) {
+    const itemGuid = modifierGroupToItemMapping.get(group.modifierGroupGuid);
+    if (!itemGuid) {
+      console.error(`No mapping found for modifier group: ${group.name} (${group.modifierGroupGuid})`);
+      console.error('Available mappings:', Array.from(modifierGroupToItemMapping.keys()));
+      throw new Error(`No mapping found for modifier group ${group.name} (${group.modifierGroupGuid})`);
+    }
+    const menuItemId = itemIdMap.get(itemGuid);
+    if (!menuItemId) {
+      console.error(`Menu item not found for GUID: ${itemGuid}`);
+      console.error('Available menu items:', Array.from(itemIdMap.keys()));
+      throw new Error(`Menu item not found for modifier group ${group.modifierGroupGuid}`);
+    }
+    const { modifierOptionsReferences: _modifierOptionsReferences, ...groupWithoutRefs } = group;
+    
+    const result = await db.execute(sql`
+      INSERT INTO modifier_groups (menu_item_id, modifier_group_guid, name, description, min_selections, max_selections, is_required, is_multi_select, metadata, created_at, updated_at)
+      VALUES (${menuItemId}, ${groupWithoutRefs.modifierGroupGuid}, ${groupWithoutRefs.name}, ${groupWithoutRefs.description}, ${groupWithoutRefs.minSelections}, ${groupWithoutRefs.maxSelections}, ${groupWithoutRefs.isRequired}, ${groupWithoutRefs.isMultiSelect}, ${JSON.stringify(groupWithoutRefs.metadata)}, NOW(), NOW())
+      RETURNING id
+    `);
+    insertedModifierGroups.push(result);
+  }
+  console.log(`Inserted ${insertedModifierGroups?.length} modifier groups`);
+
+  // Create mapping of modifier group GUIDs to IDs
+  const modifierGroupIdMap = new Map<string, number>();
+  insertedModifierGroups.forEach((group, index) => {
+    modifierGroupIdMap.set(modifierGroups[index].modifierGroupGuid, group.rows[0].id as number);
+  });
+
+  // Update menu items with correct modifier group IDs
+  for (const item of menuItems) {
+    const modifierGroupIds = item.modifierGroupsReferences
+      .map(guid => modifierGroupIdMap.get(guid))
+      .filter(id => id !== undefined) as number[];
+    
+    if (modifierGroupIds.length > 0) {
+      await db.execute(sql`
+        UPDATE menu_items 
+        SET modifier_groups_references = ${sql.raw(`ARRAY[${modifierGroupIds.join(',')}]::integer[]`)}
+        WHERE menu_item_guid = ${item.menuItemGuid}
+      `);
+    }
+  }
+  console.log(`Updated menu items with modifier group references`);
+
+  // Define modifier option to group mapping using optimized lookups
+  const modifierOptionToGroupMapping = new Map();
+  
+  // Map modifier options to groups based on the modifierOptionsReferences in modifier groups
+  modifierGroups.forEach(group => {
+    group.modifierOptionsReferences.forEach(modifierOptionGuid => {
+      modifierOptionToGroupMapping.set(modifierOptionGuid, group.modifierGroupGuid);
+    });
+  });
+  
+
+  // Insert modifier options
+  const insertedModifierOptions = [];
+  for (const option of modifierOptions) {
+    const groupGuid = modifierOptionToGroupMapping.get(option.modifierOptionGuid);
+    if (!groupGuid) {
+      console.error(`No mapping found for modifier option: ${option.name} (${option.modifierOptionGuid})`);
+      console.error('Available mappings:', Array.from(modifierOptionToGroupMapping.keys()));
+      throw new Error(`No mapping found for modifier option ${option.name} (${option.modifierOptionGuid})`);
+    }
+    const modifierGroupId = modifierGroupIdMap.get(groupGuid);
+    if (!modifierGroupId) {
+      console.error(`Modifier group not found for GUID: ${groupGuid}`);
+      console.error('Available modifier groups:', Array.from(modifierGroupIdMap.keys()));
+      throw new Error(`Modifier group not found for option ${option.modifierOptionGuid}`);
+    }
+    const { modifierGroupReferences: _modifierGroupReferences, ...optionWithoutRefs } = option;
+    
+    const result = await db.execute(sql`
+      INSERT INTO modifier_options (modifier_group_id, modifier_option_guid, name, description, price, calories, is_default, metadata, created_at, updated_at)
+      VALUES (${modifierGroupId}, ${optionWithoutRefs.modifierOptionGuid}, ${optionWithoutRefs.name}, ${optionWithoutRefs.description}, ${optionWithoutRefs.price}, ${optionWithoutRefs.calories}, ${optionWithoutRefs.isDefault}, '{}', NOW(), NOW())
+      RETURNING id
+    `);
+    insertedModifierOptions.push(result);
+  }
+  console.log(`Inserted ${insertedModifierOptions?.length} modifier options`);
+  console.log(`- Menus: 1`);
+  console.log(`- Menu Groups: ${insertedMenuGroups?.length}`);
+  console.log(`- Menu Items: ${insertedMenuItems?.length}`);
+  console.log(`- Modifier Groups: ${insertedModifierGroups?.length}`);
+  console.log(`- Modifier Options: ${insertedModifierOptions?.length}`);
+}
+
+async function main() {
+  console.log("Starting comprehensive seed...");
+
+  // Reset all tables
+  await resetAllTables();
 
   // Insert hotel using direct SQL
   const insertedHotel = await db.execute(sql`
@@ -177,6 +263,7 @@ async function main() {
     RETURNING id
   `);
   const hotelId = insertedHotel.rows[0].id;
+  console.log(`Inserted hotel with ID: ${hotelId}`);
 
   // Insert amenities using direct SQL with proper array formatting
   for (const amenity of DEMO_AMENITIES) {
@@ -189,12 +276,48 @@ async function main() {
       VALUES (${hotelId}, ${amenity.name}, ${amenity.description}, ${amenity.longDescription}, ${imageUrlsArray}::text[], ${tagsArray}::varchar[], ${JSON.stringify(amenity.metadata)}, NOW(), NOW())
     `);
   }
+  console.log(`Inserted ${DEMO_AMENITIES.length} amenities`);
 
-  const insertedAmenities = DEMO_AMENITIES;
+  // Insert restaurants
+  for (const restaurant of DEMO_RESTAURANTS) {
+    const imageUrlsArray = `{${restaurant.imageUrls.map(url => `"${url.replace(/"/g, '\\"')}"`).join(',')}}`;
+    const restaurantResult = await db.execute(sql`
+      INSERT INTO dine_in_restaurants (
+        hotel_id, restaurant_guid, name, description, cuisine,
+        image_urls, rating, address_line1, address_line2,
+        city, state, zip_code, country, phone_number, metadata, created_at, updated_at
+      )
+      VALUES (
+        ${hotelId}, ${restaurant.restaurantGuid}, ${restaurant.name},
+        ${restaurant.description}, ${restaurant.cuisine},
+        ${imageUrlsArray}::text[],   
+        ${restaurant.rating},
+        ${restaurant.addressLine1}, '', ${restaurant.city}, ${restaurant.state},
+        ${restaurant.zipCode}, ${restaurant.country}, ${restaurant.phoneNumber},
+        ${JSON.stringify(restaurant.metadata)}::jsonb,
+        NOW(), NOW()
+      )
+      RETURNING id
+    `);
+    
+    const restaurantId = restaurantResult.rows[0].id as number;
+    console.log(`Inserted restaurant with ID: ${restaurantId}`);
+    
+    // Insert menu for this restaurant
+    await insertedMenu(
+      restaurantId,
+      DEMO_MENU,
+      DEMO_MENU_GROUPS,
+      DEMO_MENU_ITEMS,
+      DEMO_MODIFIER_GROUPS,
+      DEMO_MODIFIER_OPTIONS
+    );
+  }
 
-  console.log(`Inserted ${insertedAmenities?.length} amenities`);
-
-  console.log("Seed completed successfully!");
+  console.log(`- Hotel: ${hotelId}`);
+  console.log(`- Amenities: ${DEMO_AMENITIES.length}`);
+  console.log(`- Restaurants: ${DEMO_RESTAURANTS.length}`);
+  console.log("Comprehensive seed completed successfully!");
 }
 
 main().catch((err) => {

@@ -279,7 +279,10 @@ export function useRscChat<M extends UIMessage = UIMessage>(
 
   const baseSend = useCallback(
     async (nextUserText: string, request?: ChatRequestOptions) => {
-      if (!nextUserText.trim()) return;
+
+      if (!nextUserText.trim()) {
+        return;
+      }
 
       const userMsg: M = { 
         ...userTextMessage(nextUserText), 
@@ -324,7 +327,11 @@ export function useRscChat<M extends UIMessage = UIMessage>(
   /** Public: sendMessage (matches useChat) */
   const sendMessage = useCallback<UseRscChatReturn<M>['sendMessage']>(
     (message, options) => {
-      if(status === 'submitted' || status === 'streaming') {
+      
+      // Allow voice handoff messages to bypass status check
+      const isVoiceHandoff = options?.inputType === 'voice';
+      
+      if((status === 'submitted' || status === 'streaming') && !isVoiceHandoff) {
         return;
       }
 
