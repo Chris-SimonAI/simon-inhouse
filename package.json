@@ -10,6 +10,8 @@
     "start:only": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
+    "type-check": "tsc --noEmit",
+    "check": "npm run type-check && npm run lint",
     "test": "vitest",
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
