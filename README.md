@@ -37,6 +37,14 @@ docker-compose up --build --watch
 
 **Note**: The `--watch` flag enables automatic file synchronization between your host and container, providing hot reloading during development.
 
+### Run PROD build locally
+
+```bash
+# Start development server WITHOUT hot reloading
+docker-compose -f docker-compose.prod.yml up --build
+
+# Run the application at http://localhost:300
+```
 ## Available Commands
 
 All npm scripts are run through the Docker container:
