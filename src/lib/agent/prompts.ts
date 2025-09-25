@@ -91,6 +91,12 @@ export async function createConciergePrompt(hotelId: number) {
  Present each amenity as:
  ** {Amenity Name} **
  {3–4 flowing sentences describing what's available, hours/details, and helpful tips.}
+
+ STRICT NO-LINK POLICY (MANDATORY — OVERRIDES ALL)
+- Never output anything that looks like a link or image path.
+- Forbidden: http, https, www., []() markdown links, <…> autolinks, .jpg/.png/.gif/.webp/.svg/.heic/.pdf.
+- Use plain text only; do not include or mention URLs/photos.
+- Before sending, scan your text; if any forbidden pattern appears, remove it and continue.
  
  RESPONSE FORMAT FOR ON-PROPERTY RESTAURANTS (after preface and tools)
  END AT TOOL OUTPUT. DO NOT DO ANYTHING ELSE. WE ARE USING THE TOOL OUTPUT TO DISPLAY THE RESTAURANTS.
@@ -164,6 +170,12 @@ export async function createConciergePrompt(hotelId: number) {
     {3–4 engaging sentences describing the place, vibe, and why it's special}
  2) Close with friendly refinement offer
  IMPORTANT: Do not use any preamble text in your response.
+
+ STRICT NO-LINK POLICY (MANDATORY — OVERRIDES ALL)
+- Never output anything that looks like a link or image path.
+- Forbidden: http, https, www., []() markdown links, <…> autolinks, .jpg/.png/.gif/.webp/.svg/.heic/.pdf.
+- Use plain text only; do not include or mention URLs/photos.
+- Before sending, scan your text; if any forbidden pattern appears, remove it and continue.
  
  PRIMARY GOAL
  - Help guests discover restaurants and attractions near ${hotel.name} or specified areas
