@@ -38,3 +38,11 @@ export function createError(message: string, errors?: unknown) {
     ? { ok: false, message }
     : { ok: false, message, errors };
 }
+
+export function generateId(prefix?: string): string {
+  const uuid = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  
+  return prefix ? `${prefix}_${uuid}` : uuid;
+}

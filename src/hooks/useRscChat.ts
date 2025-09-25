@@ -8,12 +8,7 @@ import type {
 } from 'ai';
 import { type ConciergeStreamEvent } from '@/lib/agent';
 import { type RscServerAction, type ChatRequestOptions } from '@/actions/chatbot';
-
-function rid() {
-  return typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
+import { generateId } from '@/lib/utils';
 
 /** Options mirror `useChat` but adapted for RSC. */
 export type UseRscChatOptions<M extends UIMessage = UIMessage> = {
@@ -72,7 +67,7 @@ function userTextMessage(text: string): CreateUIMessage<UIMessage> {
 }
 function assistantEmptyMessage(): UIMessage {
   return {
-    id: rid(),
+    id: generateId(),
     role: 'assistant',
     parts: [],
   };
@@ -129,7 +124,7 @@ export function useRscChat<M extends UIMessage = UIMessage>(
     sendAutomaticallyWhen,
   }: UseRscChatOptions<M>,
 ): UseRscChatReturn<M> {
-  const chatId = useMemo(() => chatIdProp ?? `rsc-chat-${rid()}`, [chatIdProp]);
+  const chatId = useMemo(() => chatIdProp ?? generateId('rsc-chat'), [chatIdProp]);
 
   const metadata = useRef<Record<string, unknown>>({});
   const [messages, setMessages] = useState<M[]>(
@@ -286,7 +281,7 @@ export function useRscChat<M extends UIMessage = UIMessage>(
 
       const userMsg: M = { 
         ...userTextMessage(nextUserText), 
-        id: rid(),
+        id: generateId(),
         metadata: { inputType: request?.inputType || 'text' }
       } as M;
       const assistantMsg: M = assistantEmptyMessage() as M;
