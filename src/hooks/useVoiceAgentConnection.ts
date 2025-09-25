@@ -5,7 +5,7 @@ import { RealtimeAgent, RealtimeSession } from '@openai/agents-realtime';
 import { generateVoiceAgentToken } from '@/actions/voice-agent';
 import { createVoiceAgent, VOICE_AGENT_CONFIG } from '@/lib/voice';
 
-export type VoiceStatus = 'listening' | 'speaking';
+export type VoiceStatus = 'listening' | 'speaking' | 'processing';
 
 interface UseVoiceAgentConnectionProps {
   hotelContext: string;

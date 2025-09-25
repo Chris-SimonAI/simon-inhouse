@@ -2,10 +2,10 @@
 
 import { TipStaffScreen } from "@/components/TipStaffScreen";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { DEFAULT_HOTEL_ID } from "@/constants";
 
-export default function TipStaffPage() {
+function TipStaffContent() {
   const searchParams = useSearchParams();
   const dynamicMessage = searchParams.get('message');
   const hotelIdParam = searchParams.get('hotelId');
@@ -55,5 +55,18 @@ export default function TipStaffPage() {
         hotelId={hotelId}
       />
     </div>
+  );
+}
+
+export default function TipStaffPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-3 text-gray-600">Loading tipping interface...</span>
+      </div>
+    }>
+      <TipStaffContent />
+    </Suspense>
   );
 }
