@@ -1,3 +1,5 @@
+'use server';
+
 import { DineInRestaurant, dineInRestaurants } from "@/db/schemas"; 
 import { db } from "@/db";
 import { eq } from "drizzle-orm";

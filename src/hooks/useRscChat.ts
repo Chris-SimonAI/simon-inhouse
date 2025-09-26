@@ -21,6 +21,9 @@ export type UseRscChatOptions<M extends UIMessage = UIMessage> = {
   /** Required thread id passed to your action */
   threadId: string;
 
+  /** Hotel ID to pass to the action */
+  hotelId?: string | number;
+
   /** Initial messages (UIMessage[]) */
   messages?: M[];
 
@@ -106,6 +109,7 @@ export function useRscChat<M extends UIMessage = UIMessage>(
     action,
     id: chatIdProp,
     threadId,
+    hotelId,
     messages: initialMessages = [],
     getThreadMessages,
     onFinish,
@@ -297,7 +301,10 @@ export function useRscChat<M extends UIMessage = UIMessage>(
         const { stream } = await action({
           message: nextUserText,
           threadId,
-          extra: request || {},
+          extra: { 
+            ...(request || {}), 
+            hotelId: typeof hotelId === 'string' ? Number(hotelId) : hotelId 
+          },
         });
         const s = stream as StreamableValue<ConciergeStreamEvent>;
         lastHandleRef.current = s;
@@ -317,7 +324,7 @@ export function useRscChat<M extends UIMessage = UIMessage>(
         onError?.(err);
       }
     },
-    [action, threadId, onError],
+    [action, threadId, hotelId, onError],
   );
 
   /** Public: sendMessage (matches useChat) */

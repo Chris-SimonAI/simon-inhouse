@@ -1,6 +1,7 @@
 import { getAmenityById } from "@/actions/amenities";
 import { AmenityDetailsPage } from "@/components/AmenityDetailsPage";
 import { DEFAULT_HOTEL_ID } from "@/constants";
+import { getHotelSession } from "@/actions/sessions";
 import { notFound } from "next/navigation";
 
 interface PageProps {
@@ -16,7 +17,13 @@ export default async function AttractionsPage({ params }: PageProps) {
     notFound();
   }
 
-  const response = await getAmenityById(idNumber, DEFAULT_HOTEL_ID);
+  // Get hotel ID from current session, fallback to DEFAULT_HOTEL_ID
+  const sessionResult = await getHotelSession();
+  const hotelId = sessionResult.ok && sessionResult.data 
+    ? parseInt(sessionResult.data.qrData.hotelId) 
+    : DEFAULT_HOTEL_ID;
+
+  const response = await getAmenityById(idNumber, hotelId);
 
   if (!response.ok) {
     notFound();

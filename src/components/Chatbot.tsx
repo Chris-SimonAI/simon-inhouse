@@ -84,6 +84,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
   const { messages, sendMessage, status, error } = useRscChat({
     action: processChatMessageStream,
     threadId: threadId,
+    hotelId: hotel.id,
     getThreadMessages,
   });
 

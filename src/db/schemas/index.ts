@@ -8,3 +8,5 @@ export * from "@/db/schemas/menu-groups";
 export * from "@/db/schemas/menu-items";
 export * from "@/db/schemas/modifier-groups";
 export * from "@/db/schemas/modifier-options"; 
+export * from "@/db/schemas/qrCodes";
+export * from "@/db/schemas/auth";

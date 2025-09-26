@@ -32,7 +32,7 @@ export function DineInRestaurantPage({
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-full">
       {/* Sticky Header */}
       <div className="sticky top-0 z-30 bg-white">
         <div className="flex items-center justify-between px-4 py-3">
