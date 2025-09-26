@@ -532,10 +532,7 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
       />
       <div className="flex flex-col h-screen relative">
 
-        
-        <div className="w-32 h-1 bg-gray-400 rounded-full mx-auto mt-2 mb-6"></div>
-
-        <div className="px-6 text-center mb-2">
+        <div className="px-6 text-center mb-2 mt-2">
           <h1 className="text-3xl font-light text-gray-800 mb-6">Simon</h1>
 
           <VoiceIntroduction
