@@ -303,7 +303,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
             sendMessage(transcribedText, { inputType: 'voice' });
           }}
         />
-      <div className="flex flex-col h-screen w-full mx-auto relative">
+      <div className="flex flex-col h-dvh w-full overflow-x-hidden bg-white">
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white">
           <button
             onClick={() => setOpenL1(false)}
@@ -316,7 +316,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
           <div className="w-12"></div>
         </div>
 
-        <Conversation initial={false} resize={undefined} className="flex-1" contextRef={conversationScrollContextRef}>
+        <Conversation initial={false} resize={undefined} className="flex-1 overflow-y-auto" contextRef={conversationScrollContextRef}>
           <ConversationContent>
 
             {messages.map((message) => (
@@ -468,8 +468,8 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
-        <div className="px-6 pb-8 pt-4 mt-auto">
-          <PromptInput onSubmit={handleSubmit} className=" rounded-full border-0 relative">
+        <div className="px-4 pb-4 pt-4 mt-auto">
+          <PromptInput onSubmit={handleSubmit} className="rounded-full border-0 relative">
             <PromptInputTextarea
               onChange={handleInputChange}
               value={input}
@@ -530,9 +530,9 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
           sendMessage(transcribedText, { inputType: 'voice' });
         }}
       />
-      <div className="flex flex-col h-screen relative">
+      <div className="flex flex-col h-dvh w-full overflow-x-hidden bg-white">
 
-        <div className="px-6 text-center mb-2 mt-2">
+        <div className="flex-1 overflow-y-auto px-4 text-center mb-2 mt-2">
           <h1 className="text-3xl font-light text-gray-800 mb-6">Simon</h1>
 
           <VoiceIntroduction
@@ -610,8 +610,8 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
           </div>
         )}
 
-        <div className="px-6 pb-8 pt-4 mt-auto">
-          <PromptInput onSubmit={handleSubmit} className=" rounded-full border-0 relative">
+        <div className="px-4 pb-4 pt-4 mt-auto">
+          <PromptInput onSubmit={handleSubmit} className="rounded-full border-0 relative">
             <PromptInputTextarea
               onChange={(e) => setInput(e.target.value)}
               value={input}
