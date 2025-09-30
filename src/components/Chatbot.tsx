@@ -349,6 +349,25 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                         return null;
                       }
 
+                      // Handle loading states for tools
+                      if (part.type === 'tool-search_attractions-loading') {
+                        return (
+                          <div key={`${message.id}-${i}`} className="py-2">
+                            <AttractionsViewSkeleton />
+                          </div>
+                        );
+                      }
+                      
+                      if (part.type === 'tool-search_restaurants-loading' || 
+                          part.type === 'tool-get_amenities-loading' || 
+                          part.type === 'tool-get_dine_in_restaurants-loading') {
+                        return (
+                          <div key={`${message.id}-${i}`} className="py-2">
+                            <CardSkeletonGroup count={3} />
+                          </div>
+                        );
+                      }
+
                       switch (part.type) {
                         case 'text':
                           return (
@@ -454,36 +473,13 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                       }
                     })}
 
-                    {/* Show skeletons AFTER text when streaming and waiting for tool results */}
-                    {(() => {
-                      const isLastMessage = message.id === messages[messages.length - 1]?.id;
-                      const isStreaming = status === 'streaming';
-                      const hasOnlyText = message.parts.every((p: UIMessage['parts'][number]) => p.type === 'text' || p.type === UI_TOOLS.EMIT_PREFACE);
-                      const hasText = message.parts.some((p: UIMessage['parts'][number]) => p.type === 'text' || p.type === UI_TOOLS.EMIT_PREFACE);
-                      
-                      if (isLastMessage && isStreaming && hasText && hasOnlyText && message.role === 'assistant') {
-                        // Check if previous user message mentions attractions
-                        const messageIndex = messages.findIndex(m => m.id === message.id);
-                        const previousUserMessage = messageIndex > 0 ? messages[messageIndex - 1] : null;
-                        const userText = previousUserMessage?.parts.find((p: UIMessage['parts'][number]) => p.type === 'text' && 'text' in p)?.text?.toLowerCase() || '';
-                        const isAttractionQuery = userText.includes('attraction') || userText.includes('things to do') || userText.includes('places to visit');
-                        
-                        if (isAttractionQuery) {
-                          return (
-                            <div key={`${message.id}-loading-skeleton`} className="py-2">
-                              <AttractionsViewSkeleton />
-                            </div>
-                          );
-                        }
-                        
-                        return (
-                          <div key={`${message.id}-loading-skeleton`} className="py-2">
-                            <CardSkeletonGroup count={3} />
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
+                    {/* Show "Generating..." below streaming text */}
+                    {status === 'streaming' && message.role === 'assistant' && message.id === messages[messages.length - 1].id && (
+                      <div className="flex items-center gap-2 text-gray-500 text-sm py-2">
+                        <Loader />
+                        <span>Generating...</span>
+                      </div>
+                    )}
 
                     {/* if not assistant, an S character in a white circle */}
                     {message.role !== 'assistant' && (

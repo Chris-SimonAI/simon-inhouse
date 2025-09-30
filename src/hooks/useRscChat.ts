@@ -165,8 +165,18 @@ export function useRscChat<M extends UIMessage = UIMessage>(
               switch (event?.type) {
                 case 'token':
                   return appendTextPart(m, event.value, true, event.metadata) as M;
+                case 'tool-start':
+                  return {
+                    ...m,
+                    parts: [...m.parts, { type: `tool-${event.name}-loading` as const }] as UIMessage['parts'],
+                  } as M;
                 case 'tool':
-                  return appendToolResult(m, event.name, event.data, event.metadata) as M;
+                  const updatedParts = m.parts.filter((p: UIMessage['parts'][number]) => p.type !== `tool-${event.name}-loading`);
+                  return {
+                    ...m,
+                    parts: [...updatedParts, { type: `tool-${event.name}`, output: event.data }] as UIMessage['parts'],
+                    metadata: { ...(m.metadata || {}), ...(event.metadata || {}) },
+                  } as M;
                 case 'current-agent':
                   metadata.current = { ...metadata.current, currentAgent: event.name };
                   return m;
