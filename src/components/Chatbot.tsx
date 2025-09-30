@@ -349,15 +349,6 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                         return null;
                       }
 
-                      // Show skeleton for pending tool state
-                      if ('state' in part && part.state === 'pending') {
-                        return (
-                          <div key={`${message.id}-${i}-skeleton`} className="py-2">
-                            <CardSkeletonGroup count={3} />
-                          </div>
-                        );
-                      }
-
                       switch (part.type) {
                         case 'text':
                           return (
