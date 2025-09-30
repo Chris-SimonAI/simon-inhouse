@@ -100,15 +100,6 @@ function appendTextPart(
   };
 }
 
-
-function appendToolResult(m: UIMessage, tool: string, output: unknown, metadata: Record<string, unknown> = {}): UIMessage {
-  return {
-    ...m,
-    parts: [...m.parts, { type: `tool-${tool}`, output }] as UIMessage['parts'],
-    metadata: { ...metadata },
-  };
-}
-
 /** Main hook */
 export function useRscChat<M extends UIMessage = UIMessage>(
   {
