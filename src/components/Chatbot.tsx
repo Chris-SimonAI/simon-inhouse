@@ -41,6 +41,8 @@ import { AmenitiesLogo, AttractionsLogo, DiningLogo, HistoryLogo, InRoomDiningLo
 import { useNotification } from "@/contexts/NotificationContext";
 import { TipNotification } from "@/components/TipNotification";
 import { DineInRestaurant } from "@/db";
+import { CardSkeletonGroup } from "@/components/CardSkeleton";
+import { AttractionsViewSkeleton } from "@/components/AttractionsViewSkeleton";
 
 type Props = {
   processChatMessageStream: RscServerAction
@@ -347,6 +349,15 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                         return null;
                       }
 
+                      // Show skeleton for pending tool state
+                      if ('state' in part && part.state === 'pending') {
+                        return (
+                          <div key={`${message.id}-${i}-skeleton`} className="py-2">
+                            <CardSkeletonGroup count={3} />
+                          </div>
+                        );
+                      }
+
                       switch (part.type) {
                         case 'text':
                           return (
@@ -451,6 +462,37 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                           return null;
                       }
                     })}
+
+                    {/* Show skeletons AFTER text when streaming and waiting for tool results */}
+                    {(() => {
+                      const isLastMessage = message.id === messages[messages.length - 1]?.id;
+                      const isStreaming = status === 'streaming';
+                      const hasOnlyText = message.parts.every((p: UIMessage['parts'][number]) => p.type === 'text' || p.type === UI_TOOLS.EMIT_PREFACE);
+                      const hasText = message.parts.some((p: UIMessage['parts'][number]) => p.type === 'text' || p.type === UI_TOOLS.EMIT_PREFACE);
+                      
+                      if (isLastMessage && isStreaming && hasText && hasOnlyText && message.role === 'assistant') {
+                        // Check if previous user message mentions attractions
+                        const messageIndex = messages.findIndex(m => m.id === message.id);
+                        const previousUserMessage = messageIndex > 0 ? messages[messageIndex - 1] : null;
+                        const userText = previousUserMessage?.parts.find((p: UIMessage['parts'][number]) => p.type === 'text' && 'text' in p)?.text?.toLowerCase() || '';
+                        const isAttractionQuery = userText.includes('attraction') || userText.includes('things to do') || userText.includes('places to visit');
+                        
+                        if (isAttractionQuery) {
+                          return (
+                            <div key={`${message.id}-loading-skeleton`} className="py-2">
+                              <AttractionsViewSkeleton />
+                            </div>
+                          );
+                        }
+                        
+                        return (
+                          <div key={`${message.id}-loading-skeleton`} className="py-2">
+                            <CardSkeletonGroup count={3} />
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {/* if not assistant, an S character in a white circle */}
                     {message.role !== 'assistant' && (
