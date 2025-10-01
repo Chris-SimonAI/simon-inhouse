@@ -63,6 +63,17 @@ export async function* streamAgent({
       continue;
     }
 
+    if (event.event === "on_tool_start") {
+      const toolName = String(event.name ?? "");
+      const out: ConciergeStreamEvent = {
+        type: "tool-start",
+        name: toolName,
+        metadata: { agent: currentAgent }
+      };
+      yield out;
+      continue;
+    }
+
     if (event.event === "on_tool_end") {
       const toolName = String(event.name ?? "");
 
