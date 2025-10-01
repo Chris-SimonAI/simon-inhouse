@@ -41,6 +41,8 @@ import { AmenitiesLogo, AttractionsLogo, DiningLogo, HistoryLogo, InRoomDiningLo
 import { useNotification } from "@/contexts/NotificationContext";
 import { TipNotification } from "@/components/TipNotification";
 import { DineInRestaurant } from "@/db";
+import { CardSkeletonGroup } from "@/components/CardSkeleton";
+import { AttractionsViewSkeleton } from "@/components/AttractionsViewSkeleton";
 
 type Props = {
   processChatMessageStream: RscServerAction
@@ -347,6 +349,25 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                         return null;
                       }
 
+                      // Handle loading states for tools
+                      if (part.type === 'tool-search_attractions-loading') {
+                        return (
+                          <div key={`${message.id}-${i}`} className="py-2">
+                            <AttractionsViewSkeleton />
+                          </div>
+                        );
+                      }
+                      
+                      if (part.type === 'tool-search_restaurants-loading' || 
+                          part.type === 'tool-get_amenities-loading' || 
+                          part.type === 'tool-get_dine_in_restaurants-loading') {
+                        return (
+                          <div key={`${message.id}-${i}`} className="py-2">
+                            <CardSkeletonGroup count={3} />
+                          </div>
+                        );
+                      }
+
                       switch (part.type) {
                         case 'text':
                           return (
@@ -451,6 +472,14 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                           return null;
                       }
                     })}
+
+                    {/* Show "Generating..." below streaming text */}
+                    {status === 'streaming' && message.role === 'assistant' && message.id === messages[messages.length - 1].id && (
+                      <div className="flex items-center gap-2 text-gray-500 text-sm py-2">
+                        <Loader />
+                        <span>Generating...</span>
+                      </div>
+                    )}
 
                     {/* if not assistant, an S character in a white circle */}
                     {message.role !== 'assistant' && (

@@ -15,6 +15,7 @@ export function isAgentName(name: string): name is AgentName {
 
 export type ConciergeStreamEvent =
   | { type: "token"; value: string; metadata: Record<string, unknown> }
+  | { type: "tool-start"; name: string; metadata: Record<string, unknown> }
   | { type: "tool"; name: string; data: unknown; metadata: Record<string, unknown> }
   | { type: "current-agent"; name: string };
 
