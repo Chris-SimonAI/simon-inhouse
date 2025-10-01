@@ -26,18 +26,20 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="h-dvh w-full bg-gray-50">
       {/* TODO: This component is temporary and will be removed we plan cookies via better-auth */}
       <EnsureThreadCookie threadId={threadId} hasCookie={!!existing} />
 
-      <div className="flex justify-center">
-        <ChatbotClient
-          processChatMessageStream={processChatMessageStream}
-          getThreadMessages={getThreadMessages}
-          threadId={threadId}
-          hotel={hotelResult.data}
-          hotelContext={hotelContext}
-        />
+      <div className="h-dvh w-full flex justify-center">
+        <div className="h-dvh w-full max-w-md">
+          <ChatbotClient
+            processChatMessageStream={processChatMessageStream}
+            getThreadMessages={getThreadMessages}
+            threadId={threadId}
+            hotel={hotelResult.data}
+            hotelContext={hotelContext}
+          />
+        </div>
       </div>
     </div>
   );
