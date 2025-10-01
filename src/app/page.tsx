@@ -5,6 +5,7 @@ import { getHotelById } from '@/actions/hotels';
 import { getVoiceAgentHotelContextAction } from '@/actions/voice-agent';
 import { DEFAULT_HOTEL_ID } from '@/constants';
 import EnsureThreadCookie from '@/components/EnsureThreadCookie';
+import OrderSuccessToast from '@/components/OrderSuccessToast';
 
 export default async function Home() {
   // TODO: existing and threadId code is temporary and will be removed we plan cookies via better-auth
@@ -29,6 +30,8 @@ export default async function Home() {
     <div className="h-dvh w-full bg-gray-50">
       {/* TODO: This component is temporary and will be removed we plan cookies via better-auth */}
       <EnsureThreadCookie threadId={threadId} hasCookie={!!existing} />
+
+      <OrderSuccessToast />
 
       <div className="h-dvh w-full flex justify-center">
         <div className="h-dvh w-full max-w-md">

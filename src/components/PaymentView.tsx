@@ -21,11 +21,19 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
   const [selectedTip, setSelectedTip] = useState<TipOption>(0);
   const [customTipAmount, setCustomTipAmount] = useState<string>("");
   const [showCustomTipInput, setShowCustomTipInput] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const savedCart = localStorage.getItem(`cart-${restaurantGuid}`);
     if (savedCart) {
-      setCart(JSON.parse(savedCart));
+      try {
+        const parsedCart = JSON.parse(savedCart);
+        setCart(parsedCart);
+      } catch (error) {
+        console.error('Error parsing cart:', error);
+        localStorage.removeItem(`cart-${restaurantGuid}`);
+        setCart([]);
+      }
     }
   }, [restaurantGuid]);
 
@@ -70,30 +78,53 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
     router.push(`/dine-in/restaurant/${restaurantGuid}/checkout`);
   };
 
-  const handlePayment = () => {
-    if (paymentMethod === "card") {
-      // Store payment details in localStorage for the next page
-      localStorage.setItem(
-        `payment-details-${restaurantGuid}`,
-        JSON.stringify({
-          subtotal: getSubtotal(),
-          tax: getTaxAmount(),
-          tip: getTipAmount(),
-          total: getTotal(),
-        })
-      );
-      router.push(`/dine-in/restaurant/${restaurantGuid}/card-payment`);
-    } else {
-      // TODO: Handle delivery payment
-      console.log("Processing delivery payment...", {
-        paymentMethod,
+  const handlePayment = async () => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      // Generate a unique session ID for this payment attempt
+      const sessionId = `payment-${restaurantGuid}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Store payment details in localStorage with session tracking
+      const paymentData = {
+        sessionId,
         subtotal: getSubtotal(),
         tax: getTaxAmount(),
         tip: getTipAmount(),
         total: getTotal(),
-      });
+        cart: cart,
+        timestamp: Date.now(),
+        status: 'pending', // pending, processing, completed, failed
+        attempts: 0
+      };
+      
+      localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentData));
+      
+      // Also store the session ID separately for tracking
+      localStorage.setItem(`payment-session-${restaurantGuid}`, sessionId);
+      
+      if (paymentMethod === "card") {
+        router.push(`/dine-in/restaurant/${restaurantGuid}/card-payment`);
+      } else {
+        // TODO: Handle delivery payment
+        console.log("Processing delivery payment...", {
+          paymentMethod,
+          subtotal: getSubtotal(),
+          tax: getTaxAmount(),
+          tip: getTipAmount(),
+          total: getTotal(),
+        });
+      }
+    } catch (error) {
+      console.error("Error preparing payment:", error);
+      alert("An error occurred. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
   };
+
 
   const getItemDescription = (item: CartItem) => {
     const modifiers: string[] = [];
@@ -343,11 +374,12 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
         <div className="bg-white px-4 py-6">
           <Button
             onClick={handlePayment}
-            className="w-full bg-gray-900 text-white hover:bg-gray-800 rounded-[2px] py-7 text-base font-semibold flex items-center justify-center"
+            disabled={isProcessing}
+            className="w-full bg-gray-900 text-white hover:bg-gray-800 rounded-[2px] py-7 text-base font-semibold flex items-center justify-center disabled:opacity-50"
             size="lg"
           >
-            <span>Pay now with card</span>
-            <ChevronRight />
+            <span>{isProcessing ? "Processing..." : "Pay now with card"}</span>
+            {!isProcessing && <ChevronRight />}
           </Button>
         </div>
         <div className="mt-3 text-xs text-gray-500 text-center">
