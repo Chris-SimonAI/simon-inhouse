@@ -16,12 +16,12 @@ export default function WelcomeClient({ hotel }: WelcomeClientProps) {
     router.push("/welcome/voice");
   }, [router]);
 
-  const skipIntro = useCallback(() => {
-    // Set cookie for 1 day and return to home
-    const maxAge = 24 * 60 * 60; // 1 day
-    document.cookie = `simon-intro-played=true; max-age=${maxAge}; path=/`;
-    router.replace("/");
-  }, [router]);
+//   const skipIntro = useCallback(() => {
+//     // Set cookie for 1 day and return to home
+//     const maxAge = 24 * 60 * 60; // 1 day
+//     document.cookie = `simon-intro-played=true; max-age=${maxAge}; path=/`;
+//     router.replace("/");
+//   }, [router]);
 
   return (
     <div className="h-dvh w-full bg-gray-50">

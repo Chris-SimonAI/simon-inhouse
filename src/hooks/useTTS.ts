@@ -56,7 +56,7 @@ export function useTTS({
         callbacksRef.current.onPlaybackComplete?.();
       };
       
-      audio.onerror = (e) => {
+      audio.onerror = () => {
         const errorMessage = 'Failed to play audio';
         setError(errorMessage);
         setIsPlaying(false);

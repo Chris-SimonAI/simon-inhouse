@@ -86,8 +86,10 @@ export function useAudioVisualization({
 
     try {
       // Create audio context and analyser
-      const AudioContextClass =
-        window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass: typeof AudioContext =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
       audioContext = new AudioContextClass();
       analyser = audioContext.createAnalyser();
       analyser.fftSize = fftSize;
