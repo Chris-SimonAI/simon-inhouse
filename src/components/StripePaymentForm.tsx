@@ -283,59 +283,71 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
-              <CreditCard className="h-4 w-4 text-blue-600" />
-            </div>
-            <span className="text-sm font-medium text-gray-700">L3. Enter CC</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
+        <div className="flex items-center justify-between px-4 py-3">
+          <h1 className="text-lg font-semibold text-gray-900">Menu</h1>
+          <button
             onClick={handleClose}
-            className="w-8 h-8 p-0 text-gray-400 hover:text-gray-600"
+            className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
           >
-            <X className="h-4 w-4" />
-          </Button>
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto pb-8 bg-[#f2f2f2] p-4">
+        {/* Payment Options */}
+        <h2 className="text-sm font-semibold text-gray-700 mb-2">
+          Payment Options
+        </h2>
+        <div className="bg-white px-4 py-6 mb-2">
+          <div className="space-y-3">
+            <div className="text-[14px] text-gray-900 mb-3">
+              How would you like to pay by card?
+            </div>
+
+            <div className="flex flex-col gap-5 pl-2">
+              {/* Enter card details manually */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="manual"
+                  name="paymentMethod"
+                  value="manual"
+                  defaultChecked
+                  className="w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-900"
+                />
+                <label htmlFor="manual" className="text-base font-medium text-gray-900">
+                  Enter card details manually
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {/* Payment Options */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">How would you like to pay by card?</h3>
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="manual"
-                name="paymentMethod"
-                value="manual"
-                defaultChecked
-                className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-              />
-              <label htmlFor="manual" className="text-sm text-gray-700">
-                Enter card details manually
-              </label>
-            </div>
-          </div>
-
-          {/* Pay Now Section */}
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Pay now with card</h2>
+        {/* Pay Now Section */}
+        <h2 className="text-sm font-semibold text-gray-700 mb-2 mt-4">
+          Pay now with card
+        </h2>
+        <div className="bg-white px-4 py-6 mb-2">
+          <div className="space-y-3">
             <div className="flex justify-between items-center mb-3">
-              <span className="text-sm text-gray-600">Total</span>
+              <span className="text-base text-gray-900">Total</span>
               <span className="text-lg font-semibold text-gray-900">${total.toFixed(2)} USD</span>
             </div>
             <p className="text-xs text-gray-500">
               Please enter your details below. We will only use this information to contact you about your order and for no other purpose.
             </p>
           </div>
+        </div>
 
-          {/* Form */}
+        {/* Form */}
+        <h2 className="text-sm font-semibold text-gray-700 mb-2 mt-4">
+          Card Details
+        </h2>
+        <div className="bg-white px-4 py-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Room Number */}
             <div>
@@ -351,7 +363,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 value={roomNumber}
                 onChange={(e) => setRoomNumber(e.target.value)}
                 className={cn(
-                  "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+                  "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
                   errors.roomNumber && "border-red-500 focus:ring-red-500 focus:border-red-500"
                 )}
                 placeholder="Enter room number"
@@ -375,7 +387,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 className={cn(
-                  "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+                  "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
                   errors.lastName && "border-red-500 focus:ring-red-500 focus:border-red-500"
                 )}
                 placeholder="Enter last name"
@@ -399,7 +411,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 value={nameOnCard}
                 onChange={(e) => setNameOnCard(e.target.value)}
                 className={cn(
-                  "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+                  "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
                   errors.nameOnCard && "border-red-500 focus:ring-red-500 focus:border-red-500"
                 )}
                 placeholder="Enter name as it appears on card"
@@ -421,7 +433,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10">
                   <Lock className="h-4 w-4 text-gray-400" />
                 </div>
-                <div className="px-10 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                <div className="px-10 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-gray-900">
                   <CardNumberElement
                     options={{
                       style: {
@@ -446,7 +458,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 <label className="text-sm font-medium text-gray-700 mb-1 block">
                   Expiration Date
                 </label>
-                <div className="px-3 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                <div className="px-3 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-gray-900">
                   <CardExpiryElement
                     options={{
                       style: {
@@ -475,7 +487,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10">
                     <Lock className="h-4 w-4 text-gray-400" />
                   </div>
-                  <div className="px-10 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                  <div className="px-10 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-gray-900">
                     <CardCvcElement
                       options={{
                         style: {
@@ -506,7 +518,8 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
             <Button
               type="submit"
               disabled={isProcessing}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition-colors disabled:opacity-50"
+              className="w-full bg-gray-900 text-white hover:bg-gray-800 rounded-[2px] py-7 text-base font-semibold flex items-center justify-center"
+              size="lg"
             >
               {isProcessing ? (
                 <div className="flex items-center justify-center space-x-2">
@@ -518,6 +531,14 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
               )}
             </Button>
           </form>
+        </div>
+
+        <div className="mt-3 text-xs text-gray-500 text-center">
+          Meet Simon&apos;s privacy policy & SMS policy regarding Internet
+          information |{" "}
+          <a href="#" className="text-blue-600 underline">
+            Your Privacy Choices
+          </a>
         </div>
       </div>
     </div>
@@ -543,10 +564,17 @@ export default function StripePaymentForm({ restaurantGuid, total }: StripePayme
 
   if (!stripe) {
     return (
-      <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-8">
+      <div className="flex flex-col min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
+          <div className="flex items-center justify-between px-4 py-3">
+            <h1 className="text-lg font-semibold text-gray-900">Menu</h1>
+          </div>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-4">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading payment form...</p>
           </div>
         </div>
