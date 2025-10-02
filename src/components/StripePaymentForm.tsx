@@ -9,7 +9,13 @@ import { createOrderAndPaymentIntent, confirmPayment } from '@/actions/payments'
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { stripePublishableKey } from '@/lib/stripe-client';
-import { z } from 'zod';
+import { 
+  type CardPaymentForm,
+  validateCardPayment,
+  validateRoomNumber,
+  validateLastName,
+  validateNameOnCard
+} from '@/validations/card-payment';
 
 type CartItem = {
   selectedModifiers: Record<string, string[]>;
@@ -30,14 +36,6 @@ type CartItem = {
   };
   quantity: number;
 };
-
-const cardPaymentSchema = z.object({
-  roomNumber: z.string().min(1, "Room number is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  nameOnCard: z.string().min(1, "Name on card is required"),
-});
-
-type CardPaymentForm = z.infer<typeof cardPaymentSchema>;
 
 type StripePaymentFormProps = {
   restaurantGuid: string;
@@ -118,6 +116,27 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
     Partial<Record<keyof CardPaymentForm, string>>
   >({});
 
+  const handleRoomNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setRoomNumber(value);
+    const error = validateRoomNumber(value);
+    setErrors(prev => ({ ...prev, roomNumber: error || undefined }));
+  };
+
+  const handleLastNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLastName(value);
+    const error = validateLastName(value);
+    setErrors(prev => ({ ...prev, lastName: error || undefined }));
+  };
+
+  const handleNameOnCardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNameOnCard(value);
+    const error = validateNameOnCard(value);
+    setErrors(prev => ({ ...prev, nameOnCard: error || undefined }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -129,7 +148,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       nameOnCard,
     };
 
-    const result = cardPaymentSchema.safeParse(formData);
+    const result = validateCardPayment(formData);
 
     if (!result.success) {
       const fieldErrors: Partial<Record<keyof CardPaymentForm, string>> = {};
@@ -361,7 +380,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 type="text"
                 id="roomNumber"
                 value={roomNumber}
-                onChange={(e) => setRoomNumber(e.target.value)}
+                onChange={handleRoomNumberChange}
                 className={cn(
                   "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
                   errors.roomNumber && "border-red-500 focus:ring-red-500 focus:border-red-500"
@@ -385,7 +404,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 type="text"
                 id="lastName"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={handleLastNameChange}
                 className={cn(
                   "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
                   errors.lastName && "border-red-500 focus:ring-red-500 focus:border-red-500"
@@ -409,7 +428,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 type="text"
                 id="nameOnCard"
                 value={nameOnCard}
-                onChange={(e) => setNameOnCard(e.target.value)}
+                onChange={handleNameOnCardChange}
                 className={cn(
                   "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
                   errors.nameOnCard && "border-red-500 focus:ring-red-500 focus:border-red-500"

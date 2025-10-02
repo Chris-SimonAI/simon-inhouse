@@ -1,0 +1,28 @@
+import { z } from 'zod';
+
+export const cardPaymentFormSchema = z.object({
+  roomNumber: z.string().min(1, "Room number is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  nameOnCard: z.string().min(1, "Name on card is required"),
+});
+
+export type CardPaymentForm = z.infer<typeof cardPaymentFormSchema>;
+
+export const validateCardPayment = (data: unknown) => {
+  return cardPaymentFormSchema.safeParse(data);
+};
+
+export const validateRoomNumber = (value: string) => {
+  const result = z.string().min(1, "Room number is required").safeParse(value);
+  return result.success ? null : result.error.errors[0]?.message;
+};
+
+export const validateLastName = (value: string) => {
+  const result = z.string().min(1, "Last name is required").safeParse(value);
+  return result.success ? null : result.error.errors[0]?.message;
+};
+
+export const validateNameOnCard = (value: string) => {
+  const result = z.string().min(1, "Name on card is required").safeParse(value);
+  return result.success ? null : result.error.errors[0]?.message;
+};
