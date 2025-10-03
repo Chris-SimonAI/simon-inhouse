@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CreditCard, Delete, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,12 +26,6 @@ export function TipStaffScreen({ onBack, initialAmount, dynamicMessage, hotelNam
   const [isProcessing, setIsProcessing] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
 
-  // Handle external amount population
-  useEffect(() => {
-    if (initialAmount && initialAmount > 0) {
-      setSelectedAmount(initialAmount);
-    }
-  }, [initialAmount]);
 
   const handleAmountSelect = (amount: number) => {
     setSelectedAmount(amount);
