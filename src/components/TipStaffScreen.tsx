@@ -101,7 +101,7 @@ export function TipStaffScreen({ onBack, initialAmount, dynamicMessage, hotelNam
         // Navigate to payment processing screen
         router.push(`/tip-staff/payment/${result.data.id}`);
       } else {
-        console.error("Failed to create tip:", result.message);
+        console.error("Failed to create tip:", !result.ok ? result.message : "Unknown error");
       }
     } catch (error) {
       console.error("Error processing tip:", error);
