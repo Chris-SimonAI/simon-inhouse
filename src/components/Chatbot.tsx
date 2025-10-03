@@ -38,8 +38,6 @@ import { SCROLL_STOP_TYPES, UI_TOOLS, UiTool, AssistantTextType } from "@/consta
 import { ArrowLeft, Mic } from "lucide-react";
 import { MarkdownResponse } from "./ai-elements/markdown-response";
 import { AmenitiesLogo, AttractionsLogo, DiningLogo, HistoryLogo, InRoomDiningLogo } from "@/svgs";
-import { useNotification } from "@/contexts/NotificationContext";
-import { TipNotification } from "@/components/TipNotification";
 import { DineInRestaurant } from "@/db";
 import { CardSkeletonGroup } from "@/components/CardSkeleton";
 import { AttractionsViewSkeleton } from "@/components/AttractionsViewSkeleton";
@@ -546,7 +544,6 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
   const introText = `Hi, I'm Simon—your 24/7 concierge at ${hotel.name}. I can help with hotel amenities, great places to eat, and things to do around the city. If you are hungry, I can also place food-delivery orders from a variety of our partner restaurants. ${hotel.name} encourages you to place food orders through me, so that I can coordinate with the front desk to ensure your meal comes straight to your room. How can I help today?`
   const displayText = "Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here."
 
-  const { notification, hideNotification } = useNotification();
   
   return (
     <div className={cn(
@@ -628,16 +625,6 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
           </div>
         )}
 
-        {/* Notification positioned above input field */}
-        {notification.isVisible && (
-          <div className="px-6 mb-4">
-            <TipNotification
-              amount={notification.amount?.toString() || "0"}
-              isVisible={notification.isVisible}
-              onClose={hideNotification}
-            />
-          </div>
-        )}
 
         <div className="px-4 pb-4 pt-4 mt-auto">
           <PromptInput onSubmit={handleSubmit} className="rounded-full border-0 relative">
