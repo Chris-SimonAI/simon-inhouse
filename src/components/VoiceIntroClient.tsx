@@ -19,7 +19,7 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
   const { playText, stopPlayback, isPlaying, audioElement } = useTTS({
     onPlaybackComplete: () => {
       // Mark as played and return to home
-      const maxAge = 24 * 60 * 60; // 1 day
+      const maxAge = 100 * 365 * 24 * 60 * 60; // 100 years
       document.cookie = `simon-intro-played=true; max-age=${maxAge}; path=/`;
       router.replace("/");
     },
