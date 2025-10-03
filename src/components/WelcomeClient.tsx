@@ -13,7 +13,7 @@ export default function WelcomeClient({ hotel }: WelcomeClientProps) {
   const router = useRouter();
 
   const meetSimon = useCallback(() => {
-    router.push("/welcome/voice");
+    router.push("/?voice=true");
   }, [router]);
 
 //   const skipIntro = useCallback(() => {
