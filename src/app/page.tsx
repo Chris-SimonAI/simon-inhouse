@@ -5,8 +5,23 @@ import { getHotelById } from '@/actions/hotels';
 import { getVoiceAgentHotelContextAction } from '@/actions/voice-agent';
 import { DEFAULT_HOTEL_ID } from '@/constants';
 import EnsureThreadCookie from '@/components/EnsureThreadCookie';
+import WelcomeClient from '@/components/WelcomeClient';
+import VoiceIntroClient from '@/components/VoiceIntroClient';
+import { cookies } from 'next/headers';
 
-export default async function Home() {
+type HomePageProps = {
+  searchParams: Promise<{ voice?: string }>;
+};
+
+export default async function Home({ searchParams }: HomePageProps) {
+
+  const cookieStore = await cookies();
+  const hasPlayedIntro = cookieStore.get('simon-intro-played')?.value === 'true';
+
+  // Check if voice parameter is present
+  const params = await searchParams;
+  const showVoiceIntro = params.voice === 'true';
+
   // TODO: existing and threadId code is temporary and will be removed we plan cookies via better-auth
   const existing = await readThreadId();
   const threadId =
@@ -23,6 +38,16 @@ export default async function Home() {
 
   if (!hotelContextResult.ok) {
     console.error('Failed to fetch hotel context:', hotelContextResult.message);
+  }
+
+  // If voice parameter is present, show voice intro
+  if (showVoiceIntro) {
+    return <VoiceIntroClient hotel={hotelResult.data} />;
+  }
+
+  // If intro hasn't been played, show welcome flow
+  if (!hasPlayedIntro) {
+    return <WelcomeClient hotel={hotelResult.data} />;
   }
 
   return (
