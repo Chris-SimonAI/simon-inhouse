@@ -158,7 +158,7 @@ export function TipStaffScreen({ onBack, initialAmount, dynamicMessage, hotelNam
             {/* Text Message */}
             <div className="text-center mb-6">
               <p className="text-gray-600 text-sm leading-relaxed">
-                {dynamicMessage || `We appreciate your generosity in tipping the team. Our service team is critical to making your stay at ${hotelName || "Anza Hotel"} the best it can be.`}
+                {dynamicMessage || `We appreciate your generosity in tipping the team. Our service team is critical to making your stay ${hotelName ? `at ${hotelName}` : 'here'} the best it can be.`}
               </p>
             </div>
 
