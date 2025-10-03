@@ -95,7 +95,6 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
   const voiceAgentRef = useRef<RealtimeVoiceAgentRef>(null);
 
 
-  const [tippingCooldown, setTippingCooldown] = useState(false);
   const [processedTippingMessages, setProcessedTippingMessages] = useState<Set<string>>(new Set());
   const [historicalMessageIds, setHistoricalMessageIds] = useState<Set<string>>(new Set());
 
@@ -109,18 +108,12 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
     }
   }, [searchParams, router]);
 
-  // Reset tipping cooldown after returning from tipping page
+  // Clean up tipping return URL parameter
   useEffect(() => {
     const tippingReturn = searchParams.get('tipping_return');
     if (tippingReturn === 'true') {
-      setTippingCooldown(true);
       // Clean up the URL parameter
       router.replace('/', { scroll: false });
-      // Reset cooldown after 30 seconds
-      const timer = setTimeout(() => {
-        setTippingCooldown(false);
-      }, 30000);
-      return () => clearTimeout(timer);
     }
   }, [searchParams, router]);
 
@@ -183,7 +176,6 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
         handleInputChange={handleInputChange}
         handleVoiceToggle={handleVoiceToggle}
         scrollToBottom={scrollToBottom}
-        tippingCooldown={tippingCooldown}
         processedTippingMessages={processedTippingMessages}
         setProcessedTippingMessages={setProcessedTippingMessages}
       historicalMessageIds={historicalMessageIds}
@@ -220,7 +212,6 @@ type ChatBotContentProps = {
   handleInputChange: (e: ChangeEvent<HTMLTextAreaElement>) => void
   handleVoiceToggle: () => void
   scrollToBottom: boolean
-  tippingCooldown: boolean
   processedTippingMessages: Set<string>
   setProcessedTippingMessages: (messages: Set<string> | ((prev: Set<string>) => Set<string>)) => void
   historicalMessageIds: Set<string>
@@ -229,7 +220,7 @@ type ChatBotContentProps = {
   hotelContext: string
 }
 
-function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, tippingCooldown, processedTippingMessages, setProcessedTippingMessages, historicalMessageIds, voiceAgentRef, sendMessage, hotelContext }: ChatBotContentProps) {
+function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, processedTippingMessages, setProcessedTippingMessages, historicalMessageIds, voiceAgentRef, sendMessage, hotelContext }: ChatBotContentProps) {
   const conversationScrollContextRef = useRef<StickToBottomContext>(null);
   const latestMessage = messages[messages.length - 1];
   // we stop if the latest message is assistant, and the part of the message is in the SCROLL_STOP_TYPES
@@ -452,10 +443,10 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                         case 'tool-initiate_tipping':
                           const tippingData = JSON.parse(part.output as string);
                           if (tippingData.action === 'navigate_to_tipping') {
-                            // Only navigate if not in cooldown, message hasn't been processed, and it's not a historical message
+                            // Only navigate if message hasn't been processed and it's not a historical message
                             const messageId = `${message.id}-${i}`;
                             const isHistoricalMessage = historicalMessageIds.has(message.id);
-                            if (!tippingCooldown && !processedTippingMessages.has(messageId) && !isHistoricalMessage) {
+                            if (!processedTippingMessages.has(messageId) && !isHistoricalMessage) {
                               setProcessedTippingMessages(prev => new Set(prev).add(messageId));
                               setTimeout(() => {
                                 // Add return parameter to track when user comes back
