@@ -12,6 +12,7 @@ export const CreateTipRequestSchema = z.object({
   amount: z.string().min(1, 'Amount is required'),
   currency: z.string().default('USD'),
   paymentMethod: z.string().min(1, 'Payment method is required'),
+  // Guest information - currently not collected in UI
   guestName: z.string().optional(),
   guestEmail: z.string().email().optional().or(z.literal('')),
   roomNumber: z.string().optional(),
