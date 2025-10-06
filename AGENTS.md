@@ -45,6 +45,7 @@ const Env = z.object({
   DATABASE_URL: z.string().url(),
   BETTER_AUTH_SECRET: z.string().min(32),
   NEXT_PUBLIC_APP_URL: z.string().url(),
+  APP_API_KEY: z.string().url()
 });
 
 export const env = Env.parse(process.env);
@@ -406,3 +407,83 @@ Some commonly used components are
 ## Component Styling
 
 This project uses the "new-york" style variant with the "neutral" base color and CSS variables for theming, as configured in `components.json`.
+
+## React Anti-Patterns to Avoid
+
+### Avoid Unnecessary useEffect for Data Fetching
+
+**❌ DON'T: Use useEffect for data fetching when server actions can handle it**
+
+```tsx
+// BAD: Unnecessary useEffect for data fetching
+function MyComponent() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const result = await fetch('/api/data');
+        const data = await result.json();
+        setData(data);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+  return <div>{data?.name}</div>;
+}
+```
+
+**✅ DO: Use server actions and server components when possible**
+
+```tsx
+// GOOD: Server component with server action
+async function MyComponent() {
+  const data = await getData(); // Server action
+  
+  return <div>{data.name}</div>;
+}
+```
+
+**✅ DO: Use server actions in client components when needed**
+
+```tsx
+// GOOD: Client component using server action
+function MyComponent() {
+  const [data, setData] = useState(null);
+
+  const handleAction = async () => {
+    const result = await myServerAction(); // Server action
+    setData(result);
+  };
+
+  return (
+    <div>
+      <button onClick={handleAction}>Load Data</button>
+      {data && <div>{data.name}</div>}
+    </div>
+  );
+}
+```
+
+### When to Use useEffect
+
+**✅ Appropriate useEffect usage:**
+- Event listeners (scroll, resize, keyboard)
+- Timers and intervals
+- Cleanup operations
+- Syncing with external libraries
+- Form validation that doesn't require server calls
+
+**❌ Avoid useEffect for:**
+- Data fetching (use server actions)
+- Session management (use Better Auth hooks)
+- API calls (use server actions)
+- State synchronization that can be handled server-side

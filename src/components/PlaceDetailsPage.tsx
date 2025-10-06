@@ -35,7 +35,7 @@ export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) 
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">

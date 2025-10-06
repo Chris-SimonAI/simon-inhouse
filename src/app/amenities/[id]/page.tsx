@@ -1,6 +1,5 @@
 import { getAmenityById } from "@/actions/amenities";
 import { AmenityDetailsPage } from "@/components/AmenityDetailsPage";
-import { DEFAULT_HOTEL_ID } from "@/constants";
 import { notFound } from "next/navigation";
 
 interface PageProps {
@@ -16,7 +15,7 @@ export default async function AttractionsPage({ params }: PageProps) {
     notFound();
   }
 
-  const response = await getAmenityById(idNumber, DEFAULT_HOTEL_ID);
+  const response = await getAmenityById(idNumber);
 
   if (!response.ok) {
     notFound();
