@@ -29,10 +29,10 @@ async function handleExistingSession(existingSession: BetterAuthSession): Promis
     sessionId: existingSession.session.id,
     userId: existingSession.session.userId,
     qrData: {
-      hotelId: existingSession.session.hotelId || '',
-      qrId: existingSession.session.qrId || '',
-      threadId: existingSession.session.threadId || '',
-      qrCode: existingSession.session.qrCode || '',
+      hotelId: existingSession.session.hotelId,
+      qrId: existingSession.session.qrId,
+      threadId: existingSession.session.threadId,
+      qrCode: existingSession.session.qrCode,
     },
   };
   

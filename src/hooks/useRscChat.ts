@@ -22,7 +22,7 @@ export type UseRscChatOptions<M extends UIMessage = UIMessage> = {
   threadId: string;
 
   /** Hotel ID to pass to the action */
-  hotelId?: string | number;
+  hotelId?: number;
 
   /** Initial messages (UIMessage[]) */
   messages?: M[];

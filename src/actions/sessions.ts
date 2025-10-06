@@ -9,12 +9,12 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 
 export interface UpdateSessionData {
-  id?: string;
-  hotelId?: string;
-  qrId?: string;
-  threadId?: string;
-  qrCode?: string;
-  token?: string;
+  id: string;
+  hotelId: string;
+  qrId: string;
+  threadId: string;
+  qrCode: string;
+  token: string;
 }
 
 export interface HotelSessionResult {
@@ -62,10 +62,10 @@ export async function getHotelSession(): Promise<CreateSuccess<SessionDataRespon
 
     // Get QR data from session additional fields
     const qrData = {
-      hotelId: session.session.hotelId || '',
-      qrId: session.session.qrId || '',
-      threadId: session.session.threadId || '',
-      qrCode: session.session.qrCode || '',
+      hotelId: session.session.hotelId,
+      qrId: session.session.qrId,
+      threadId: session.session.threadId,
+      qrCode: session.session.qrCode,
     };
 
     // Check if all required data is present
@@ -115,10 +115,10 @@ export async function updateSession(data: Partial<Pick<UpdateSessionData, 'hotel
     const sessionData: SessionData = {
       id: updatedSession.id,
       userId: updatedSession.userId,
-      hotelId: updatedSession.hotelId || '',
-      qrId: updatedSession.qrId || '',
-      threadId: updatedSession.threadId || '',
-      qrCode: updatedSession.qrCode || '',
+      hotelId: updatedSession.hotelId!,
+      qrId: updatedSession.qrId!,
+      threadId: updatedSession.threadId!,
+      qrCode: updatedSession.qrCode!,
       expiresAt: updatedSession.expiresAt,
       createdAt: updatedSession.createdAt,
       updatedAt: updatedSession.updatedAt,

@@ -25,10 +25,10 @@ export async function GET(request: NextRequest) {
 
     // Get QR data from session additional fields
     const qrData = {
-      hotelId: session.session.hotelId || '',
-      qrId: session.session.qrId || '',
-      threadId: session.session.threadId || '',
-      qrCode: session.session.qrCode || '',
+      hotelId: session.session.hotelId,
+      qrId: session.session.qrId,
+      threadId: session.session.threadId,
+      qrCode: session.session.qrCode,
     };
 
     // Check if all required data is present

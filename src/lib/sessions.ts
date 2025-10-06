@@ -42,12 +42,11 @@ export async function createSession(data: CreateSessionData): Promise<SessionDat
     }
     const signInResult = await auth.api.signInAnonymous()
     console.log("Sign in success:", signInResult);
-    if (!signInResult) {
+    if (!signInResult || !signInResult.token) {
       return null;  
     }
 
-    const sessionToken = signInResult?.token;
-    sessionData.token = sessionToken || '';
+    sessionData.token = signInResult.token;
     const updateSessionResult = await updateSession(sessionData);
 
     if (!updateSessionResult.ok || !updateSessionResult.data) {
