@@ -108,7 +108,7 @@ export function MenuView({ menuData, restaurantGuid }: MenuViewProps) {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="h-full bg-white flex flex-col">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white">
         <div className="flex items-center justify-between px-4 py-3">

@@ -4,6 +4,14 @@ import "dotenv/config";
 import { type ClientConfig } from "pg";
 import fs from "fs";
 
+const DEMO_QR_CODE = {
+  code: "e4c1f2a9",
+  hotelId: 1,
+  isValid: true,
+  expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3000),
+  revokedAt: null
+}
+
 export const DEMO_HOTEL = {
   name: "The Anza Hotel",
   address: "23627 Calabasas Road, Calabasas, CA 91302, USA",
@@ -242,6 +250,7 @@ async function resetAllTables() {
 
   // Reset in correct dependency order (children first, then parents)
   const table_names = [
+    "qr_codes",           // Depends on hotels
     "modifier_options",    // No dependencies
     "modifier_groups",     // Depends on menu_items
     "menu_items",          // Depends on menu_groups
@@ -453,6 +462,15 @@ async function main() {
   const hotelId = insertedHotel.rows[0].id;
   console.log(`Inserted hotel with ID: ${hotelId}`);
 
+  // Insert QR code using direct SQL
+  const insertedQrCode = await db.execute(sql`
+    INSERT INTO qr_codes (hotel_id, code, expires_at, created_at, updated_at)
+    VALUES (${hotelId}, ${DEMO_QR_CODE.code}, ${DEMO_QR_CODE.expiresAt}, NOW(), NOW())
+    RETURNING id
+  `);
+  const qrCodeId = insertedQrCode.rows[0].id;
+  console.log(`Inserted QR code with ID: ${qrCodeId}`);
+
   // Insert amenities using direct SQL with proper array formatting
   for (const amenity of DEMO_AMENITIES) {
     // Convert arrays to PostgreSQL array format
@@ -503,6 +521,7 @@ async function main() {
   }
 
   console.log(`- Hotel: ${hotelId}`);
+  console.log(`- QR Code: ${qrCodeId}`);
   console.log(`- Amenities: ${DEMO_AMENITIES.length}`);
   console.log(`- Restaurants: ${DEMO_RESTAURANTS.length}`);
   console.log("Comprehensive seed completed successfully!");
