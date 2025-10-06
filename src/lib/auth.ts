@@ -4,7 +4,6 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { anonymous, customSession } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { session, user, account, verification } from "@/db/schemas/index";
-import { env } from "@/env";
 
 // const isProd = env.NODE_ENV === "production";
 // Since https is not working in production, we need to set it to false
