@@ -14,6 +14,7 @@ export interface UseTTSReturn {
   playText: (text: string) => Promise<void>;
   stopPlayback: () => void;
   error: string | null;
+  audioElement: HTMLAudioElement | null;
 }
 
 export function useTTS({
@@ -23,12 +24,16 @@ export function useTTS({
 }: UseTTSOptions = {}): UseTTSReturn {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Use refs for callbacks to avoid recreating playText on every callback change
+  const callbacksRef = useRef({ onPlaybackComplete, onPlaybackStart, onError });
+  callbacksRef.current = { onPlaybackComplete, onPlaybackStart, onError };
 
   const playText = useCallback(async (text: string) => {
     try {
       setError(null);
-      setIsPlaying(true);
       
       // Stop any existing playback
       if (audioRef.current) {
@@ -36,37 +41,44 @@ export function useTTS({
         audioRef.current = null;
       }
       
-      // Convert text to speech
+      // Convert text to speech FIRST
       const { audioUrl } = await convertTextToSpeech(text);
       
-      // Create and play audio
+      // Create audio element
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
+      setAudioElement(audio);
       
+      // Set up event handlers BEFORE setting isPlaying
       audio.onended = () => {
         setIsPlaying(false);
-        onPlaybackComplete?.();
+        setAudioElement(null);
+        callbacksRef.current.onPlaybackComplete?.();
       };
       
       audio.onerror = () => {
         const errorMessage = 'Failed to play audio';
         setError(errorMessage);
         setIsPlaying(false);
-        onError?.(new Error(errorMessage));
+        setAudioElement(null);
+        callbacksRef.current.onError?.(new Error(errorMessage));
       };
       
+      // Set isPlaying BEFORE starting playback
+      setIsPlaying(true);
       await audio.play();
       
       // Call onPlaybackStart when audio successfully starts playing
-      onPlaybackStart?.();
+      callbacksRef.current.onPlaybackStart?.();
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'TTS failed';
       setError(errorMessage);
       setIsPlaying(false);
-      onError?.(err instanceof Error ? err : new Error(errorMessage));
+      setAudioElement(null);
+      callbacksRef.current.onError?.(err instanceof Error ? err : new Error(errorMessage));
     }
-  }, [onPlaybackComplete, onPlaybackStart, onError]);
+  }, []);
 
   const stopPlayback = useCallback(() => {
     if (audioRef.current) {
@@ -74,6 +86,7 @@ export function useTTS({
       audioRef.current = null;
     }
     setIsPlaying(false);
+    setAudioElement(null);
   }, []);
 
   return {
@@ -81,6 +94,7 @@ export function useTTS({
     playText,
     stopPlayback,
     error,
+    audioElement,
   };
 }
 

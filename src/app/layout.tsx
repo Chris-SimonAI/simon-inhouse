@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { AppWrapper } from "@/components/AppWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,8 +31,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-dvh h-dvh w-full max-w-md mx-auto bg-gray-50 relative`}
       >
         <NotificationProvider>
-          {children}
-        <Toaster />
+          <AppWrapper>
+            {children}
+          </AppWrapper>
+          <Toaster />
         </NotificationProvider>
       </body>
     </html>

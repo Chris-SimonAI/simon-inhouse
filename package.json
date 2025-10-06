@@ -17,11 +17,13 @@
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio --config=drizzle.config.ts --verbose",
-    "db:seed": "node --experimental-strip-types scripts/seed.ts"
+    "db:seed": "node --experimental-strip-types scripts/seed.ts",
+    "db:better-auth": "npx @better-auth/cli@latest generate --output=./src/db/schemas/auth.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^2.0.44",
     "@ai-sdk/rsc": "^1.0.44",
+    "@better-auth/cli": "^1.3.18",
     "@langchain/core": "0.3.73",
     "@langchain/langgraph": "^0.4.9",
     "@langchain/langgraph-checkpoint-postgres": "^0.1.2",
@@ -45,7 +47,7 @@
     "@stripe/stripe-js": "^8.0.0",
     "ai": "^5.0.44",
     "babel-plugin-react-compiler": "^19.1.0-rc.3",
-    "better-auth": "^1.3.11",
+    "better-auth": "^1.3.19",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.2",
