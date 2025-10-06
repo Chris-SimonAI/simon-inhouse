@@ -4,6 +4,7 @@ import { SessionProvider } from '@/contexts/SessionContext';
 import { QRCodeHandler } from '@/components/QRCodehandler';
 import { SessionLoader } from '@/components/SessionLoader';
 import { usePathname } from 'next/navigation';
+import { Suspense } from 'react';
 
 interface AppWrapperProps {
   children: React.ReactNode;
@@ -20,8 +21,10 @@ export function AppWrapper({ children }: AppWrapperProps) {
   return (
     <SessionProvider>
       <div className="h-dvh w-full bg-gray-50">
-        <QRCodeHandler />
-        <SessionLoader />
+        <Suspense fallback={<div />}>
+          <QRCodeHandler />
+          <SessionLoader />
+        </Suspense>
         <div className="h-dvh w-full flex justify-center">
           <div className="h-dvh w-full max-w-md">
             {children}
