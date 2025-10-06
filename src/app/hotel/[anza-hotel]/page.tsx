@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import AnzaHotelLogo from '@/svgs/anza-hotel-logo';
 
 export default function HotelPage() {
     return (
@@ -31,13 +32,7 @@ export default function HotelPage() {
                     left: 'calc(50% - 300px)'
                 }}
             >
-                <Image
-                    src="/hotel/hotel_logo.svg"
-                    alt="Hotel Logo"
-                    width={250}
-                    height={250}
-                    className="w-full h-full object-contain"
-                />
+                <AnzaHotelLogo />
             </div>
 
             {/* White Card Overlay - Responsive */}
