@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CreditCard, Delete, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,12 +26,6 @@ export function TipStaffScreen({ onBack, initialAmount, dynamicMessage, hotelNam
   const [isProcessing, setIsProcessing] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
 
-  // Handle external amount population
-  useEffect(() => {
-    if (initialAmount && initialAmount > 0) {
-      setSelectedAmount(initialAmount);
-    }
-  }, [initialAmount]);
 
   const handleAmountSelect = (amount: number) => {
     setSelectedAmount(amount);
@@ -107,7 +101,7 @@ export function TipStaffScreen({ onBack, initialAmount, dynamicMessage, hotelNam
         // Navigate to payment processing screen
         router.push(`/tip-staff/payment/${result.data.id}`);
       } else {
-        console.error("Failed to create tip:", result.message);
+        console.error("Failed to create tip:", !result.ok ? result.message : "Unknown error");
       }
     } catch (error) {
       console.error("Error processing tip:", error);
@@ -158,7 +152,7 @@ export function TipStaffScreen({ onBack, initialAmount, dynamicMessage, hotelNam
             {/* Text Message */}
             <div className="text-center mb-6">
               <p className="text-gray-600 text-sm leading-relaxed">
-                {dynamicMessage || `We appreciate your generosity in tipping the team. Our service team is critical to making your stay at ${hotelName || "Anza Hotel"} the best it can be.`}
+                {dynamicMessage || `We appreciate your generosity in tipping the team. Our service team is critical to making your stay ${hotelName ? `at ${hotelName}` : 'here'} the best it can be.`}
               </p>
             </div>
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { XCircle, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTipById, updateTipStatus } from "@/actions/tips";
-import { useNotification } from "@/contexts/NotificationContext";
+import { toast } from "sonner";
 import { type Tip } from "@/db/schemas/tips";
 
 interface PaymentProcessingScreenProps {
@@ -16,7 +16,6 @@ type PaymentStatus = "processing" | "success" | "failed";
 
 export function PaymentProcessingScreen({ tipId }: PaymentProcessingScreenProps) {
   const router = useRouter();
-  const { showNotification } = useNotification();
   const [status, setStatus] = useState<PaymentStatus>("processing");
   const [_tipData, setTipData] = useState<Tip | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +49,11 @@ export function PaymentProcessingScreen({ tipId }: PaymentProcessingScreenProps)
             transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           });
           
-          // Show notification and redirect immediately to prevent white page flash
+          // Show success toast
           if (tipResult.data) {
-            showNotification(Number(tipResult.data.amount), "Tip Sent");
+            toast.success("Tip Sent", {
+              description: `$${tipResult.data.amount} tip has been processed successfully`,
+            });
           }
           router.push("/?tipping_return=true");
         } else {
@@ -72,7 +73,7 @@ export function PaymentProcessingScreen({ tipId }: PaymentProcessingScreenProps)
     };
 
     processPayment();
-  }, [tipId, router, showNotification]);
+  }, [tipId, router]);
 
   const handleBackToHome = () => {
     router.push("/?tipping_return=true");
