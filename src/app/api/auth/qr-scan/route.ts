@@ -21,36 +21,16 @@ interface BetterAuthSession {
   };
 }
 
-/**
- * Handles existing session with QR code - returns session data
- */
-async function handleExistingSession(existingSession: BetterAuthSession): Promise<NextResponse> {
-  const existingSessionResponse = {
-    sessionId: existingSession.session.id,
-    userId: existingSession.session.userId,
-    qrData: {
-      hotelId: existingSession.session.hotelId,
-      qrId: existingSession.session.qrId,
-      threadId: existingSession.session.threadId,
-      qrCode: existingSession.session.qrCode,
-    },
-  };
-  
-  return NextResponse.json(
-    createSuccess(existingSessionResponse),
-    { status: 200 }
-  );
-}
 
 /**
- * Processes new QR code - validates and creates/updates session
+ * Processes QR code - validates and creates/updates session
  */
-async function processNewQRCode(qrCode: string, existingSession: BetterAuthSession | null, request: NextRequest): Promise<NextResponse> {
+async function processQRCode(qrCode: string, existingSession: BetterAuthSession | null, request: NextRequest): Promise<NextResponse> {
   // Validate QR code
   const qrResult = await validateQRCode(qrCode);
   if (!qrResult?.ok || !qrResult?.data) {
     return NextResponse.json(
-      createError("Invalid or expired QR code"),    
+      createError("Invalid or expired QR code"),
       { status: 400 }
     );
   }
@@ -87,37 +67,47 @@ async function processNewQRCode(qrCode: string, existingSession: BetterAuthSessi
     if (newSessionResponse instanceof Response) {
       return newSessionResponse as unknown as NextResponse;
     }
-    
+
     return NextResponse.json(createSuccess(newSessionResponse));
   } else {
-    // Handle existing session
-    if (existingSession.session.qrId === qrData.qrId) {
-      // Same QR - session is valid
-      return NextResponse.json(createSuccess("Session valid"));
-    } else {
-      // New QR scanned - update session
-      const updatedSession = await updateSession({
-        hotelId: qrData.hotelId,
-        qrId: qrData.qrId,
-        threadId: qrData.threadId,
-        qrCode: qrData.qrCode,
-        token: existingSession.session.token,
-      });
-
-      if (!updatedSession.ok || !updatedSession.data) {
-        return NextResponse.json(
-          createError("Failed to update session"),
-          { status: 500 }
-        );
-      }
-
-      const updatedSessionResponse = await auth.api.getSession({
-        headers: request.headers,
-        query: { disableCookieCache: true }
-      });
+    // Check if it's the same QR code - no need to update
+    if (existingSession.session.qrCode === qrData.qrCode) {
+      const existingSessionResponse = {
+        sessionId: existingSession.session.id,
+        userId: existingSession.session.userId,
+        qrData: {
+          hotelId: existingSession.session.hotelId,
+          qrId: existingSession.session.qrId,
+          threadId: existingSession.session.threadId,
+          qrCode: existingSession.session.qrCode,
+        },
+      };
       
-      return NextResponse.json(createSuccess(updatedSessionResponse));
+      return NextResponse.json(createSuccess(existingSessionResponse));
     }
+
+    // Update existing session with new QR data
+    const updatedSession = await updateSession({
+      hotelId: qrData.hotelId,
+      qrId: qrData.qrId,
+      threadId: qrData.threadId,
+      qrCode: qrData.qrCode,
+      token: existingSession.session.token,
+    });
+
+    if (!updatedSession.ok || !updatedSession.data) {
+      return NextResponse.json(
+        createError("Failed to update session"),
+        { status: 500 }
+      );
+    }
+
+    const updatedSessionResponse = await auth.api.getSession({
+      headers: request.headers,
+      query: { disableCookieCache: true }
+    });
+    
+    return NextResponse.json(createSuccess(updatedSessionResponse));
   }
 }
 
@@ -133,7 +123,7 @@ export async function POST(request: NextRequest) {
     // Validate request parameters
     if (!existingSession && !qrCode) {
       return NextResponse.json(
-        createError("No active session found"),
+        createError("No active session found and no QR code provided"), 
         { status: 401 }
       );
     }
@@ -145,13 +135,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Handle existing session with QR code
-    if (existingSession && qrCode) {
-      return await handleExistingSession(existingSession);
-    }
-
-    // Process new QR code
-    return await processNewQRCode(qrCode, existingSession, request);
+    // Process QR code (creates new session or updates existing one)
+    return await processQRCode(qrCode, existingSession, request);
 
   } catch (error) {
     console.error("QR scan error:", error);
