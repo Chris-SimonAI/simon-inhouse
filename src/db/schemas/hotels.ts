@@ -7,6 +7,7 @@ export const hotels = pgTable("hotels", {
   address: text("address"),
   latitude: decimal("latitude", { precision: 15, scale: 8 }).notNull(),
   longitude: decimal("longitude", { precision: 15, scale: 8 }).notNull(),
+  stripeAccountId: varchar("stripe_account_id", { length: 255 }),
   metadata: jsonb("metadata"),
   ...timestamps,
 });

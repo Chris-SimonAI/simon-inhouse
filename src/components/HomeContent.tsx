@@ -8,6 +8,8 @@ import VoiceIntroClient from '@/components/VoiceIntroClient';
 import { Loader } from '@/components/ai-elements/loader';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import OrderSuccessToast from '@/components/OrderSuccessToast';
+
 
 export function HomeContent() {
   const { sessionData, isLoading } = useSession();
@@ -63,6 +65,7 @@ export function HomeContent() {
   // Show main chatbot interface
   return (
     <div className="h-dvh w-full bg-gray-50">
+      <OrderSuccessToast />
       <div className="h-dvh w-full flex justify-center">
         <div className="h-dvh w-full max-w-md">
           <ChatbotClient
