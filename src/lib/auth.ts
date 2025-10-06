@@ -6,7 +6,9 @@ import { nextCookies } from "better-auth/next-js";
 import { session, user, account, verification } from "@/db/schemas/index";
 import { env } from "@/env";
 
-const isProd = env.NODE_ENV === "production";
+// const isProd = env.NODE_ENV === "production";
+// Since https is not working in production, we need to set it to false
+const isProd = false;
 
 const options = {
   database: drizzleAdapter(db, {
