@@ -27,8 +27,8 @@ export const debounce: DebounceFunction = (func, delay) => {
 };
 
 // overloads so TS knows which shape to return
-export function createSuccess<T>(data: T): CreateSuccess<T> {
-  return { ok: true, data };
+export function createSuccess<T>(data: T, message?: string): CreateSuccess<T> {
+  return message ? { ok: true, data, message } : { ok: true, data };
 }
 
 export function createError(message: string): CreateError;

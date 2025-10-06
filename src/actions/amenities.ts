@@ -5,12 +5,19 @@ import { amenities, Amenity } from "@/db/schemas/amenities";
 import { and, eq } from "drizzle-orm";
 import { createSuccess, createError } from "@/lib/utils";
 import { CreateError, CreateSuccess } from "@/types/response";
+import { getHotelSession } from "./sessions";
 
 
 
 // Get amenity by ID
-export async function getAmenityById(id: number, hotelId: number): Promise<CreateSuccess<Amenity> | CreateError<string[]>> {  
+export async function getAmenityById(id: number): Promise<CreateSuccess<Amenity> | CreateError<string[]>> {  
   try {
+    const sessionResult = await getHotelSession();
+    if (!sessionResult.ok || !sessionResult.data) {
+      return createError("Failed to get hotel session");
+    }
+    const hotelId = parseInt(sessionResult.data.qrData.hotelId) 
+
     const [amenity] = await db.select().from(amenities).where(and(eq(amenities.id, id), eq(amenities.hotelId, hotelId)));
     
     if (!amenity) {
