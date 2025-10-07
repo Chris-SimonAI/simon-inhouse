@@ -3,7 +3,6 @@ import 'server-only';
 
 export const runtime = 'nodejs';
 
-import { stripe } from '@/lib/stripe';
 import { db } from '@/db';
 import { dineInOrders, dineInPayments } from '@/db/schemas';
 import { eq } from 'drizzle-orm';
@@ -12,6 +11,8 @@ import Stripe from 'stripe';
 
 export async function POST(req: NextRequest) {
   try {
+    const { stripe } = await import('@/lib/stripe');
+    
     const body = await req.text();
     const signature = req.headers.get('stripe-signature');
 
