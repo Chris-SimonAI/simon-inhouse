@@ -1,6 +1,7 @@
 import { DynamicStructuredTool, DynamicTool } from "@langchain/core/tools";
 import { searchRestaurants, searchAttractions } from "@/lib/places";
 import { SearchPlacesArgsSchema, SearchPlacesArgsInput } from "@/validations/places";
+import { InitiateTippingArgsSchema, InitiateTippingArgsInput } from "@/validations/tipping";
 import { getAmenitiesByHotelId } from "@/actions/amenities";
 import { getDineInRestaurantsByHotelId } from "@/actions/dine-in-restaurants";
 
@@ -125,31 +126,30 @@ export const getDineInRestaurantsTool = new DynamicTool({
 });
 
 
-export const initiateTippingTool = new DynamicTool({
+export const initiateTippingTool = new DynamicStructuredTool({
   name: "initiate_tipping",
   description:
-        "Initiate the tipping process when guests want to tip hotel service team. Use this when guests ask about tipping, want to leave a tip, or show appreciation for service. Input should be in format 'hotelId:message' where hotelId is the hotel ID number and message is what you want to display to the guest on the tipping page, or 'hotelId:start' for default message.",
-  func: async (input: string) => {
-    const [hotelIdStr, messageInput] = input.split(':', 2);
-    const hotelId = parseInt(hotelIdStr);
-    
-    if (isNaN(hotelId)) {
+    "Initiate the tipping process when guests want to tip hotel service team. Use this when guests ask about tipping, want to leave a tip, or show appreciation for service. Args: hotelId (required) and optional message to display on the tipping page.",
+  schema: InitiateTippingArgsSchema,
+  func: async (args: InitiateTippingArgsInput) => {
+    try {
+      const { hotelId, message } = args;
+      
+      let url = `/tip-staff?hotelId=${hotelId}`;
+      if (message) {
+        url += `&message=${encodeURIComponent(message)}`;
+      }
+      
       return JSON.stringify({
-        error: "INVALID_HOTEL_ID",
-        message: "Hotel ID must be provided as a valid number"
+        action: "navigate_to_tipping",
+        message: "I'd be happy to help you tip our wonderful service team! Let me take you to our tipping system where you can show your appreciation to any of our team members.",
+        url: url
+      });
+    } catch (err) {
+      return JSON.stringify({
+        error: "TIPPING_TOOL_ERROR",
+        message: err instanceof Error ? err.message : String(err)
       });
     }
-    
-    const message = messageInput === 'start' ? undefined : messageInput;
-    let url = `/tip-staff?hotelId=${hotelId}`;
-    if (message) {
-      url += `&message=${encodeURIComponent(message)}`;
-    }
-    
-    return JSON.stringify({
-      action: "navigate_to_tipping",
-      message: "I'd be happy to help you tip our wonderful service team! Let me take you to our tipping system where you can show your appreciation to any of our team members.",
-      url: url
-    });
   },
 });

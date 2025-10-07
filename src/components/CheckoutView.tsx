@@ -5,12 +5,14 @@ import { CartItem } from './MenuView';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, X } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 type CheckoutViewProps = {
   restaurantGuid: string;
 };
 
 export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
+  const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
 
   useEffect(() => {
@@ -128,6 +130,7 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
       {/* Sticky bottom checkout button */}
       <div className="sticky bottom-0 z-50 p-4">
         <Button
+          onClick={() => router.push(`/dine-in/restaurant/${restaurantGuid}/payment`)}
           className="w-full bg-black text-white hover:bg-gray-800 rounded-full py-8 text-lg font-semibold flex items-center justify-between px-6"
           size="lg"
         >

@@ -38,8 +38,6 @@ import { SCROLL_STOP_TYPES, UI_TOOLS, UiTool, AssistantTextType } from "@/consta
 import { ArrowLeft, Mic } from "lucide-react";
 import { MarkdownResponse } from "./ai-elements/markdown-response";
 import { AmenitiesLogo, AttractionsLogo, DiningLogo, HistoryLogo, InRoomDiningLogo } from "@/svgs";
-import { useNotification } from "@/contexts/NotificationContext";
-import { TipNotification } from "@/components/TipNotification";
 import { DineInRestaurant } from "@/db";
 import { CardSkeletonGroup } from "@/components/CardSkeleton";
 import { AttractionsViewSkeleton } from "@/components/AttractionsViewSkeleton";
@@ -98,7 +96,6 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
   const voiceAgentRef = useRef<RealtimeVoiceAgentRef>(null);
 
 
-  const [tippingCooldown, setTippingCooldown] = useState(false);
   const [processedTippingMessages, setProcessedTippingMessages] = useState<Set<string>>(new Set());
   const [historicalMessageIds, setHistoricalMessageIds] = useState<Set<string>>(new Set());
 
@@ -112,18 +109,12 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
     }
   }, [searchParams, router]);
 
-  // Reset tipping cooldown after returning from tipping page
+  // Clean up tipping return URL parameter
   useEffect(() => {
     const tippingReturn = searchParams.get('tipping_return');
     if (tippingReturn === 'true') {
-      setTippingCooldown(true);
       // Clean up the URL parameter
       router.replace('/', { scroll: false });
-      // Reset cooldown after 30 seconds
-      const timer = setTimeout(() => {
-        setTippingCooldown(false);
-      }, 30000);
-      return () => clearTimeout(timer);
     }
   }, [searchParams, router]);
 
@@ -186,7 +177,6 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
         handleInputChange={handleInputChange}
         handleVoiceToggle={handleVoiceToggle}
         scrollToBottom={scrollToBottom}
-        tippingCooldown={tippingCooldown}
         processedTippingMessages={processedTippingMessages}
         setProcessedTippingMessages={setProcessedTippingMessages}
       historicalMessageIds={historicalMessageIds}
@@ -223,7 +213,6 @@ type ChatBotContentProps = {
   handleInputChange: (e: ChangeEvent<HTMLTextAreaElement>) => void
   handleVoiceToggle: () => void
   scrollToBottom: boolean
-  tippingCooldown: boolean
   processedTippingMessages: Set<string>
   setProcessedTippingMessages: (messages: Set<string> | ((prev: Set<string>) => Set<string>)) => void
   historicalMessageIds: Set<string>
@@ -232,7 +221,7 @@ type ChatBotContentProps = {
   hotelContext: string
 }
 
-function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, tippingCooldown, processedTippingMessages, setProcessedTippingMessages, historicalMessageIds, voiceAgentRef, sendMessage, hotelContext }: ChatBotContentProps) {
+function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, processedTippingMessages, setProcessedTippingMessages, historicalMessageIds, voiceAgentRef, sendMessage, hotelContext }: ChatBotContentProps) {
   const conversationScrollContextRef = useRef<StickToBottomContext>(null);
   const latestMessage = messages[messages.length - 1];
   // we stop if the latest message is assistant, and the part of the message is in the SCROLL_STOP_TYPES
@@ -455,10 +444,10 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                         case 'tool-initiate_tipping':
                           const tippingData = JSON.parse(part.output as string);
                           if (tippingData.action === 'navigate_to_tipping') {
-                            // Only navigate if not in cooldown, message hasn't been processed, and it's not a historical message
+                            // Only navigate if message hasn't been processed and it's not a historical message
                             const messageId = `${message.id}-${i}`;
                             const isHistoricalMessage = historicalMessageIds.has(message.id);
-                            if (!tippingCooldown && !processedTippingMessages.has(messageId) && !isHistoricalMessage) {
+                            if (!processedTippingMessages.has(messageId) && !isHistoricalMessage) {
                               setProcessedTippingMessages(prev => new Set(prev).add(messageId));
                               setTimeout(() => {
                                 // Add return parameter to track when user comes back
@@ -547,7 +536,6 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
   const introText = `Hi, I'm Simon—your 24/7 concierge at ${hotel.name}. I can help with hotel amenities, great places to eat, and things to do around the city. If you are hungry, I can also place food-delivery orders from a variety of our partner restaurants. ${hotel.name} encourages you to place food orders through me, so that I can coordinate with the front desk to ensure your meal comes straight to your room. How can I help today?`
   const displayText = "Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here."
 
-  const { notification, hideNotification } = useNotification();
   
   return (
     <div className={cn(
@@ -629,16 +617,6 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
           </div>
         )}
 
-        {/* Notification positioned above input field */}
-        {notification.isVisible && (
-          <div className="px-6 mb-4">
-            <TipNotification
-              amount={notification.amount?.toString() || "0"}
-              isVisible={notification.isVisible}
-              onClose={hideNotification}
-            />
-          </div>
-        )}
 
         <div className="px-4 pb-4 pt-4 mt-auto">
           <PromptInput onSubmit={handleSubmit} className="rounded-full border-0 relative">

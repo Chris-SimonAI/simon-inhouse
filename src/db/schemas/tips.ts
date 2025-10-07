@@ -11,6 +11,8 @@ export const tips = pgTable("tips", {
   paymentMethod: varchar("payment_method", { length: 50 }).notNull(), // "credit_card"
   paymentStatus: varchar("payment_status", { length: 20 }).notNull().default("pending"), // "pending", "completed", "failed"
   transactionId: varchar("transaction_id", { length: 255 }),
+  // Guest information - currently optional, not collected in UI
+  // TODO: Add guest information collection in tip flow if needed
   guestName: varchar("guest_name", { length: 255 }),
   guestEmail: varchar("guest_email", { length: 255 }),
   roomNumber: varchar("room_number", { length: 20 }),

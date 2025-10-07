@@ -240,3 +240,18 @@ export async function getCompleteMenuByRestaurant(
     return createError("Failed to fetch complete menu");
   }
 }
+
+export async function getMenuItemDatabaseId(menuItemGuid: string): Promise<number | null> {
+  try {
+    const result = await db
+      .select({ id: menuItems.id })
+      .from(menuItems)
+      .where(eq(menuItems.menuItemGuid, menuItemGuid))
+      .limit(1);
+    
+    return result[0]?.id || null;
+  } catch (error) {
+    console.error('Error getting menu item database ID:', error);
+    return null;
+  }
+}
