@@ -251,6 +251,9 @@ async function resetAllTables() {
   // Reset in correct dependency order (children first, then parents)
   const table_names = [
     "qr_codes",           // Depends on hotels
+    "dine_in_payments",   // Depends on dine_in_orders
+    "dine_in_order_items", // Depends on dine_in_orders and menu_items
+    "dine_in_orders",     // Depends on hotels, dine_in_restaurants
     "modifier_options",    // No dependencies
     "modifier_groups",     // Depends on menu_items
     "menu_items",          // Depends on menu_groups
