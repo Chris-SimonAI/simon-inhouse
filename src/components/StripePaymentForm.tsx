@@ -223,7 +223,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         hotelId: 1, // Hardcoded for testing
         restaurantId: 1, // Hardcoded for testing
         userId: 123, // Hardcoded for testing
-        roomNumber: "101", // Default room number
+        roomNumber: roomNumber,
         specialInstructions: "Please deliver to room",
         items: orderItems
       });
