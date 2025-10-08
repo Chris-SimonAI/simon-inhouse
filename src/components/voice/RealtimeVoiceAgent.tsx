@@ -153,7 +153,7 @@ export const RealtimeVoiceAgent = forwardRef<RealtimeVoiceAgentRef, RealtimeVoic
           <div className="w-32 h-1 bg-gray-400 rounded-full mx-auto mt-2 mb-6"></div>
 
           <div className="px-6 text-center mb-2 flex-1 flex flex-col justify-center">
-            <h1 className="text-3xl font-light text-gray-800 mb-6">Simon</h1>
+            <h1 className="text-3xl font-light text-gray-800 mb-6">{status==='listening' ? 'Guest' : 'Simon'}</h1>
 
             {/* Voice Animation */}
             <VoiceAnimation status={status} isConnecting={isConnecting} />
