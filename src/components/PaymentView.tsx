@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CartItem } from "./MenuView";
+import type { CartItem } from "./MenuView";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -22,6 +22,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
   const [customTipAmount, setCustomTipAmount] = useState<string>("");
   const [showCustomTipInput, setShowCustomTipInput] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [discountPercentage, setDiscountPercentage] = useState<number>(0);
 
   useEffect(() => {
     const savedCart = localStorage.getItem(`cart-${restaurantGuid}`);
@@ -35,10 +36,32 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
         setCart([]);
       }
     }
+
+    // Check for dining discount cookie
+    const cookies = document.cookie.split(';');
+    const discountCookie = cookies.find(cookie => 
+      cookie.trim().startsWith('dining_discount=')
+    );
+    
+    if (discountCookie) {
+      const discountValue = parseInt(discountCookie.split('=')[1]);
+      if (!Number.isNaN(discountValue) && discountValue > 0) {
+        setDiscountPercentage(discountValue);
+      }
+    }
   }, [restaurantGuid]);
 
   const getSubtotal = () => {
     return cart.reduce((total, item) => total + item.totalPrice, 0);
+  };
+
+  const getDiscountAmount = () => {
+    if (discountPercentage === 0) return 0;
+    return (getSubtotal() * discountPercentage) / 100;
+  };
+
+  const getSubtotalAfterDiscount = () => {
+    return getSubtotal() - getDiscountAmount();
   };
 
   const getTaxRate = () => {
@@ -47,7 +70,8 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
   };
 
   const getTaxAmount = () => {
-    return getSubtotal() * getTaxRate();
+    // Tax is calculated on the discounted subtotal
+    return getSubtotalAfterDiscount() * getTaxRate();
   };
 
   const getTipAmount = () => {
@@ -57,11 +81,12 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
     if (selectedTip === 0) {
       return 0;
     }
+    // Tip is calculated on the original subtotal (before discount)
     return getSubtotal() * (selectedTip / 100);
   };
 
   const getTotal = () => {
-    return getSubtotal() + getTaxAmount() + getTipAmount();
+    return getSubtotalAfterDiscount() + getTaxAmount() + getTipAmount();
   };
 
   const handleTipSelection = (tip: TipOption) => {
@@ -91,6 +116,9 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
       const paymentData = {
         sessionId,
         subtotal: getSubtotal(),
+        discount: getDiscountAmount(),
+        discountPercentage: discountPercentage,
+        subtotalAfterDiscount: getSubtotalAfterDiscount(),
         tax: getTaxAmount(),
         tip: getTipAmount(),
         total: getTotal(),
@@ -156,6 +184,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
           <div className="flex items-center justify-between px-4 py-3">
             <h1 className="text-lg font-semibold text-gray-900">Menu</h1>
             <button
+              type="button"
               onClick={handleClose}
               className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
             >
@@ -188,6 +217,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-lg font-semibold text-gray-900">Menu</h1>
           <button
+            type="button"
             onClick={handleClose}
             className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
           >
@@ -210,6 +240,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
             <div className="flex flex-col gap-5 pl-2">
               {/* Pay now with card */}
               <button
+                type="button"
                 onClick={() => setPaymentMethod("card")}
                 className={cn(
                   "w-full flex items-center justify-between rounded-lg transition-colors"
@@ -234,6 +265,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
 
               {/* Pay on delivery */}
               <button
+                type="button"
                 disabled
                 onClick={() => setPaymentMethod("delivery")}
                 className={cn(
@@ -285,13 +317,22 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
               </div>
             ))}
 
-            <div className="border-t border-gray-200 border-dashed pt-3 mt-3">
+            <div className="border-t border-gray-200 border-dashed pt-3 mt-3 space-y-2">
               <div className="flex justify-between items-center text-base">
                 <span className="font-semibold text-gray-900">Subtotal</span>
                 <span className="font-semibold text-gray-900">
                   {getSubtotal().toFixed(2)} USD
                 </span>
               </div>
+              
+              {discountPercentage > 0 && (
+                <div className="flex justify-between items-center text-base text-green-600">
+                  <span className="font-medium">Discount ({discountPercentage}%)</span>
+                  <span className="font-medium">
+                    -{getDiscountAmount().toFixed(2)} USD
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -304,6 +345,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
             {[18, 20, 25].map((tip) => (
               <button
                 key={tip}
+                type="button"
                 onClick={() => handleTipSelection(tip as TipOption)}
                 className={cn(
                   "py-2 px-2 rounded-lg border-2 text-base font-medium transition-colors",
@@ -316,6 +358,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
               </button>
             ))}
             <button
+              type="button"
               onClick={() => handleTipSelection(0)}
               className={cn(
                 "py-2 px-2 rounded-lg border-2 text-base font-medium transition-colors",
@@ -328,6 +371,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
             </button>
           </div>
           <button
+            type="button"
             onClick={() => handleTipSelection("custom")}
             className={cn(
               "w-full py-2 px-2 rounded-lg border-2 text-base font-medium transition-colors",
@@ -354,6 +398,14 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
           )}
 
           <div className="mt-4 space-y-2">
+            {getTipAmount() > 0 && (
+              <div className="flex justify-between items-center text-base">
+                <span className="text-gray-900">Tip</span>
+                <span className="text-gray-900">
+                  {getTipAmount().toFixed(2)} USD
+                </span>
+              </div>
+            )}
             <div className="flex justify-between items-center text-base">
               <span className="text-gray-900">Tax</span>
               <span className="text-gray-900">
@@ -385,7 +437,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
         <div className="mt-3 text-xs text-gray-500 text-center">
           Meet Simon&apos;s privacy policy & SMS policy regarding Internet
           information |{" "}
-          <a href="#" className="text-blue-600 underline">
+          <a href="/privacy" className="text-blue-600 underline">
             Your Privacy Choices
           </a>
         </div>
