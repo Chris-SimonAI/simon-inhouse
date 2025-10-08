@@ -26,33 +26,38 @@ export default function WelcomeClient({ hotel }: WelcomeClientProps) {
   return (
     <div className="h-dvh w-full bg-gray-50">
       <div className="h-dvh w-full flex justify-center">
-        <div className="h-dvh w-full max-w-md flex items-center justify-center bg-white">
-          <div className="flex flex-col items-center text-center px-6">
-            <h1 className="text-[30px] font-normal text-gray-600 mb-6">
-              Welcome to {hotel.name}!
+        <div className="h-dvh w-full max-w-md flex items-center justify-center relative">
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30"
+            style={{
+              backgroundImage: 'url(/hotel/anza-bedroom.jpg)',
+              backgroundPosition: 'left center',
+              backgroundSize: '200% 100%',
+            }}
+          />
+          
+          <div className="relative z-10 flex flex-col items-center text-center px-6">
+            <h1 className="text-4xl font-bold text-gray-800 mb-3">
+              Welcome
             </h1>
-            <p className="text-base text-[30px] font-normal text-gray-600">
-              Simon is your personal
+            <h2 className="text-2xl font-medium text-gray-700 mb-8">
+              To the {hotel.name}
+            </h2>
+            <p className="text-xl font-medium text-gray-700">
+              Simon is your
             </p>
-            <p className="text-base text-[30px] font-normal text-gray-600 mb-6">
-              concierge
+            <p className="text-xl font-medium text-gray-700 mb-8">
+              personal concierge
             </p>
-            <p className="text-sm text-[30px] font-normal text-gray-600 mb-6">
-              Tap to Meet Simon
+            <p className="text-xl font-medium text-gray-700 mb-6">
+              Tap to meet Simon
             </p>
             <Button 
               onClick={meetSimon}
-              className="bg-black text-white hover:bg-gray-800 rounded-md px-8 py-3 text-sm font-medium mb-4"
+              className="bg-gray-800 text-white hover:bg-gray-900 rounded-lg px-8 py-6 text-base font-medium"
             >
               Meet Simon
             </Button>
-            {/* <Button 
-              onClick={skipIntro}
-              variant="ghost"
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 text-sm"
-            >
-              Skip Intro
-            </Button> */}
           </div>
         </div>
       </div>
