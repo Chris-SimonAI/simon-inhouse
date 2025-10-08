@@ -15,6 +15,22 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Accept build arguments for NEXT_PUBLIC_ variables
+ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+# ✅ Debug: log the build args
+RUN echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"
+RUN echo "NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL"
+RUN echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"
+
+# Set environment variables from build args (needed for Next.js build)
+ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
 # Set minimal env vars needed for build (they will be properly validated at runtime)
 ENV NODE_ENV=production
 # Enable Next.js standalone output for smaller production image

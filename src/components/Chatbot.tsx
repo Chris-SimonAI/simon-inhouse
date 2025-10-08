@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, ChangeEvent, FormEvent, useRef, useLayoutEffect } from "react";
+import Image from "next/image";
 import {
   Conversation,
   ConversationContent,
@@ -41,6 +42,9 @@ import { AmenitiesLogo, AttractionsLogo, DiningLogo, HistoryLogo, InRoomDiningLo
 import { DineInRestaurant } from "@/db";
 import { CardSkeletonGroup } from "@/components/CardSkeleton";
 import { AttractionsViewSkeleton } from "@/components/AttractionsViewSkeleton";
+import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 type Props = {
   processChatMessageStream: RscServerAction
@@ -123,7 +127,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
     if (messages.length > 0) {
       const _currentIds = new Set(messages.map(m => m.id));
       const newHistoricalIds = new Set([...historicalMessageIds]);
-      
+
       // If we have messages but no historical IDs yet, these are loaded from history
       if (historicalMessageIds.size === 0 && messages.length > 0) {
         messages.forEach(m => newHistoricalIds.add(m.id));
@@ -160,7 +164,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
       });
       return;
     }
-    
+
     voiceAgentRef.current?.openVoiceAgent(hotelContext);
   };
 
@@ -168,17 +172,17 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
 
   if (openL1) {
     return <ChatBotContent
-        openL1={openL1}
-        input={input}
-        messages={messages}
-        status={status}
-          setOpenL1={setOpenL1}
-        handleSubmit={handleSubmit}
-        handleInputChange={handleInputChange}
-        handleVoiceToggle={handleVoiceToggle}
-        scrollToBottom={scrollToBottom}
-        processedTippingMessages={processedTippingMessages}
-        setProcessedTippingMessages={setProcessedTippingMessages}
+      openL1={openL1}
+      input={input}
+      messages={messages}
+      status={status}
+      setOpenL1={setOpenL1}
+      handleSubmit={handleSubmit}
+      handleInputChange={handleInputChange}
+      handleVoiceToggle={handleVoiceToggle}
+      scrollToBottom={scrollToBottom}
+      processedTippingMessages={processedTippingMessages}
+      setProcessedTippingMessages={setProcessedTippingMessages}
       historicalMessageIds={historicalMessageIds}
       voiceAgentRef={voiceAgentRef}
       sendMessage={sendMessage}
@@ -254,10 +258,10 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
     attachScrollEl(el);
 
     if (scrollToBottom) {
-        el.scrollTo({
-          top: el.scrollHeight,
-          behavior: "instant"
-        });
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: "instant"
+      });
     }
 
     return () => {
@@ -289,12 +293,12 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
       openL1 ? "contents" : "hidden"
     )}>
       <RealtimeVoiceAgent
-          ref={voiceAgentRef}
-          onHandoffToLangGraph={(transcribedText) => {
-            setOpenL1(true);
-            sendMessage(transcribedText, { inputType: 'voice' });
-          }}
-        />
+        ref={voiceAgentRef}
+        onHandoffToLangGraph={(transcribedText) => {
+          setOpenL1(true);
+          sendMessage(transcribedText, { inputType: 'voice' });
+        }}
+      />
       <div className="flex flex-col h-dvh w-full overflow-x-hidden bg-white">
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white">
           <button
@@ -333,12 +337,6 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                     )}
 
                     {message.parts.map((part, i) => {
-                      // AI agent will always render a message after a tool call
-                      // but incase of UI_TOOLS.GET_DINE_IN_RESTAURANTS we don't want to render the message
-                      if (i > 0 && message.parts[i - 1]?.type === UI_TOOLS.GET_DINE_IN_RESTAURANTS) {
-                        return null;
-                      }
-
                       // Handle loading states for tools
                       if (part.type === 'tool-search_attractions-loading') {
                         return (
@@ -347,10 +345,10 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                           </div>
                         );
                       }
-                      
-                      if (part.type === 'tool-search_restaurants-loading' || 
-                          part.type === 'tool-get_amenities-loading' || 
-                          part.type === 'tool-get_dine_in_restaurants-loading') {
+
+                      if (part.type === 'tool-search_restaurants-loading' ||
+                        part.type === 'tool-get_amenities-loading' ||
+                        part.type === 'tool-get_dine_in_restaurants-loading') {
                         return (
                           <div key={`${message.id}-${i}`} className="py-2">
                             <CardSkeletonGroup count={3} />
@@ -429,7 +427,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                         case UI_TOOLS.GET_DINE_IN_RESTAURANTS:
                           const parsed = JSON.parse(part.output as string);
                           const restaurantResults = Array.isArray(parsed.data) ? parsed.data : [];
-                          
+
                           return (
                             <div key={`${message.id}-${i}`} className="space-y-2 py-2">
                               <h4 className="font-semibold">Deliver to your room</h4>
@@ -521,7 +519,7 @@ type ChatBotContentHomeProps = {
   input: string
   messages: UIMessage[]
   setOpenL1: (open: boolean) => void
-  handleSubmit: (e: FormEvent<HTMLFormElement>) => void
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void
   handleVoiceToggle: () => void
   displayError: string | null
   sendMessage: (message: string, options: { inputType: 'text' | 'voice' }) => void
@@ -536,7 +534,7 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
   const introText = `Hi, I'm Simon—your 24/7 concierge at ${hotel.name}. I can help with hotel amenities, great places to eat, and things to do around the city. If you are hungry, I can also place food-delivery orders from a variety of our partner restaurants. ${hotel.name} encourages you to place food orders through me, so that I can coordinate with the front desk to ensure your meal comes straight to your room. How can I help today?`
   const displayText = "Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here."
 
-  
+
   return (
     <div className={cn(
       openL1 ? "hidden" : "block"
@@ -605,6 +603,118 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
                   </Suggestion>
                 </div>
               ))}
+          </div>
+
+          {/* Promotional Carousel */}
+          <div className="px-2 mb-6">
+            <Carousel className="w-full">
+              <CarouselContent className="-ml-2 md:-ml-4">
+                {/* Dining Discount Card */}
+                <CarouselItem className="basis-[80%]">
+                  <div className="bg-white border rounded-xl shadow-sm p-1 hover:shadow-md transition-shadow duration-200">
+                    <div className="flex gap-4 items-stretch">
+                    <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+                        <Image
+                            src={"/dining-discount.png"}
+                            alt={"Dining Discount"}
+                            width={100}
+                            height={100}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                            }}
+                        />
+                    </div>
+
+                      <div className="flex-1 min-w-0 flex flex-col self-stretch">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-semibold text-gray-800 text-lg leading-tight min-w-0 truncate">
+                            <span className="mr-0.5">Hungry?</span>
+                          </h3>
+                        </div>
+
+                        <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left">
+                        Get 20% off your first in-room dining order
+                        </p>
+
+                        <div className="flex items-end justify-between gap-3 mt-auto">
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => {
+                                // Set cookie for 20% discount
+                                try {
+                                  const expires = new Date();
+                                  expires.setTime(expires.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 days
+                                  document.cookie = `dining_discount=20; expires=${expires.toUTCString()}; path=/; SameSite=Strict`;
+                                } catch (error) {
+                                  console.warn('Failed to set discount cookie:', error);
+                                }
+
+                                // Show toast notification
+                                toast.success("Discount Applied!", {
+                                  description: "20% dining discount has been applied and will be reflected at checkout.",
+                                });
+
+                                // Trigger the dining options action
+                                setOpenL1(true);
+                                setScrollToBottom(true);
+                                sendMessage("I'd like to know about in-room dining options.", { inputType: 'text' });
+                              }}
+                              className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md h-auto"
+                            >
+                              Order Now
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CarouselItem>
+
+                {/* Tip Staff Card */}
+                <CarouselItem className="basis-[80%]">
+                  <div className="bg-white border rounded-xl shadow-sm p-1 hover:shadow-md transition-shadow duration-200">
+                    <div className="flex gap-4 items-stretch">
+                    <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+                        <Image
+                            src={"/staff-team.jpg"}
+                            alt={"Staff Team"}
+                            width={100}
+                            height={100}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                            }}
+                        />
+                    </div>
+
+                      <div className="flex-1 min-w-0 flex flex-col self-stretch">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-semibold text-gray-800 text-lg leading-tight flex-1 min-w-0 truncate text-left">
+                            <span className="mr-0.5">Tip Our Staff</span>
+                          </h3>
+                        </div>
+
+                        <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left">
+                          Show appreciation to our amazing team
+                        </p>
+
+                        <div className="flex items-end justify-between gap-3 mt-auto">
+                          <div className="flex gap-2">
+                            <Link
+                              href="/tip-staff?hotelId=1&message=Thank+you+for+choosing+to+show+your+appreciation+to+our+team.+Your+generosity+is+greatly+appreciated%21&return_to=%2F"
+                              className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
+                            >
+                              Tip Staff
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CarouselItem>
+              </CarouselContent>
+            </Carousel>
           </div>
 
         </div>

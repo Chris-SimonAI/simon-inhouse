@@ -6,7 +6,7 @@ import AnzaHotelLogo from '@/svgs/anza-hotel-logo';
 
 export default function HotelPage() {
     return (
-        <div className="relative h-screen w-screen overflow-hidden">
+        <div className="fixed inset-0 w-screen h-screen overflow-hidden">
             {/* Background Image */}
             <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat"
