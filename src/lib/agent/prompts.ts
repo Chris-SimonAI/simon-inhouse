@@ -1,38 +1,18 @@
 import { SystemMessage } from "@langchain/core/messages";
 import { getHotelById } from "@/actions/hotels";
 import { Hotel } from "@/db/schemas/hotels";
+import { getAmenitiesByHotelId } from "@/actions/amenities";
 
-function getMetaValue(meta: unknown, path: string): string {
-   const keys = path.split('.');
-   let current: unknown = meta;
-
-   for (const key of keys) {
-      if (current && typeof current === 'object' && key in current) {
-         current = (current as Record<string, unknown>)[key];
-      } else {
-         return 'Data not available';
-      }
-   }
-
-   return current?.toString() || 'Data not available';
-}
-
-function formatHotelData(hotel: Hotel) {
+function formatHotelData(hotel: Hotel, availableAmenities: string) {
    const meta = hotel.metadata;
    return `
 HOTEL INFORMATION:
 - Hotel ID (FOR TOOL USE): ${hotel.id}
 - Name: ${hotel.name}
 - Address: ${hotel.address}
-- Total Rooms: ${getMetaValue(meta, 'rooms_total')}
-- Pet Friendly: ${getMetaValue(meta, 'pet_friendly') === 'true' ? 'Yes' : getMetaValue(meta, 'pet_friendly') === 'false' ? 'No' : 'Data not available'}
-- Check-in: ${getMetaValue(meta, 'check_in.time')} (Minimum age: ${getMetaValue(meta, 'check_in.age_requirement')})
-- Check-out: ${getMetaValue(meta, 'check_out.time')}
-- Early Check-in Fee: $${getMetaValue(meta, 'check_in.early_check_in_fee.amount')} ${getMetaValue(meta, 'check_in.early_check_in_fee.currency')} ${getMetaValue(meta, 'check_in.early_check_in_fee.notes')}
-- Late Check-out Fee: $${getMetaValue(meta, 'check_out.late_check_out_fee.amount')} ${getMetaValue(meta, 'check_out.late_check_out_fee.currency')} ${getMetaValue(meta, 'check_out.late_check_out_fee.notes')}
-- Parking: $${getMetaValue(meta, 'parking_fee.amount')} ${getMetaValue(meta, 'parking_fee.currency')} ${getMetaValue(meta, 'parking_fee.notes')}
-- Wi-Fi: ${getMetaValue(meta, 'wifi.available') === 'true' ? getMetaValue(meta, 'wifi.description') : 'Not available'}
 - Location: ${hotel.latitude}, ${hotel.longitude}
+- Hotel Metadata: ${JSON.stringify(meta)}
+- Hotel Facilities: ${availableAmenities}
   `.trim();
 }
 
@@ -40,11 +20,16 @@ export async function createConciergePrompt(hotelId: number) {
    const result = await getHotelById(hotelId);
    if (!result.ok || !result.data) throw new Error("Failed to fetch hotel");
    const hotel = result.data;
- 
+
+   const amenities = await getAmenitiesByHotelId(hotelId);
+   if (!amenities.ok || !amenities.data) throw new Error("Failed to fetch amenities");
+   const amenitiesData = amenities.data;
+   const availableAmenities = amenitiesData.map((amenity) => `${amenity.name}: ${amenity.description}`).join(", ");
+    
    return new SystemMessage(`
  You are a helpful, discreet concierge at ${hotel.name}.
  
- ${formatHotelData(hotel)}
+ ${formatHotelData(hotel, availableAmenities)}
  
  HOTEL ID: ${hotel.id} (use this when calling tools that require hotel ID)
  
