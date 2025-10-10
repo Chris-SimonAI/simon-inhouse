@@ -1,4 +1,3 @@
-// app.ts (or wherever you compose the swarm)
 import "server-only";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { createSwarm, createHandoffTool } from "@langchain/langgraph-swarm";
@@ -16,7 +15,12 @@ const concierge = createReactAgent({
     const hotelId = config.metadata!.hotelId! as number;
     const prompt = await createConciergePrompt(hotelId);
     const filtered = state.messages.filter(m => m.getType() !== "system");
-    return [prompt, ...filtered];
+    // we are only fetching the latest messages from the last user message
+    // this means we wont have a moemory, but also it will be faster
+    // and not face context limit issues
+    const lastUserMessageIdx = filtered.findLastIndex(m => m.getType() === "human");
+    const messagesToReturn = filtered.slice(lastUserMessageIdx);
+    return [prompt, ...messagesToReturn];
   },
   tools: [
     emitPrefaceTool,
@@ -38,7 +42,12 @@ const discovery = createReactAgent({
     const hotelId = config.metadata!.hotelId! as number;
     const prompt = await createDiscoveryPrompt(hotelId);
     const filtered = state.messages.filter(m => m.getType() !== "system");
-    return [prompt, ...filtered];
+    // we are only fetching the latest messages from the last user message
+    // this means we wont have a moemory, but also it will be faster
+    // and not face context limit issues
+    const lastUserMessageIdx = filtered.findLastIndex(m => m.getType() === "human");
+    const messagesToReturn = filtered.slice(lastUserMessageIdx);
+    return [prompt, ...messagesToReturn];
   },
   tools: [
     emitPrefaceTool,
