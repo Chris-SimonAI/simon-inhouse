@@ -1,14 +1,13 @@
-// app.ts (or wherever you compose the swarm)
 import "server-only";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { createSwarm, createHandoffTool } from "@langchain/langgraph-swarm";
+import { createSwarm } from "@langchain/langgraph-swarm";
 
 import { model, AGENTS } from "./config";
-import { createConciergePrompt, createDiscoveryPrompt } from "./prompts";
+import { createConciergePrompt } from "./prompts";
 import { searchRestaurantsTool, searchAttractionsTool, getAmenitiesTool, emitPrefaceTool, getDineInRestaurantsTool, initiateTippingTool } from "./tools";
 import { getCheckpointer } from "./checkpointer";
 
-// Concierge
+// Concierge - handles all guest requests including hotel amenities, dining, and local discoveries
 const concierge = createReactAgent({
   llm: model,
   name: AGENTS.CONCIERGE,
@@ -16,44 +15,25 @@ const concierge = createReactAgent({
     const hotelId = config.metadata!.hotelId! as number;
     const prompt = await createConciergePrompt(hotelId);
     const filtered = state.messages.filter(m => m.getType() !== "system");
-    return [prompt, ...filtered];
+    // we are only fetching the latest messages from the last user message
+    // this means we wont have a memory, but also it will be faster
+    // and not face context limit issues
+    const lastUserMessageIdx = filtered.findLastIndex(m => m.getType() === "human");
+    const messagesToReturn = filtered.slice(lastUserMessageIdx);
+    return [prompt, ...messagesToReturn];
   },
   tools: [
     emitPrefaceTool,
     getAmenitiesTool,
     getDineInRestaurantsTool,
     initiateTippingTool,
-    createHandoffTool({
-      agentName: AGENTS.DISCOVERY,
-      description: "Transfer to Discovery specialist for restaurants and attractions.",
-    }),
-  ],
-});
-
-// Discovery
-const discovery = createReactAgent({
-  llm: model,
-  name: AGENTS.DISCOVERY,
-  prompt: async (state, config) => {
-    const hotelId = config.metadata!.hotelId! as number;
-    const prompt = await createDiscoveryPrompt(hotelId);
-    const filtered = state.messages.filter(m => m.getType() !== "system");
-    return [prompt, ...filtered];
-  },
-  tools: [
-    emitPrefaceTool,
     searchRestaurantsTool,
     searchAttractionsTool,
-    createHandoffTool({
-      agentName: AGENTS.CONCIERGE,
-      description: "Transfer back to Concierge for general hotel topics and non-discovery questions.",
-    }),
   ],
 });
 
-
 const workflow = createSwarm({
-  agents: [concierge, discovery],
+  agents: [concierge],
   defaultActiveAgent: AGENTS.CONCIERGE,
 });
 
