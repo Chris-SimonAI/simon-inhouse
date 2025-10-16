@@ -222,9 +222,25 @@ function ModifierGroupSection({
 
   return (
     <div className={cn("pb-4 mx-4 mb-4", !isLastItem && "border-b border-gray-200")}>
-      <div className="flex items-center gap-2 pb-2">
-        <h3 className="font-semibold text-lg">{group.name}</h3>
-        <p className="text-xs text-gray-500 mt-1">{getSelectionText()}</p>
+      <div className="flex items-center justify-between pb-2">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-lg">{group.name}</h3>
+          <p className="text-xs text-gray-500 mt-1">{getSelectionText()}</p>
+        </div>
+        {!group.isRequired && selectedOptions.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              selectedOptions.forEach(id =>
+                onModifierChange(group.id, id, false)
+              );
+            }}
+            className="text-xs text-gray-800 hover:bg-gray-100 h-auto py-1 px-2"
+          >
+            Clear
+          </Button>
+        )}
       </div>
 
       {group.isMultiSelect ? (
@@ -334,9 +350,9 @@ function ModifierRadioOption({ option, value }: ModifierRadioOptionProps) {
           <div className="text-xs text-gray-600 mb-0.5">{option.description}</div>
         </div>
         <div>
-          {1.00 > 0 && (
+          {option.price > 0 && (
             <div className="font-medium">
-              (+${(1.00).toFixed(2)})
+              (+${option.price.toFixed(2)})
             </div>
           )}
         </div>
