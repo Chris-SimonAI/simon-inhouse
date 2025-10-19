@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { amenities, Amenity } from "@/db/schemas/amenities";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { createSuccess, createError } from "@/lib/utils";
 import { CreateError, CreateSuccess } from "@/types/response";
 import { getHotelSession } from "./sessions";
@@ -40,5 +40,16 @@ export async function getAmenitiesByHotelId(hotelId: number): Promise<CreateSucc
   } catch (error) {
     console.error("Error in getAmenitiesByHotelId:", error);
     return createError("Failed to fetch amenities by hotel ID");
+  }
+}
+
+export async function getAmenitiesByEmbedding(embedding: number[]): Promise<CreateSuccess<Amenity[]> | CreateError<string[]>> {
+  try {
+    const embeddingVector = `[${embedding.join(',')}]`;
+    const amenitiesList = await db.select().from(amenities).where(sql`embedding <-> ${embeddingVector}::vector < 0.1`);
+    return createSuccess(amenitiesList);
+  } catch (error) {
+    console.error("Error in getAmenitiesByEmbedding:", error);
+    return createError("Failed to fetch amenities by embedding");
   }
 }

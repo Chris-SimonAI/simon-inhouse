@@ -16,7 +16,7 @@ HOTEL INFORMATION:
   `.trim();
 }
 
-export async function getVoiceAgentHotelContext(hotelId: number = DEFAULT_HOTEL_ID): Promise<string> {
+export async function getVoiceAgentHotelContext(hotelId: number): Promise<string> {
   try {
     const result = await getHotelById(hotelId);
     

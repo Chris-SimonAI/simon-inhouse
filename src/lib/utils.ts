@@ -1,7 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { CreateSuccess, CreateError } from "@/types/response";
-
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
@@ -64,4 +63,19 @@ export function isIOS(): boolean {
 export function isSafari(): boolean {
   if (typeof window === "undefined") return false;
   return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+}
+
+export function jsonToReadableText(obj: Record<string, any>): string {
+  const flatten = (input: any): string => {
+    if (input === null || input === undefined) return "";
+    if (typeof input === "object") {
+      if (Array.isArray(input)) return input.map(flatten).join(", ");
+      return Object.entries(input)
+        .map(([key, value]) => `${key}: ${flatten(value)}`)
+        .join(". ");
+    }
+    return String(input);
+  };
+
+  return flatten(obj);
 }

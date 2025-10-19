@@ -1,5 +1,5 @@
 {
-  "id": "f408b423-b547-4f7c-ad2b-1b7fe67114bc",
+  "id": "97cdb8b2-c941-4374-82ef-6dc84df2e5f7",
   "prevId": "ba43b29c-a7cd-4400-859c-cbacf0201f23",
   "version": "7",
   "dialect": "postgresql",
@@ -51,6 +51,15 @@
           "primaryKey": false,
           "notNull": false
         },
+<<<<<<< HEAD
+=======
+        "embedding": {
+          "name": "embedding",
+          "type": "vector(1536)",
+          "primaryKey": false,
+          "notNull": false
+        },
+>>>>>>> dd91c0a (embedding colum added)
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
@@ -87,6 +96,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+<<<<<<< HEAD
+=======
+        },
+        "amenities_embedding_idx": {
+          "name": "amenities_embedding_idx",
+          "columns": [
+            {
+              "expression": "embedding",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "vector_l2_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "ivfflat",
+          "with": {
+            "lists": 100
+          }
+>>>>>>> dd91c0a (embedding colum added)
         }
       },
       "foreignKeys": {
@@ -1901,11 +1931,15 @@
         "pending",
         "confirmed",
         "delivered",
+<<<<<<< HEAD
         "cancelled",
         "failed",
         "requested_to_toast",
         "toast_ordered",
         "toast_ok_capture_failed"
+=======
+        "cancelled"
+>>>>>>> dd91c0a (embedding colum added)
       ]
     },
     "public.payment_status": {
@@ -1914,7 +1948,10 @@
       "values": [
         "pending",
         "processing",
+<<<<<<< HEAD
         "authorized",
+=======
+>>>>>>> dd91c0a (embedding colum added)
         "succeeded",
         "failed",
         "cancelled"

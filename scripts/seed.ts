@@ -1,8 +1,34 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import "dotenv/config";
 import { type ClientConfig } from "pg";
 import fs from "fs";
+import { OpenAIEmbeddings } from "@langchain/openai";
+
+export async function generateEmbeddingFromJSON(
+  data: Record<string, any>,
+  model = "text-embedding-3-small"
+): Promise<number[]> {
+  const embeddings = new OpenAIEmbeddings({ model });
+  const text = jsonToReadableText(data);
+  const [embedding] = await embeddings.embedDocuments([text]);
+  return embedding;
+}
+
+export function jsonToReadableText(obj: Record<string, any>): string {
+  const flatten = (input: any): string => {
+    if (input === null || input === undefined) return "";
+    if (typeof input === "object") {
+      if (Array.isArray(input)) return input.map(flatten).join(", ");
+      return Object.entries(input)
+        .map(([key, value]) => `${key}: ${flatten(value)}`)
+        .join(". ");
+    }
+    return String(input);
+  };
+
+  return flatten(obj);
+}
 
 const DEMO_QR_CODE = {
   code: "e4c1f2a9",
@@ -52,6 +78,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["pool"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Fitness Center",
@@ -62,6 +89,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["fitness", "gym"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Meeting & Event Space",
@@ -72,6 +100,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["meeting", "conference"],
     metadata: { capacity: 50 },
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Graze Bistro (On-site Dining)",
@@ -83,6 +112,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["dining", "restaurant"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Complimentary Wi-Fi",
@@ -94,6 +124,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["wifi", "internet"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Parking",
@@ -104,6 +135,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["parking", "car", "parking lot"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Pet-Friendly",
@@ -114,6 +146,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["pet-friendly", "dogs", "pets"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Marketplace & Boarding Pass Kiosk",
@@ -124,6 +157,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["marketplace", "boarding pass", "kiosk"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   }
 ];
 
@@ -484,6 +518,17 @@ async function insertedMenu(
   console.log(`- Modifier Options: ${insertedModifierOptions?.length}`);
 }
 
+async function generateEmbeddingForAmenities() {
+  const UPDATED_DEMO_AMENITIES = [];
+  for (let amenity of DEMO_AMENITIES) {
+    const embedding = await generateEmbeddingFromJSON(amenity);
+    amenity["embedding"] = embedding;
+    UPDATED_DEMO_AMENITIES.push(amenity);
+  }
+  console.log(UPDATED_DEMO_AMENITIES);
+  return UPDATED_DEMO_AMENITIES;
+}
+
 async function main() {
   console.log("Starting comprehensive seed...");
 
@@ -509,14 +554,16 @@ async function main() {
   console.log(`Inserted QR code with ID: ${qrCodeId}`);
 
   // Insert amenities using direct SQL with proper array formatting
-  for (const amenity of DEMO_AMENITIES) {
+  for (const amenity of await generateEmbeddingForAmenities()) {
     // Convert arrays to PostgreSQL array format
     const imageUrlsArray = `{${amenity.imageUrls.map(url => `"${url.replace(/"/g, '\\"')}"`).join(',')}}`;
     const tagsArray = `{${amenity.tags.map(tag => `"${tag.replace(/"/g, '\\"')}"`).join(',')}}`;
+    // Convert embedding array to PostgreSQL vector format
+    const embeddingVector = `[${amenity.embedding.join(',')}]`;
 
     await db.execute(sql`
-      INSERT INTO amenities (hotel_id, name, description, long_description, image_urls, tags, metadata, created_at, updated_at)
-      VALUES (${hotelId}, ${amenity.name}, ${amenity.description}, ${amenity.longDescription}, ${imageUrlsArray}::text[], ${tagsArray}::varchar[], ${JSON.stringify(amenity.metadata)}, NOW(), NOW())
+      INSERT INTO amenities (hotel_id, name, description, long_description, image_urls, tags, embedding, metadata, created_at, updated_at)
+      VALUES (${hotelId}, ${amenity.name}, ${amenity.description}, ${amenity.longDescription}, ${imageUrlsArray}::text[], ${tagsArray}::varchar[], ${embeddingVector}::vector, ${JSON.stringify(amenity.metadata)}, NOW(), NOW())
     `);
   }
   console.log(`Inserted ${DEMO_AMENITIES.length} amenities`);

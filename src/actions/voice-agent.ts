@@ -52,6 +52,9 @@ export async function generateVoiceAgentToken(): Promise<CreateSuccess<{ clientS
 
 export async function getVoiceAgentHotelContextAction(hotelId?: number): Promise<CreateSuccess<{ context: string }> | CreateError<string[]>> {
   try {
+    if (!hotelId) {
+      return createError('Hotel ID is required');
+    }
     const context = await getVoiceAgentHotelContext(hotelId);
     return createSuccess({ context });
   } catch (error) {
