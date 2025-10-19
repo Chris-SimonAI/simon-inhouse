@@ -5,17 +5,51 @@ import { type ClientConfig } from "pg";
 import fs from "fs";
 import { OpenAIEmbeddings } from "@langchain/openai";
 
+/**
+ * Normalizes a vector to unit length for consistent distance calculations
+ */
+function normalizeVector(v: number[]): number[] {
+  const norm = Math.sqrt(v.reduce((sum, val) => sum + val * val, 0));
+  if (norm === 0) return v; // Avoid division by zero
+  return v.map((val) => val / norm);
+}
+
+/**
+ * Converts an amenity (or any JSON object) into a semantically meaningful embedding.
+ * Adds context, removes formatting noise, and handles nested fields gracefully.
+ */
 export async function generateEmbeddingFromJSON(
   data: Record<string, any>,
   model = "text-embedding-3-small"
 ): Promise<number[]> {
   const embeddings = new OpenAIEmbeddings({ model });
   const text = jsonToReadableText(data);
-  const [embedding] = await embeddings.embedDocuments([text]);
-  return embedding;
+  const embedding = await embeddings.embedQuery(text);
+  return normalizeVector(embedding);
 }
 
+/**
+ * Converts an amenity object into a clean, readable text string for embedding.
+ * Emphasizes semantic meaning while stripping Markdown and formatting artifacts.
+ */
 export function jsonToReadableText(obj: Record<string, any>): string {
+  // For known structures (like amenities)
+  if (obj.name && obj.description) {
+    // Clean longDescription: remove Markdown symbols and line breaks
+    const cleanLongDescription = obj.longDescription
+      ? obj.longDescription.replace(/[*_#>\n]+/g, " ").trim()
+      : "";
+
+    // Join tags meaningfully if present
+    const tagsText =
+      obj.tags && obj.tags.length > 0
+        ? `Tags: ${obj.tags.join(", ")}.`
+        : "";
+
+    return `Amenity: ${obj.name}. Description: ${obj.description}. ${cleanLongDescription} ${tagsText}`;
+  }
+
+  // Generic fallback for other objects — flatten recursively
   const flatten = (input: any): string => {
     if (input === null || input === undefined) return "";
     if (typeof input === "object") {
@@ -521,11 +555,15 @@ async function insertedMenu(
 async function generateEmbeddingForAmenities() {
   const UPDATED_DEMO_AMENITIES = [];
   for (let amenity of DEMO_AMENITIES) {
-    const embedding = await generateEmbeddingFromJSON(amenity);
-    amenity["embedding"] = embedding;
-    UPDATED_DEMO_AMENITIES.push(amenity);
+    // Create a copy of the amenity to avoid modifying the original
+    const amenityCopy = { ...amenity };
+    console.log(`Generating embedding for: ${amenity.name}`);
+    const embedding = await generateEmbeddingFromJSON(amenityCopy);
+    amenityCopy["embedding"] = embedding;
+    console.log(`Generated embedding length: ${embedding.length}, first 5 values: ${embedding.slice(0, 5).join(', ')}`);
+    UPDATED_DEMO_AMENITIES.push(amenityCopy);
   }
-  console.log(UPDATED_DEMO_AMENITIES);
+  console.log(`Generated embeddings for ${UPDATED_DEMO_AMENITIES.length} amenities`);
   return UPDATED_DEMO_AMENITIES;
 }
 
@@ -554,12 +592,15 @@ async function main() {
   console.log(`Inserted QR code with ID: ${qrCodeId}`);
 
   // Insert amenities using direct SQL with proper array formatting
-  for (const amenity of await generateEmbeddingForAmenities()) {
+  const amenitiesWithEmbeddings = await generateEmbeddingForAmenities();
+  for (const amenity of amenitiesWithEmbeddings) {
     // Convert arrays to PostgreSQL array format
     const imageUrlsArray = `{${amenity.imageUrls.map(url => `"${url.replace(/"/g, '\\"')}"`).join(',')}}`;
     const tagsArray = `{${amenity.tags.map(tag => `"${tag.replace(/"/g, '\\"')}"`).join(',')}}`;
     // Convert embedding array to PostgreSQL vector format
     const embeddingVector = `[${amenity.embedding.join(',')}]`;
+    
+    console.log(`Inserting amenity: ${amenity.name} with embedding length: ${amenity.embedding.length}`);
 
     await db.execute(sql`
       INSERT INTO amenities (hotel_id, name, description, long_description, image_urls, tags, embedding, metadata, created_at, updated_at)

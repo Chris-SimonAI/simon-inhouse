@@ -1,0 +1,2 @@
+ALTER TABLE "amenities" ADD COLUMN "embedding" vector(1536);--> statement-breakpoint
+CREATE INDEX "amenities_embedding_idx" ON "amenities" USING ivfflat ("embedding" vector_cosine_ops) WITH (lists=100);

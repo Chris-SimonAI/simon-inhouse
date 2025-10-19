@@ -18,7 +18,7 @@ export const amenities = pgTable("amenities", {
 }, (table) => [
   index("amenities_hotel_id_index").on(table.hotelId),
   index("amenities_embedding_idx")
-  .using("ivfflat", table.embedding.op("vector_l2_ops"))
+  .using("ivfflat", table.embedding.op("vector_cosine_ops"))
   .with({ lists: 100 }),
 ]);
 

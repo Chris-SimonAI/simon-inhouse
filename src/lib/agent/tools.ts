@@ -76,9 +76,11 @@ export const getAmenitiesTool = new DynamicStructuredTool({
         });
       }
       
-      console.log("Query provided, performing semantic search:", query);
-      const queryEmbedding = await generateEmbeddingFromJSON({ query });
-      const result = await getAmenitiesByEmbedding(queryEmbedding);
+        console.log("Query provided, performing semantic search:", query);
+        const queryEmbedding = await generateEmbeddingFromJSON({ query });
+        console.log("Generated query embedding length:", queryEmbedding.length);
+        console.log("First 5 embedding values:", queryEmbedding.slice(0, 5));
+        const result = await getAmenitiesByEmbedding(queryEmbedding, query);
       
       if (!result.ok) {
         return JSON.stringify({

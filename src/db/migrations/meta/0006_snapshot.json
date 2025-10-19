@@ -1,5 +1,5 @@
 {
-  "id": "97cdb8b2-c941-4374-82ef-6dc84df2e5f7",
+  "id": "238229c0-9493-4b04-8f87-9d2688903f92",
   "prevId": "ba43b29c-a7cd-4400-859c-cbacf0201f23",
   "version": "7",
   "dialect": "postgresql",
@@ -107,7 +107,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "vector_l2_ops"
+              "opclass": "vector_cosine_ops"
             }
           ],
           "isUnique": false,
