@@ -2,8 +2,10 @@ import { DynamicStructuredTool, DynamicTool } from "@langchain/core/tools";
 import { searchRestaurants, searchAttractions } from "@/lib/places";
 import { SearchPlacesArgsSchema, SearchPlacesArgsInput } from "@/validations/places";
 import { InitiateTippingArgsSchema, InitiateTippingArgsInput } from "@/validations/tipping";
-import { getAmenitiesByHotelId } from "@/actions/amenities";
+import { getAmenitiesByHotelId, getAmenitiesByEmbedding } from "@/actions/amenities";
 import { getDineInRestaurantsByHotelId } from "@/actions/dine-in-restaurants";
+import { generateEmbeddingFromJSON } from "@/lib/embedding";
+import { GetAmenitiesArgsSchema, GetAmenitiesArgsInput } from "@/validations/amenities";
 
 export const searchRestaurantsTool = new DynamicStructuredTool({
   name: "search_restaurants",
@@ -51,32 +53,62 @@ export const searchAttractionsTool = new DynamicStructuredTool({
   },
 });
 
-export const getAmenitiesTool = new DynamicTool({
+export const getAmenitiesTool = new DynamicStructuredTool({
   name: "get_amenities",
-  description: "Get all amenities available at the hotel. Use this for questions about hotel facilities, services, and amenities like pool, gym, spa, restaurant, bar, etc. Input: hotel ID as a string (e.g., '1')",
-  func: async (input: string) => {
+  description: "Get hotel amenities - handles both specific searches and general requests. For specific amenities (e.g., 'pool', 'fitness center', 'spa'), it uses semantic search. For general requests (e.g., 'what amenities do you have'), it returns all amenities. If query is provided, it searches for matching amenities; if no matches found or no query provided, it returns all amenities.",
+  schema: GetAmenitiesArgsSchema,
+  func: async (args: GetAmenitiesArgsInput) => {
     try {
-      // The hotelId will be passed through the tool context, but for now we take it as input
-      const hotelId = parseInt(input);
-      if (isNaN(hotelId)) {
+      console.log("get_amenities tool called with args:", args);
+      const { hotelId, query } = args;
+
+      if (!query || query.trim() === "") {
+        console.log("No query provided, returning all amenities");
+        const result = await getAmenitiesByHotelId(hotelId);
+        if (!result.ok) {
+          return JSON.stringify({
+            error: "AMENITIES_FETCH_FAILED",
+            message: result.message || "Failed to fetch amenities"
+          });
+        }
         return JSON.stringify({
-          error: "INVALID_HOTEL_ID",
-          message: "Hotel ID must be a valid number"
+          data: result.data
         });
       }
-
-      const result = await getAmenitiesByHotelId(hotelId);
+      
+      console.log("Query provided, performing semantic search:", query);
+      const queryEmbedding = await generateEmbeddingFromJSON({ query });
+      const result = await getAmenitiesByEmbedding(queryEmbedding);
+      
       if (!result.ok) {
         return JSON.stringify({
-          error: "AMENITIES_FETCH_FAILED",
-          message: result.message || "Failed to fetch amenities"
+          error: "AMENITIES_SEARCH_FAILED",
+          message: result.message || "Failed to search amenities"
         });
       }
 
+      // If no matches found, fall back to all amenities
+      if (!result.data || result.data.length === 0) {
+        console.log("No matches found, falling back to all amenities");
+        const fallbackResult = await getAmenitiesByHotelId(hotelId);
+        if (fallbackResult.ok) {
+          return JSON.stringify({
+            data: fallbackResult.data,
+            message: "No specific matches found, showing all amenities"
+          });
+        }
+        return JSON.stringify({
+          data: [],
+          message: "No matching amenities found"
+        });
+      }
+
+      console.log(`Found ${result.data.length} matching amenities`);
       return JSON.stringify({
         data: result.data
       });
     } catch (err) {
+      console.error("Error in get_amenities tool:", err);
       return JSON.stringify({
         error: "AMENITIES_TOOL_ERROR",
         message: err instanceof Error ? err.message : String(err)

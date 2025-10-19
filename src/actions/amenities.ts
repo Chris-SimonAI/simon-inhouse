@@ -45,8 +45,14 @@ export async function getAmenitiesByHotelId(hotelId: number): Promise<CreateSucc
 
 export async function getAmenitiesByEmbedding(embedding: number[]): Promise<CreateSuccess<Amenity[]> | CreateError<string[]>> {
   try {
+    const hotelSessionResult = await getHotelSession();
+    if (!hotelSessionResult.ok || !hotelSessionResult.data) {
+      return createError("Failed to get hotel session");
+    }
+    const hotelId = parseInt(hotelSessionResult.data.qrData.hotelId); 
+    console.log("hotelId after getting hotel session", hotelId);
     const embeddingVector = `[${embedding.join(',')}]`;
-    const amenitiesList = await db.select().from(amenities).where(sql`embedding <-> ${embeddingVector}::vector < 0.1`);
+    const amenitiesList = await db.select().from(amenities).where(and(sql`embedding <-> ${embeddingVector}::vector < 0.1`, eq(amenities.hotelId, hotelId))  );
     return createSuccess(amenitiesList);
   } catch (error) {
     console.error("Error in getAmenitiesByEmbedding:", error);
