@@ -3,32 +3,34 @@
 import { VoiceStatus as VoiceStatusType } from "@/hooks/useVoiceAgentConnection";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
 import { useUserAudioVisualization } from "@/hooks/useUserAudioVisualization";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Custom hook for dummy frequency data with smooth waveform-like animation
 function useDummyFrequency(barCount: number = 7, isActive: boolean = false) {
-  const [barHeights, setBarHeights] = useState<number[]>(Array(barCount).fill(0.2));
-  const [targetHeights, setTargetHeights] = useState<number[]>(Array(barCount).fill(0.2));
+  const [barHeights, setBarHeights] = useState<number[]>(
+    Array(barCount).fill(0.2)
+  );
+  const targetHeightsRef = useRef<number[]>(Array(barCount).fill(0.2));
 
   useEffect(() => {
     if (!isActive) {
       setBarHeights(Array(barCount).fill(0.2));
-      setTargetHeights(Array(barCount).fill(0.2));
+      targetHeightsRef.current = Array(barCount).fill(0.2);
       return;
     }
 
     // Set new target heights every 500ms for faster changes
     const targetInterval = setInterval(() => {
-      setTargetHeights(prev => 
-        prev.map(() => Math.random() * 0.6 + 0.3) // Target heights between 0.3 and 0.9
-      );
+      targetHeightsRef.current = Array(barCount)
+        .fill(0)
+        .map(() => Math.random() * 0.6 + 0.3); // Target heights between 0.3 and 0.9
     }, 500);
 
     // Smooth interpolation every 30ms for more responsive animation
     const smoothInterval = setInterval(() => {
-      setBarHeights(prev => 
+      setBarHeights((prev) =>
         prev.map((current, index) => {
-          const target = targetHeights[index];
+          const target = targetHeightsRef.current[index];
           const diff = target - current;
           // Faster interpolation with easing
           return current + diff * 0.15;
@@ -40,7 +42,7 @@ function useDummyFrequency(barCount: number = 7, isActive: boolean = false) {
       clearInterval(targetInterval);
       clearInterval(smoothInterval);
     };
-  }, [isActive, barCount, targetHeights]);
+  }, [isActive, barCount]);
 
   return barHeights;
 }
