@@ -1,86 +1,21 @@
 "use client";
 
 import { VoiceStatus as VoiceStatusType } from "@/hooks/useVoiceAgentConnection";
-import { useAudioVisualization } from "@/hooks/useAudioVisualization";
-import { useUserAudioVisualization } from "@/hooks/useUserAudioVisualization";
-import { useState, useEffect, useRef } from "react";
-
-// Custom hook for dummy frequency data with smooth waveform-like animation
-function useDummyFrequency(barCount: number = 7, isActive: boolean = false) {
-  const [barHeights, setBarHeights] = useState<number[]>(
-    Array(barCount).fill(0.2)
-  );
-  const targetHeightsRef = useRef<number[]>(Array(barCount).fill(0.2));
-
-  useEffect(() => {
-    if (!isActive) {
-      setBarHeights(Array(barCount).fill(0.2));
-      targetHeightsRef.current = Array(barCount).fill(0.2);
-      return;
-    }
-
-    // Set new target heights every 500ms for faster changes
-    const targetInterval = setInterval(() => {
-      targetHeightsRef.current = Array(barCount)
-        .fill(0)
-        .map(() => Math.random() * 0.6 + 0.3); // Target heights between 0.3 and 0.9
-    }, 500);
-
-    // Smooth interpolation every 30ms for more responsive animation
-    const smoothInterval = setInterval(() => {
-      setBarHeights((prev) =>
-        prev.map((current, index) => {
-          const target = targetHeightsRef.current[index];
-          const diff = target - current;
-          // Faster interpolation with easing
-          return current + diff * 0.15;
-        })
-      );
-    }, 30);
-
-    return () => {
-      clearInterval(targetInterval);
-      clearInterval(smoothInterval);
-    };
-  }, [isActive, barCount]);
-
-  return barHeights;
-}
+import { BarVisualizer } from "@/components/ui/bar-visualizer";
+import { useAudioStream, useMicrophoneStream } from "@/hooks/useAudioStream";
 
 interface VoiceAnimationProps {
   status: VoiceStatusType;
   isConnecting: boolean;
   audioElement?: HTMLAudioElement | null;
-  isPlaying?: boolean;
 }
 
-export function VoiceAnimation({ status, isConnecting, audioElement, isPlaying }: VoiceAnimationProps) {
-  // Audio visualization for Simon's voice (speaking/processing states)
-  const { barHeights: simonBarHeights } = useAudioVisualization({
-    audioElement: audioElement ?? null,
-    isPlaying: isPlaying || false,
-    barCount: 7,
-    fftSize: 256,
-    smoothing: 0.8,
-    minHeight: 0.2,
-    maxHeight: 1.0,
-  });
-
-  // User audio visualization for listening state
-  const { barHeights: userBarHeights } = useUserAudioVisualization({
-    isListening: status === 'listening',
-    barCount: 7,
-    fftSize: 256,
-    smoothing: 0.8,
-    minHeight: 0.2,
-    maxHeight: 1.0,
-  });
-
-  // Dummy frequency data for speaking state
-  const dummyBarHeights = useDummyFrequency(7, status === 'speaking');
-
-  // Static bar heights for connecting state
-  const staticBarHeights = Array(7).fill(0.3);
+export function VoiceAnimation({ status, isConnecting, audioElement }: VoiceAnimationProps) {
+  // Convert audio element to stream for speaking/processing visualization
+  const audioStream = useAudioStream(audioElement ?? null);
+  
+  // Get microphone stream for listening state
+  const micStream = useMicrophoneStream(status === 'listening');
   const renderAnimation = () => {
     if (isConnecting) {
       return (
@@ -101,18 +36,18 @@ export function VoiceAnimation({ status, isConnecting, audioElement, isPlaying }
           {/* Inner mask to create border effect */}
           <div className="absolute inset-[3px] rounded-full bg-black"></div>
 
-          {/* Static bars for connecting state */}
-          <div className="flex gap-1.5 items-center relative z-10 h-16">
-            {staticBarHeights.map((height, i) => (
-              <div
-                key={i}
-                className="w-1 bg-white rounded-full transition-all duration-75 ease-out"
-                style={{
-                  height: `${height * 60}px`,
-                  minHeight: '8px',
-                }}
-              />
-            ))}
+          {/* BarVisualizer for connecting state */}
+          <div className="relative z-10">
+            <BarVisualizer
+              state="connecting"
+              barCount={7}
+              demo={true}
+              centerAlign={true}
+              minHeight={20}
+              maxHeight={100}
+              barColor="bg-white"
+              className="bg-transparent"
+            />
           </div>
         </div>
       );
@@ -138,54 +73,55 @@ export function VoiceAnimation({ status, isConnecting, audioElement, isPlaying }
             {/* Inner mask to create border effect */}
             <div className="absolute inset-[3px] rounded-full bg-gray-50"></div>
 
-            {/* Dynamic bars for listening state (user speaking) - black bars */}
-            <div className="flex gap-1.5 items-center relative z-10 h-16">
-              {userBarHeights.map((height, i) => (
-                <div
-                  key={i}
-                  className="w-1 bg-black rounded-full transition-all duration-75 ease-out"
-                  style={{
-                    height: `${height * 60}px`,
-                    minHeight: '8px',
-                  }}
-                />
-              ))}
+            {/* BarVisualizer for listening state (user microphone) */}
+            <div className="relative z-10">
+              <BarVisualizer
+                state="listening"
+                barCount={7}
+                mediaStream={micStream}
+                centerAlign={true}
+                minHeight={20}
+                maxHeight={100}
+                barColor="bg-black"
+                className="bg-transparent"
+              />
             </div>
           </div>
         );
       case "processing":
         return (
           <div className="w-40 h-40 rounded-full bg-blue-500 flex items-center justify-center relative overflow-hidden">
-            {/* Dynamic bars for processing state (LLM processing) - white bars */}
-            <div className="flex gap-1.5 items-center relative z-10 h-16">
-              {simonBarHeights.map((height, i) => (
-                <div
-                  key={i}
-                  className="w-1 bg-white rounded-full transition-all duration-75 ease-out"
-                  style={{
-                    height: `${height * 60}px`,
-                    minHeight: '8px',
-                  }}
-                />
-              ))}
+            {/* BarVisualizer for processing state */}
+            <div className="relative z-10">
+              <BarVisualizer
+                state="thinking"
+                barCount={7}
+                demo={true}
+                centerAlign={true}
+                minHeight={20}
+                maxHeight={100}
+                barColor="bg-white"
+                className="bg-transparent"
+              />
             </div>
           </div>
         );
       case "speaking":
         return (
           <div className="w-40 h-40 rounded-full bg-black flex items-center justify-center relative overflow-hidden">
-            {/* Dynamic bars for speaking state (LLM speaking) - white bars with dummy frequency */}
-            <div className="flex gap-1.5 items-center relative z-10 h-16">
-              {dummyBarHeights.map((height, i) => (
-                <div
-                  key={i}
-                  className="w-1 bg-white rounded-full transition-all duration-75 ease-out"
-                  style={{
-                    height: `${height * 60}px`,
-                    minHeight: '8px',
-                  }}
-                />
-              ))}
+            {/* BarVisualizer for speaking state */}
+            <div className="relative z-10">
+              <BarVisualizer
+                state="speaking"
+                barCount={7}
+                mediaStream={audioStream}
+                demo={!audioStream}
+                centerAlign={true}
+                minHeight={20}
+                maxHeight={70}
+                barColor="bg-white"
+                className="bg-transparent"
+              />
             </div>
           </div>
         );

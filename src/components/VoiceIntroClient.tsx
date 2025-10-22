@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTTS } from "@/hooks/useTTS";
-import { useAudioVisualization } from "@/hooks/useAudioVisualization";
+import { BarVisualizer } from "@/components/ui/bar-visualizer";
 import { type Hotel } from "@/db/schemas/hotels";
+import { useAudioStream } from "@/hooks/useAudioStream";
 
 type VoiceIntroClientProps = {
   hotel: Hotel;
@@ -26,7 +27,7 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
   const router = useRouter();
   const hasStartedRef = useRef(false);
   const [showTapPrompt, setShowTapPrompt] = useState(false);
-  const isSafariOrIOSRef = useRef(isSafari() || isIOS());
+  const isIOSOrSafari = isSafari() || isIOS();
 
   const introText = `Hi, I'm Simon—your 24/7 concierge at ${hotel.name}. I can help with hotel amenities, great places to eat, and things to do around the city. If you are hungry, I can also place food-delivery orders from a variety of our partner restaurants. ${hotel.name} encourages you to place food orders through me, so that I can coordinate with the front desk to ensure your meal comes straight to your room. How can I help today?`;
 
@@ -42,58 +43,7 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
     },
   });
 
-  // Dummy frequency hook for Safari/iOS (fallback due to Web Audio API issues)
-  function useDummyFrequency(barCount: number = 7, isActive: boolean = false) {
-    const [barHeights, setBarHeights] = useState<number[]>(
-      Array(barCount).fill(0.2)
-    );
-    const targetHeightsRef = useRef<number[]>(Array(barCount).fill(0.2));
-
-    useEffect(() => {
-      if (!isActive) {
-        setBarHeights(Array(barCount).fill(0.2));
-        targetHeightsRef.current = Array(barCount).fill(0.2);
-        return;
-      }
-
-      const targetInterval = setInterval(() => {
-        targetHeightsRef.current = Array(barCount)
-          .fill(0)
-          .map(() => Math.random() * 0.6 + 0.3);
-      }, 500);
-
-      const smoothInterval = setInterval(() => {
-        setBarHeights((prev) =>
-          prev.map((current, index) => {
-            const target = targetHeightsRef.current[index];
-            const diff = target - current;
-            return current + diff * 0.15;
-          })
-        );
-      }, 30);
-
-      return () => {
-        clearInterval(targetInterval);
-        clearInterval(smoothInterval);
-      };
-    }, [isActive, barCount]);
-
-    return barHeights;
-  }
-
-  // Use dummy animation for Safari/iOS, real audio visualization for others
-  const dummyBarHeights = useDummyFrequency(7, isSafariOrIOSRef.current ? isPlaying : false);
-  const { barHeights: realBarHeights } = useAudioVisualization({
-    audioElement,
-    isPlaying: isSafariOrIOSRef.current ? false : isPlaying,
-    barCount: 7,
-    fftSize: 256,
-    smoothing: 0.8,
-    minHeight: 0.2,
-    maxHeight: 1.0,
-  });
-
-  const barHeights = isSafariOrIOSRef.current ? dummyBarHeights : realBarHeights;
+  const audioStream = useAudioStream(audioElement);
 
   useEffect(() => {
     // Prevent double-execution in React StrictMode
@@ -102,7 +52,7 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
 
     const tryStart = async () => {
       // On iOS/Safari, show tap prompt immediately instead of trying autoplay
-      if (isSafariOrIOSRef.current) {
+      if (isIOSOrSafari) {
         setShowTapPrompt(true);
         return;
       }
@@ -157,17 +107,17 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
                 </>
               )}
 
-              <div className="flex gap-1.5 items-center relative z-10 h-16">
-                {barHeights.map((height, i) => (
-                  <div
-                    key={i}
-                    className="w-1 bg-white rounded-full transition-all duration-75 ease-out"
-                    style={{
-                      height: `${height * 60}px`,
-                      minHeight: '8px',
-                    }}
-                  />
-                ))}
+              <div className="relative z-10">
+                <BarVisualizer
+                  state={isPlaying ? "speaking" : "connecting"}
+                  barCount={7}
+                  mediaStream={audioStream}
+                  centerAlign={true}
+                  minHeight={20}
+                  maxHeight={100}
+                  barColor="bg-white"
+                  className="bg-transparent"
+                />
               </div>
             </div>
             <div className="mt-4 text-sm text-black/80">
@@ -175,7 +125,7 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
             </div>
           </div>
 
-          {/* Tap to start overlay - only shown on iOS or when autoplay fails */}
+         {/* Tap to start overlay - only shown on iOS or when autoplay fails */}
           {showTapPrompt && (
             <div className="absolute inset-0 bg-white/95 flex items-center justify-center z-20">
               <button
