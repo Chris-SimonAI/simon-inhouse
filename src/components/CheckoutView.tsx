@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { CartItem } from './MenuView';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, X, Trash2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -47,6 +47,49 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
 
   const getTotalPrice = () => {
     return getSubtotal() - getDiscountAmount();
+  };
+
+  const updateCart = (updatedCart: CartItem[]) => {
+    setCart(updatedCart);
+    localStorage.setItem(`cart-${restaurantGuid}`, JSON.stringify(updatedCart));
+  };
+
+  const removeItem = (itemId: string) => {
+    const updatedCart = cart.filter(item => item.id !== itemId);
+    updateCart(updatedCart);
+  };
+
+  const increaseQuantity = (itemId: string) => {
+    const updatedCart = cart.map(item => {
+      if (item.id === itemId) {
+        const pricePerItem = item.totalPrice / item.quantity;
+        return {
+          ...item,
+          quantity: item.quantity + 1,
+          totalPrice: (item.quantity + 1) * pricePerItem
+        };
+      }
+      return item;
+    });
+    updateCart(updatedCart);
+  };
+
+  const decreaseQuantity = (itemId: string) => {
+    const updatedCart = cart.map(item => {
+      if (item.id === itemId) {
+        if (item.quantity === 1) {
+          return null;
+        }
+        const pricePerItem = item.totalPrice / item.quantity;
+        return {
+          ...item,
+          quantity: item.quantity - 1,
+          totalPrice: (item.quantity - 1) * pricePerItem
+        };
+      }
+      return item;
+    }).filter((item): item is CartItem => item !== null);
+    updateCart(updatedCart);
   };
 
   const getModifierText = (item: CartItem) => {
@@ -117,26 +160,52 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
         <div className="space-y-1">
           {cart.map((item) => (
             <div key={item.id} className="py-4 border-b border-gray-200">
-              <div className="flex justify-between items-start">
-                <div className="flex-1 pr-4">
-                  <h3 className="font-medium text-lg">{item.menuItem.name}</h3>
-                  {/* Modifiers - Fixed expansion */}
-                  {getModifierText(item).length > 0 && (
-                    <div className="space-y-1 mt-2">
-                      {getModifierText(item).map((modifier) => (
-                        <div key={modifier} className="text-sm text-gray-600 leading-relaxed">
-                          {modifier}
-                        </div>
-                      ))}
+              {/* Item name and delete */}
+              <div className="flex justify-between items-start gap-2 mb-2 items-center">
+                <h3 className="font-medium text-base flex-1">{item.menuItem.name}</h3>
+                <button
+                  onClick={() => removeItem(item.id)}
+                  className="text-gray-400 p-1"
+                  aria-label="Remove item"
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </button>
+              </div>
+
+              {/* Modifiers */}
+              {getModifierText(item).length > 0 && (
+                <div className="space-y-0.5 mb-3">
+                  {getModifierText(item).map((modifier) => (
+                    <div key={modifier} className="text-xs text-gray-500">
+                      {modifier}
                     </div>
-                  )}
+                  ))}
                 </div>
-                <div className="text-right font-semibold flex-shrink-0">
-                  <div className="flex items-center text-base">
-                    <span>{item.quantity}</span>
-                    <span className="mx-2">@</span>
-                    <span>${(item.totalPrice / item.quantity).toFixed(2)}</span>
-                  </div>
+              )}
+              
+              {/* Quantity controls and price */}
+              <div className="flex items-center justify-between mt-3">
+                <div className="inline-flex items-center border border-gray-200 rounded-lg">
+                  <button
+                    onClick={() => decreaseQuantity(item.id)}
+                    className="p-2 hover:bg-gray-50 rounded-l-lg transition-colors"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="px-3 text-sm font-medium min-w-[2rem] text-center border-x border-gray-200">
+                    {item.quantity}
+                  </span>
+                  <button
+                    onClick={() => increaseQuantity(item.id)}
+                    className="p-2 hover:bg-gray-50 rounded-r-lg transition-colors"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="text-base font-semibold">
+                  ${item.totalPrice.toFixed(2)}
                 </div>
               </div>
             </div>
@@ -178,4 +247,3 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
     </div>
   );
 }
-
