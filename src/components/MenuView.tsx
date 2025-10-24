@@ -70,7 +70,45 @@ export function MenuView({ menuData, restaurantGuid }: MenuViewProps) {
   }, [menuData.groups]);
 
   const addToCart = (cartItem: CartItem) => {
-    const newCart = [...cart, { ...cartItem, id: `${cartItem.menuItem.id}-${Date.now()}` }];
+    // Check if item with same menu item and modifiers already exists
+    const existingItemIndex = cart.findIndex(item => {
+      // Check if menu item ID matches
+      if (item.menuItem.id !== cartItem.menuItem.id) return false;
+      
+      // Check if modifiers match
+      const itemModifierKeys = Object.keys(item.selectedModifiers).sort();
+      const newItemModifierKeys = Object.keys(cartItem.selectedModifiers).sort();
+      
+      if (itemModifierKeys.length !== newItemModifierKeys.length) return false;
+      
+      return itemModifierKeys.every(key => {
+        const itemOptions = item.selectedModifiers[key]?.sort() || [];
+        const newItemOptions = cartItem.selectedModifiers[key]?.sort() || [];
+        
+        if (itemOptions.length !== newItemOptions.length) return false;
+        return itemOptions.every((opt, idx) => opt === newItemOptions[idx]);
+      });
+    });
+
+    let newCart: CartItem[];
+    
+    if (existingItemIndex !== -1) {
+      // Item exists, update quantity and price
+      newCart = cart.map((item, index) => {
+        if (index === existingItemIndex) {
+          return {
+            ...item,
+            quantity: item.quantity + cartItem.quantity,
+            totalPrice: item.totalPrice + cartItem.totalPrice
+          };
+        }
+        return item;
+      });
+    } else {
+      // Item doesn't exist, add as new
+      newCart = [...cart, { ...cartItem, id: `${cartItem.menuItem.id}-${Date.now()}` }];
+    }
+    
     setCart(newCart);
     localStorage.setItem(`cart-${restaurantGuid}`, JSON.stringify(newCart));
     setSelectedItem(null);
