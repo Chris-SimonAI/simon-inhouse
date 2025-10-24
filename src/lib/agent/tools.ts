@@ -7,6 +7,12 @@ import { getDineInRestaurantsByHotelId } from "@/actions/dine-in-restaurants";
 import { generateEmbeddingFromJSON } from "@/lib/embedding";
 import { GetAmenitiesArgsSchema, GetAmenitiesArgsInput } from "@/validations/amenities";
 
+const createErrorResponse = (error: string, message: string) => 
+  JSON.stringify({ error, message });
+
+const createSuccessResponse = (data: any, message?: string) => 
+  JSON.stringify({ data, ...(message && { message }) });
+
 export const searchRestaurantsTool = new DynamicStructuredTool({
   name: "search_restaurants",
   description:
@@ -62,53 +68,41 @@ export const getAmenitiesTool = new DynamicStructuredTool({
       console.log("get_amenities tool called with args:", args);
       const { hotelId, query } = args;
 
-      if (!query || query.trim() === "") {
-        console.log("No query provided, returning all amenities");
+      // Helper function to get all amenities
+      const getAllAmenities = async (message?: string) => {
         const result = await getAmenitiesByHotelId(hotelId);
         if (!result.ok) {
-          return JSON.stringify({
-            error: "AMENITIES_FETCH_FAILED",
-            message: result.message || "Failed to fetch amenities"
-          });
+          return createErrorResponse("AMENITIES_FETCH_FAILED", result.message || "Failed to fetch amenities");
         }
-        return JSON.stringify({
-          data: result.data
-        });
+        return createSuccessResponse(result.data, message);
+      };
+
+      // If no query provided, return all amenities
+      if (!query?.trim()) {
+        console.log("No query provided, returning all amenities");
+        return getAllAmenities();
       }
+
+      // Perform semantic search
+      console.log("Query provided, performing semantic search:", query);
+      const queryEmbedding = await generateEmbeddingFromJSON({ query });
+      console.log("Generated query embedding length:", queryEmbedding.length);
       
-        console.log("Query provided, performing semantic search:", query);
-        const queryEmbedding = await generateEmbeddingFromJSON({ query });
-        console.log("Generated query embedding length:", queryEmbedding.length);
-        console.log("First 5 embedding values:", queryEmbedding.slice(0, 5));
-        const result = await getAmenitiesByEmbedding(queryEmbedding, query);
+      const result = await getAmenitiesByEmbedding(queryEmbedding, query);
       
       if (!result.ok) {
-        return JSON.stringify({
-          error: "AMENITIES_SEARCH_FAILED",
-          message: result.message || "Failed to search amenities"
-        });
+        return createErrorResponse("AMENITIES_SEARCH_FAILED", result.message || "Failed to search amenities");
       }
 
       // If no matches found, fall back to all amenities
-      if (!result.data || result.data.length === 0) {
+      if (!result.data?.length) {
         console.log("No matches found, falling back to all amenities");
-        const fallbackResult = await getAmenitiesByHotelId(hotelId);
-        if (fallbackResult.ok) {
-          return JSON.stringify({
-            data: fallbackResult.data,
-            message: "No specific matches found, showing all amenities"
-          });
-        }
-        return JSON.stringify({
-          data: [],
-          message: "No matching amenities found"
-        });
+        return getAllAmenities("No specific matches found, showing all amenities");
       }
 
       console.log(`Found ${result.data.length} matching amenities`);
-      return JSON.stringify({
-        data: result.data
-      });
+      return createSuccessResponse(result.data);
+      
     } catch (err) {
       console.error("Error in get_amenities tool:", err);
       return JSON.stringify({

@@ -33,23 +33,16 @@ export async function generateEmbeddingFromJSON(
  * Emphasizes semantic meaning while stripping Markdown and formatting artifacts.
  */
 export function jsonToReadableText(obj: Record<string, any>): string {
-  // For known structures (like amenities)
   if (obj.name && obj.description) {
-    // Clean longDescription: remove Markdown symbols and line breaks
     const cleanLongDescription = obj.longDescription
       ? obj.longDescription.replace(/[*_#>\n]+/g, " ").trim()
       : "";
-
-    // Join tags meaningfully if present
     const tagsText =
       obj.tags && obj.tags.length > 0
         ? `Tags: ${obj.tags.join(", ")}.`
         : "";
-
     return `Amenity: ${obj.name}. Description: ${obj.description}. ${cleanLongDescription} ${tagsText}`;
   }
-
-  // Generic fallback for other objects — flatten recursively
   const flatten = (input: any): string => {
     if (input === null || input === undefined) return "";
     if (typeof input === "object") {

@@ -52,7 +52,7 @@ export async function processChatMessageStream(args: {
       }
 
       stream.done(null);
-} catch (e: unknown) {
+    } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       stream.update({
         type: 'token',
@@ -192,5 +192,3 @@ export async function getThreadMessages(threadId: string): Promise<UIMessage[]> 
     return [];
   }
 }
-
-

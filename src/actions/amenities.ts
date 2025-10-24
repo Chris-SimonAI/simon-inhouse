@@ -48,22 +48,18 @@ export async function getAmenitiesByEmbedding(
   query?: string
 ): Promise<CreateSuccess<Amenity[]> | CreateError<string[]>> {
   try {
-    // ✅ Step 1: Get current hotel session
     const hotelSessionResult = await getHotelSession();
     if (!hotelSessionResult.ok || !hotelSessionResult.data) {
       return createError("Failed to get hotel session");
     }
 
     const hotelId = parseInt(hotelSessionResult.data.qrData.hotelId);
-    console.log("hotelId after getting hotel session", hotelId);
+    if (isNaN(hotelId)) {
+      return createError("Invalid hotel ID");
+    }
 
-    // ✅ Step 2: Prepare embedding vector literal
     const embeddingVector = `[${embedding.join(",")}]`;
-    const topK = 5;
-
-    console.log("Searching with normalized embedding vector length:", embedding.length);
-
-    // ✅ Step 3: Semantic (vector) search
+    const topK = 5; 
     const semanticResults = await db
       .select({
         id: amenities.id,
@@ -79,30 +75,51 @@ export async function getAmenitiesByEmbedding(
       .orderBy(asc(sql`embedding <-> ${embeddingVector}::vector`))
       .limit(topK);
 
-    console.log(`Found ${semanticResults.length} amenities with semantic search`);
-
-    for (const row of semanticResults) {
-      console.log(`Amenity: ${row.name}, Distance: ${row.distance.toFixed(3)}`);
-    }
-
-    // ✅ Step 4: Apply a reasonable distance threshold (optional)
-    const maxDistance = 1.2; // tuned for cosine distance
-    const filtered = semanticResults.filter((r) => r.distance < maxDistance);
-
-    if (filtered.length > 0) {
-      console.log(`${filtered.length} amenities passed distance threshold (${maxDistance})`);
-      return createSuccess(filtered as unknown as Amenity[]);
-    }
-
-    // ✅ Step 5: Keyword fallback
-    console.log("No good semantic matches found, trying keyword fallback");
-
-    if (!query) {
-      console.log("No query provided for keyword fallback");
+    if (semanticResults.length === 0) {
+      console.log("No semantic results found");
       return createSuccess([]);
     }
 
-    const queryLower = query.toLowerCase();
+    semanticResults.sort((a, b) => a.distance - b.distance);
+    const best = semanticResults[0].distance;
+    const gapThreshold = 0.25; 
+    const filteredByDistance = semanticResults.filter(
+      (r) => r.distance <= best + gapThreshold
+    );
+
+    const normalize = (x: number, min: number, max: number) =>
+      max === min ? 1 : (max - x) / (max - min);
+    const minDist = Math.min(...filteredByDistance.map((r) => r.distance));
+    const maxDist = Math.max(...filteredByDistance.map((r) => r.distance));
+
+    const queryLower = query?.toLowerCase() ?? "";
+
+    const weighted = filteredByDistance.map((r) => {
+      const semanticScore = normalize(r.distance, minDist, maxDist);
+      const keywordScore = queryLower
+        ? Number(
+            r.name.toLowerCase().includes(queryLower) ||
+            r.description?.toLowerCase().includes(queryLower) ||
+            r.tags?.toString().toLowerCase().includes(queryLower)
+          )
+        : 0;
+      const finalScore = 0.8 * semanticScore + 0.2 * keywordScore;
+      return { ...r, finalScore };
+    });
+
+    weighted.sort((a, b) => b.finalScore - a.finalScore);
+
+    const topScore = weighted[0].finalScore;
+    const scoreCutoff = topScore - 0.3;
+    const finalResults = weighted.filter((r) => r.finalScore >= scoreCutoff);
+
+    if (finalResults.length > 0) {
+      return createSuccess(finalResults as unknown as Amenity[]);
+    }
+
+    if (!queryLower) {
+      return createSuccess([]);
+    }
 
     const keywordMatches = await db
       .select()
@@ -111,15 +128,10 @@ export async function getAmenitiesByEmbedding(
         and(
           eq(amenities.hotelId, hotelId),
           sql`LOWER(name) LIKE ${`%${queryLower}%`} 
-            OR LOWER(description) LIKE ${`%${queryLower}%`} 
-            OR LOWER(tags::text) LIKE ${`%${queryLower}%`}`
+              OR LOWER(description) LIKE ${`%${queryLower}%`} 
+              OR LOWER(tags::text) LIKE ${`%${queryLower}%`}`
         )
       );
-
-    console.log(
-      `Keyword fallback found ${keywordMatches.length} amenities:`,
-      keywordMatches.map((a) => a.name)
-    );
 
     return createSuccess(keywordMatches);
   } catch (error) {
