@@ -85,16 +85,6 @@ export const getAmenitiesTool = new DynamicTool({
   },
 });
 
-export const emitPrefaceTool = new DynamicTool({
-  name: "emit_preface",
-  description: `Output your warm, engaging preface response to the guest. The 'text' parameter should contain YOUR 2-sentence response that acknowledges what the guest asked for and builds anticipation - NOT the guest's original question. 
-
-Example: If guest asks "Can you recommend nearby attractions?" you should call this tool with text like "Absolutely—I'd love to help you discover some fantastic attractions around here. Let me share some local gems that'll make your stay memorable."`,
-  func: async (text: string) => {
-    return text;
-  },
-});
-
 export const getDineInRestaurantsTool = new DynamicTool({
   name: "get_dine_in_restaurants",
   description:

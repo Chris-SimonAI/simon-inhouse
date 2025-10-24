@@ -1,11 +1,23 @@
 import "server-only";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { createSwarm } from "@langchain/langgraph-swarm";
+import { StateGraph, Annotation, START } from "@langchain/langgraph";
+import type { BaseMessage } from "@langchain/core/messages";
 
 import { model, AGENTS } from "./config";
 import { createConciergePrompt } from "./prompts";
-import { searchRestaurantsTool, searchAttractionsTool, getAmenitiesTool, emitPrefaceTool, getDineInRestaurantsTool, initiateTippingTool } from "./tools";
+import { searchRestaurantsTool, searchAttractionsTool, getAmenitiesTool, getDineInRestaurantsTool, initiateTippingTool } from "./tools";
 import { getCheckpointer } from "./checkpointer";
+import { shouldEmitPrefaceNode, generatePrefaceNode, routeAfterClassifier } from "./preface-gate";
+
+const GraphState = Annotation.Root({
+  messages: Annotation<BaseMessage[]>({
+    reducer: (x, y) => x.concat(y),
+  }),
+  shouldEmitPreface: Annotation<boolean>({
+    reducer: (x, y) => y ?? x,
+    default: () => false,
+  }),
+});
 
 // Concierge - handles all guest requests including hotel amenities, dining, and local discoveries
 const concierge = createReactAgent({
@@ -23,7 +35,6 @@ const concierge = createReactAgent({
     return [prompt, ...messagesToReturn];
   },
   tools: [
-    emitPrefaceTool,
     getAmenitiesTool,
     getDineInRestaurantsTool,
     initiateTippingTool,
@@ -32,10 +43,13 @@ const concierge = createReactAgent({
   ],
 });
 
-const workflow = createSwarm({
-  agents: [concierge],
-  defaultActiveAgent: AGENTS.CONCIERGE,
-});
+const workflow = new StateGraph(GraphState)
+  .addNode("should_emit_preface", shouldEmitPrefaceNode)
+  .addNode("generate_preface", generatePrefaceNode)
+  .addNode("concierge", concierge)
+  .addEdge(START, "should_emit_preface")
+  .addConditionalEdges("should_emit_preface", routeAfterClassifier)
+  .addEdge("generate_preface", "concierge");
 
 let app: ReturnType<typeof workflow.compile> | null = null;
 

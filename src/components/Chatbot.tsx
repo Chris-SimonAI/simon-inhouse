@@ -15,7 +15,6 @@ import {
   PromptInputToolbar,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
-import { Response } from "@/components/ai-elements/response";
 import { useRscChat } from "@/hooks/useRscChat";
 import { RealtimeVoiceAgent, RealtimeVoiceAgentRef } from "@/components/voice/RealtimeVoiceAgent";
 import VoiceIntroduction from "@/components/VoiceIntroduction";
@@ -366,16 +365,6 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                             )} enableMarkdown={message.role === 'assistant' ? true : false}>
                               {part.text}
                             </MarkdownResponse>
-                          );
-                        case UI_TOOLS.EMIT_PREFACE:
-                          return (
-                            <Response key={`${message.id}-${i}`} className={cn(
-                              message.role === 'assistant'
-                                ? 'text-gray-700 leading-relaxed text-base'
-                                : 'text-gray-700 text-base'
-                            )}>
-                              {part.output as string}
-                            </Response>
                           );
                         case UI_TOOLS.SEARCH_RESTAURANTS:
                         case UI_TOOLS.SEARCH_ATTRACTIONS:
