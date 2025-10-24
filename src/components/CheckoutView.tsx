@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { CartItem } from './MenuView';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, X } from 'lucide-react';
+import {X, Trash2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -49,6 +49,49 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
     return getSubtotal() - getDiscountAmount();
   };
 
+  const updateCart = (updatedCart: CartItem[]) => {
+    setCart(updatedCart);
+    localStorage.setItem(`cart-${restaurantGuid}`, JSON.stringify(updatedCart));
+  };
+
+  const removeItem = (itemId: string) => {
+    const updatedCart = cart.filter(item => item.id !== itemId);
+    updateCart(updatedCart);
+  };
+
+  const increaseQuantity = (itemId: string) => {
+    const updatedCart = cart.map(item => {
+      if (item.id === itemId) {
+        const pricePerItem = item.totalPrice / item.quantity;
+        return {
+          ...item,
+          quantity: item.quantity + 1,
+          totalPrice: (item.quantity + 1) * pricePerItem
+        };
+      }
+      return item;
+    });
+    updateCart(updatedCart);
+  };
+
+  const decreaseQuantity = (itemId: string) => {
+    const updatedCart = cart.map(item => {
+      if (item.id === itemId) {
+        if (item.quantity === 1) {
+          return null;
+        }
+        const pricePerItem = item.totalPrice / item.quantity;
+        return {
+          ...item,
+          quantity: item.quantity - 1,
+          totalPrice: (item.quantity - 1) * pricePerItem
+        };
+      }
+      return item;
+    }).filter((item): item is CartItem => item !== null);
+    updateCart(updatedCart);
+  };
+
   const getModifierText = (item: CartItem) => {
     const modifiers: string[] = [];
 
@@ -71,25 +114,54 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
 
   if (cart.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex items-center mb-6">
-          <Link
-            href={`/dine-in/restaurant/${restaurantGuid}/menu`}
-            className="mr-4"
-          >
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Menu
-            </Button>
-          </Link>
-          <h1 className="text-2xl font-bold">Order Summary</h1>
+      <div className="flex flex-col min-h-dvh">
+        {/* Header */}
+        <div className="sticky top-0 z-30 bg-white">
+          <div className="flex items-center justify-between px-4 py-3">
+            <h1 className="text-lg font-semibold text-gray-900 truncate pr-4">
+              Order Summary
+            </h1>
+            <Link
+              href={`/dine-in/restaurant/${restaurantGuid}/menu`}
+              className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </Link>
+          </div>
         </div>
 
-        <div className="text-center py-12">
-          <p className="text-gray-500 mb-4">Your order summary is empty</p>
-          <Link href={`/dine-in/restaurant/${restaurantGuid}/menu`}>
-            <Button>Start Ordering</Button>
-          </Link>
+        {/* Empty state content */}
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="text-center max-w-sm">
+            <div className="mb-4">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                <svg
+                  className="w-10 h-10 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                  />
+                </svg>
+              </div>
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Your cart is empty
+            </h2>
+            <p className="text-gray-500 mb-6">
+              Add items from the menu to get started
+            </p>
+            <Link href={`/dine-in/restaurant/${restaurantGuid}/menu`}>
+              <Button className="w-full bg-black text-white hover:bg-gray-800 rounded-full py-6 text-base font-semibold">
+                Browse Menu
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -117,26 +189,52 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
         <div className="space-y-1">
           {cart.map((item) => (
             <div key={item.id} className="py-4 border-b border-gray-200">
-              <div className="flex justify-between items-start">
-                <div className="flex-1 pr-4">
-                  <h3 className="font-medium text-lg">{item.menuItem.name}</h3>
-                  {/* Modifiers - Fixed expansion */}
-                  {getModifierText(item).length > 0 && (
-                    <div className="space-y-1 mt-2">
-                      {getModifierText(item).map((modifier) => (
-                        <div key={modifier} className="text-sm text-gray-600 leading-relaxed">
-                          {modifier}
-                        </div>
-                      ))}
+              {/* Item name and delete */}
+              <div className="flex justify-between items-start gap-2 mb-2 items-center">
+                <h3 className="font-medium text-base flex-1">{item.menuItem.name}</h3>
+                <button
+                  onClick={() => removeItem(item.id)}
+                  className="text-gray-400 p-1"
+                  aria-label="Remove item"
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </button>
+              </div>
+
+              {/* Modifiers */}
+              {getModifierText(item).length > 0 && (
+                <div className="space-y-0.5 mb-3">
+                  {getModifierText(item).map((modifier) => (
+                    <div key={modifier} className="text-xs text-gray-500">
+                      {modifier}
                     </div>
-                  )}
+                  ))}
                 </div>
-                <div className="text-right font-semibold flex-shrink-0">
-                  <div className="flex items-center text-base">
-                    <span>{item.quantity}</span>
-                    <span className="mx-2">@</span>
-                    <span>${(item.totalPrice / item.quantity).toFixed(2)}</span>
-                  </div>
+              )}
+              
+              {/* Quantity controls and price */}
+              <div className="flex items-center justify-between mt-3">
+                <div className="inline-flex items-center border border-gray-200 rounded-lg">
+                  <button
+                    onClick={() => decreaseQuantity(item.id)}
+                    className="p-2 hover:bg-gray-50 rounded-l-lg transition-colors"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="px-3 text-sm font-medium min-w-[2rem] text-center border-x border-gray-200">
+                    {item.quantity}
+                  </span>
+                  <button
+                    onClick={() => increaseQuantity(item.id)}
+                    className="p-2 hover:bg-gray-50 rounded-r-lg transition-colors"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="text-base font-semibold">
+                  ${item.totalPrice.toFixed(2)}
                 </div>
               </div>
             </div>
@@ -178,4 +276,3 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
     </div>
   );
 }
-
