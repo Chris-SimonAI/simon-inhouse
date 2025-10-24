@@ -1,6 +1,6 @@
 import { createInsertSchema, createSelectSchema, createUpdateSchema } from "drizzle-zod";
 import { z } from "zod";
-import { qrCodes } from "@/db/schemas/qrCodes";
+import { qrCodes } from "@/db/schemas/qr-codes";
 
 const codeValidation = (schema: z.ZodString) =>
   schema.min(1, "QR code is required").max(255, "QR code too long");

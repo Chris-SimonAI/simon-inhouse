@@ -2,9 +2,9 @@
 
 import React, { useEffect, useCallback, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useVoiceAgentConnection } from '@/hooks/useVoiceAgentConnection';
-import { VoiceAnimation } from './VoiceAnimation';
-import { VoiceStatus } from './VoiceStatus';
+import { useVoiceAgentConnection } from '@/hooks/use-voice-agent-connection';
+import { VoiceAnimation } from './voice-animation';
+import { VoiceStatus } from './voice-status';
 import { getVoiceStatusText, getVoiceTapInstruction } from '@/lib/voice-utils';
 
 interface RealtimeVoiceAgentProps {

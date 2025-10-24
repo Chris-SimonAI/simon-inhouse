@@ -1,14 +1,14 @@
 'use client';
 
-import { useSession } from '@/contexts/SessionContext';
+import { useSession } from '@/contexts/session-context';
 import { processChatMessageStream, getThreadMessages } from '@/actions/chatbot';
-import ChatbotClient from '@/components/Chatbot';
-import WelcomeClient from '@/components/WelcomeClient';
-import VoiceIntroClient from '@/components/VoiceIntroClient';
+import ChatbotClient from '@/components/chatbot';
+import WelcomeClient from '@/components/welcome-client';
+import VoiceIntroClient from '@/components/voice-intro-client';
 import { Loader } from '@/components/ai-elements/loader';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import OrderSuccessToast from '@/components/OrderSuccessToast';
+import OrderSuccessToast from '@/components/order-success-toast';
 
 
 export function HomeContent() {

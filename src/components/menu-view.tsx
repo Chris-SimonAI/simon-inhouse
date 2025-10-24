@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { MenuData, MenuItem } from '@/actions/menu';
-import { MenuItemCard } from './MenuItemCard';
-import { MenuItemDetails } from './MenuItemDetails';
-import { CartButton } from './CartButton';
+import { MenuItemCard } from './menu-item-card';
+import { MenuItemDetails } from './menu-item-details';
+import { CartButton } from './cart-button';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
