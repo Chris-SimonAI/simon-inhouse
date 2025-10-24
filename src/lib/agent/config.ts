@@ -25,3 +25,10 @@ export const model = new ChatOpenAI({
   streaming: true,
   model: "gpt-4o",
 });
+
+export const miniModel = new ChatOpenAI({
+  apiKey: env.OPENAI_API_KEY,
+  temperature: 0,
+  streaming: true,
+  model: "gpt-4o-mini",
+});

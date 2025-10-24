@@ -1,4 +1,5 @@
 import { HumanMessage, ToolMessage } from "@langchain/core/messages";
+
 import { getApp } from "./instances";
 import { AGENTS, type AgentName, type ConciergeStreamEvent, isAgentName } from "./config";
 
@@ -13,6 +14,8 @@ export async function* streamAgent({
   tags?: string[];
   metadata?: Record<string, unknown>;
 }) {
+  const hotelId = typeof metadata.hotelId === "number" ? metadata.hotelId : undefined;
+
   const app = await getApp();
   const stream = app.streamEvents(
     { messages: [new HumanMessage(message)] },
@@ -20,17 +23,22 @@ export async function* streamAgent({
       version: "v2",
       configurable: {
         thread_id: threadId,
-        ...(typeof metadata.hotelId === 'number' && { hotelId: metadata.hotelId })
+        ...(hotelId !== undefined && { hotelId }),
       },
       tags,
       metadata: { threadId, ...metadata },
-      runName: "concierge-swarm",
+      runName: "concierge-graph",
     }
   );
 
   let currentAgent: AgentName = AGENTS.CONCIERGE;
 
   for await (const event of stream) {
+
+    // skip the output of the preface gate
+    if(event.metadata?.langgraph_node === "should_emit_preface") {
+      continue;
+    }
 
     if (
       event.event === "on_chain_start" &&
