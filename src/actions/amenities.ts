@@ -76,7 +76,6 @@ export async function getAmenitiesByEmbedding(
       .limit(topK);
 
     if (semanticResults.length === 0) {
-      console.log("No semantic results found");
       return createSuccess([]);
     }
 

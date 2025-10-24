@@ -10,7 +10,7 @@ import { GetAmenitiesArgsSchema, GetAmenitiesArgsInput } from "@/validations/ame
 const createErrorResponse = (error: string, message: string) => 
   JSON.stringify({ error, message });
 
-const createSuccessResponse = (data: any, message?: string) => 
+const createSuccessResponse = (data: unknown, message?: string) => 
   JSON.stringify({ data, ...(message && { message }) });
 
 export const searchRestaurantsTool = new DynamicStructuredTool({
@@ -65,10 +65,7 @@ export const getAmenitiesTool = new DynamicStructuredTool({
   schema: GetAmenitiesArgsSchema,
   func: async (args: GetAmenitiesArgsInput) => {
     try {
-      console.log("get_amenities tool called with args:", args);
       const { hotelId, query } = args;
-
-      // Helper function to get all amenities
       const getAllAmenities = async (message?: string) => {
         const result = await getAmenitiesByHotelId(hotelId);
         if (!result.ok) {
@@ -77,17 +74,12 @@ export const getAmenitiesTool = new DynamicStructuredTool({
         return createSuccessResponse(result.data, message);
       };
 
-      // If no query provided, return all amenities
       if (!query?.trim()) {
-        console.log("No query provided, returning all amenities");
         return getAllAmenities();
       }
 
       // Perform semantic search
-      console.log("Query provided, performing semantic search:", query);
       const queryEmbedding = await generateEmbeddingFromJSON({ query });
-      console.log("Generated query embedding length:", queryEmbedding.length);
-      
       const result = await getAmenitiesByEmbedding(queryEmbedding, query);
       
       if (!result.ok) {
@@ -96,11 +88,8 @@ export const getAmenitiesTool = new DynamicStructuredTool({
 
       // If no matches found, fall back to all amenities
       if (!result.data?.length) {
-        console.log("No matches found, falling back to all amenities");
         return getAllAmenities("No specific matches found, showing all amenities");
       }
-
-      console.log(`Found ${result.data.length} matching amenities`);
       return createSuccessResponse(result.data);
       
     } catch (err) {

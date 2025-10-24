@@ -1,5 +1,4 @@
 import { getHotelById } from '@/actions/hotels';
-import { DEFAULT_HOTEL_ID } from '@/constants';
 import { getAmenitiesByHotelId } from '@/actions/amenities';
 
 

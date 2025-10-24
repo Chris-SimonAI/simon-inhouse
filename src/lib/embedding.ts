@@ -11,7 +11,7 @@ function normalizeVector(v: number[]): number[] {
 }
 
 export async function generateEmbeddingFromJSON(
-  data: Record<string, any>,
+  data: Record<string, unknown>,
   model = "text-embedding-3-small"
 ): Promise<number[]> {
   const embeddings = new OpenAIEmbeddings({ model });

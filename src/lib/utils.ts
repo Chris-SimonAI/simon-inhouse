@@ -65,8 +65,8 @@ export function isSafari(): boolean {
   return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 }
 
-export function jsonToReadableText(obj: Record<string, any>): string {
-  const flatten = (input: any): string => {
+export function jsonToReadableText(obj: Record<string, unknown>): string {
+  const flatten = (input: unknown): string => {
     if (input === null || input === undefined) return "";
     if (typeof input === "object") {
       if (Array.isArray(input)) return input.map(flatten).join(", ");

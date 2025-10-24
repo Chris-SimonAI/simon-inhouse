@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import "dotenv/config";
 import { type ClientConfig } from "pg";
 import fs from "fs";
@@ -19,7 +19,7 @@ function normalizeVector(v: number[]): number[] {
  * Adds context, removes formatting noise, and handles nested fields gracefully.
  */
 export async function generateEmbeddingFromJSON(
-  data: Record<string, any>,
+  data: Record<string, unknown>,
   model = "text-embedding-3-small"
 ): Promise<number[]> {
   const embeddings = new OpenAIEmbeddings({ model });
@@ -32,18 +32,18 @@ export async function generateEmbeddingFromJSON(
  * Converts an amenity object into a clean, readable text string for embedding.
  * Emphasizes semantic meaning while stripping Markdown and formatting artifacts.
  */
-export function jsonToReadableText(obj: Record<string, any>): string {
+export function jsonToReadableText(obj: Record<string, unknown>): string {
   if (obj.name && obj.description) {
-    const cleanLongDescription = obj.longDescription
+    const cleanLongDescription = obj.longDescription && typeof obj.longDescription === 'string'
       ? obj.longDescription.replace(/[*_#>\n]+/g, " ").trim()
       : "";
     const tagsText =
-      obj.tags && obj.tags.length > 0
+      obj.tags && Array.isArray(obj.tags) && obj.tags.length > 0
         ? `Tags: ${obj.tags.join(", ")}.`
         : "";
     return `Amenity: ${obj.name}. Description: ${obj.description}. ${cleanLongDescription} ${tagsText}`;
   }
-  const flatten = (input: any): string => {
+  const flatten = (input: unknown): string => {
     if (input === null || input === undefined) return "";
     if (typeof input === "object") {
       if (Array.isArray(input)) return input.map(flatten).join(", ");
@@ -547,7 +547,7 @@ async function insertedMenu(
 
 async function generateEmbeddingForAmenities() {
   const UPDATED_DEMO_AMENITIES = [];
-  for (let amenity of DEMO_AMENITIES) {
+  for (const amenity of DEMO_AMENITIES) {
     // Create a copy of the amenity to avoid modifying the original
     const amenityCopy = { ...amenity };
     console.log(`Generating embedding for: ${amenity.name}`);
