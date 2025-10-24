@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useSession } from '@/contexts/SessionContext';
+import { useSession } from '@/contexts/session-context';
 import { getHotelSession } from '@/actions/sessions';
 import { getHotelById } from '@/actions/hotels';
 import { getVoiceAgentHotelContextAction } from '@/actions/voice-agent';

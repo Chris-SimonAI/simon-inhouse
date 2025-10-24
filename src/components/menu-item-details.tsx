@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { MenuItem, MenuModifierGroup, MenuOption } from '@/actions/menu';
-import { CartItem } from './MenuView';
+import { CartItem } from './menu-view';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';

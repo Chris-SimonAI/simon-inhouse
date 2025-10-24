@@ -1,4 +1,4 @@
-import { DineInRestaurantPage as DineInRestaurantComponent } from "@/components/DineInRestaurantPage";
+import { DineInRestaurantPage as DineInRestaurantComponent } from "@/components/dine-in-restaurant-page";
 import { getDineInRestaurantByGuid } from "@/actions/dine-in-restaurants";
 import { notFound } from "next/navigation";
 

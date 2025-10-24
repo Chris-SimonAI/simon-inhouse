@@ -1,8 +1,8 @@
 'use client';
 
-import { SessionProvider } from '@/contexts/SessionContext';
-import { QRCodeHandler } from '@/components/QRCodehandler';
-import { SessionLoader } from '@/components/SessionLoader';
+import { SessionProvider } from '@/contexts/session-context';
+import { QRCodeHandler } from '@/components/qr-code-handler';
+import { SessionLoader } from '@/components/session-loader';
 import { usePathname } from 'next/navigation';
 import { Suspense } from 'react';
 

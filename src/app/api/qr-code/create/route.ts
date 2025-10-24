@@ -1,4 +1,4 @@
-import { createQRCode } from "@/actions/qrCode";
+import { createQRCode } from "@/actions/qr-code";
 import { createError, createSuccess } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiKey } from "@/utils/api-key-validation";
