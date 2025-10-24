@@ -2,7 +2,16 @@ import { pgTable, bigserial, bigint, varchar, text, timestamp, jsonb, pgEnum } f
 import { hotels } from './hotels';
 import { dineInRestaurants } from './dine-in-restaurants';
 
-export const orderStatusEnum = pgEnum('order_status', ['pending', 'confirmed', 'delivered', 'cancelled']);
+export const orderStatusEnum = pgEnum('order_status', [
+  'pending', 
+  'confirmed', 
+  'delivered', 
+  'cancelled', 
+  'failed',
+  'requested_to_toast',
+  'toast_ordered', 
+  'toast_ok_capture_failed'
+]);
 
 export const dineInOrders = pgTable('dine_in_orders', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
