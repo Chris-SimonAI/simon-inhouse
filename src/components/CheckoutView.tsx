@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { CartItem } from './MenuView';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, X, Trash2, Plus, Minus } from 'lucide-react';
+import {X, Trash2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
