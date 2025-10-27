@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         // Update order status to cancelled
         await db.update(dineInOrders)
           .set({
-            orderStatus: 'cancelled',
+            orderStatus: 'failed',
             metadata: {
               ...(order.metadata as Record<string, unknown> || {}),
               botStatus: 'failed',
