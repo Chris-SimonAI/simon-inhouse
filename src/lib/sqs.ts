@@ -91,6 +91,7 @@ export function prepareBotPayload(
   orderItems: Array<{
     itemName: string;
     quantity: number;
+    modifierDetails?: unknown;
   }>,
   guestInfo: {
     name?: string;
@@ -101,11 +102,31 @@ export function prepareBotPayload(
   apartment?: string
 ): BotOrderPayload {
   // Convert items to OrderItem format
-  const itemsArray: OrderItem[] = orderItems.map(item => ({
-    name: item.itemName,
-    quantity: item.quantity,
-    // modifiers and specialInstructions can be added here if available
-  }));
+  const itemsArray: OrderItem[] = orderItems.map(item => {
+    const modifiers: string[] = [];
+    
+    // Extract modifier names from modifierDetails
+    if (item.modifierDetails && Array.isArray(item.modifierDetails)) {
+      (item.modifierDetails as Array<{
+        groupName?: string;
+        options?: Array<{ optionName?: string }>;
+      }>).forEach(group => {
+        if (group.options && Array.isArray(group.options)) {
+          group.options.forEach(option => {
+            if (option.optionName) {
+              modifiers.push(option.optionName);
+            }
+          });
+        }
+      });
+    }
+    
+    return {
+      name: item.itemName,
+      quantity: item.quantity,
+      modifiers: modifiers.length > 0 ? modifiers : undefined,
+    };
+  });
   
   return {
     cmd: 'place-order',
@@ -117,5 +138,6 @@ export function prepareBotPayload(
     apartment,
     callbackUrl: `${env.NEXT_PUBLIC_APP_URL}/api/fulfillment/callback`,
     callbackSecret: env.FULFILLMENT_CALLBACK_SECRET,
+    debug: 'true',
   };
 }

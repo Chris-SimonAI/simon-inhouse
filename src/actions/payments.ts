@@ -190,6 +190,7 @@ export async function confirmPayment(input: {
     const orderItems = await db.select({
       itemName: dineInOrderItems.itemName,
       quantity: dineInOrderItems.quantity,
+      modifierDetails: dineInOrderItems.modifierDetails,
     }).from(dineInOrderItems).where(eq(dineInOrderItems.orderId, orderId));
     // Extract restaurant URL from metadata
     const restaurantUrl = (restaurant.metadata as Record<string, unknown>)?.sourceUrl as string;
@@ -201,24 +202,21 @@ export async function confirmPayment(input: {
     const botPayload = prepareBotPayload(
       orderId,
       restaurantUrl,
-      orderItems,
+      orderItems.map(item => ({
+        itemName: item.itemName,
+        quantity: item.quantity,
+        modifierDetails: item.modifierDetails,
+      })),
       {
         name: `Guest ${order[0].roomNumber}`, // Basic guest info
-        email: undefined,
-        phone: undefined,
+        email: 'guest@example.com',
+        phone: '1234567890',
       },
-      `Room ${order[0].roomNumber}`,
+      `23663 Calabasas road Calabasas, CA 91302`, //hardcoded delivery address
       order[0].roomNumber
     );
 
-    console.log('Bot payload prepared:', {
-      orderId: botPayload.orderId,
-      restaurantUrl: botPayload.url,
-      itemCount: botPayload.items.length,
-      guestName: botPayload.guest?.name,
-      deliveryAddress: botPayload.deliveryAddress,
-      apartment: botPayload.apartment
-    });
+    console.log('Bot payload (JSON):', JSON.stringify(botPayload, null, 2));
 
     // Send order to bot via SQS (use mock in development)
     console.log('Sending order to bot via SQS...');
