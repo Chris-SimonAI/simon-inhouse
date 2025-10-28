@@ -1,6 +1,6 @@
 "use client";
 
-import { PaymentProcessingScreen } from "@/components/PaymentProcessingScreen";
+import { PaymentProcessingScreen } from "@/components/payment-processing-screen";
 import { useParams } from "next/navigation";
 
 export default function PaymentProcessingPage() {

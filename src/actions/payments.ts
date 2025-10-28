@@ -70,11 +70,12 @@ export async function createOrderAndPaymentIntent(input: unknown) {
       db.select().from(hotels).where(eq(hotels.id, order.hotelId)).limit(1),
       db.select().from(dineInRestaurants).where(eq(dineInRestaurants.id, order.restaurantId)).limit(1)
     ]);
-
-          // Create Stripe Payment Intent
-          const paymentIntent = await stripe.paymentIntents.create({
+    // Create Stripe Payment Intent (authorize-only for bot processing)
+    console.log('Creating Stripe payment intent...');
+    const paymentIntent = await stripe.paymentIntents.create({
             amount: Math.round(totalAmount * 100), // Convert to cents
             currency: 'usd',
+            capture_method: 'manual', // Authorize but don't capture until bot succeeds
             automatic_payment_methods: {
               enabled: true,
               allow_redirects: 'never'
@@ -86,12 +87,21 @@ export async function createOrderAndPaymentIntent(input: unknown) {
               hotelName: hotel[0]?.name || 'Unknown Hotel',
               restaurantName: restaurant[0]?.name || 'Unknown Restaurant',
               roomNumber: order.roomNumber,
+              botTriggered: 'false',
+              botStatus: 'pending',
             },
           });
+    console.log('Stripe payment intent created:', {
+      paymentIntentId: paymentIntent.id,
+      amount: paymentIntent.amount,
+      currency: paymentIntent.currency,
+      status: paymentIntent.status
+    });
 
     // Revalidate orders cache
     revalidateTag('orders');
     
+    console.log('createOrderAndPaymentIntent completed successfully');
     return createSuccess({ 
       order, 
       orderItems, 
@@ -110,13 +120,14 @@ export async function confirmPayment(input: {
 }) {
   try {
     // Retrieve payment intent from Stripe
+    console.log('Retrieving payment intent from Stripe...');
     const paymentIntent = await stripe.paymentIntents.retrieve(input.paymentIntentId);
 
     if (!paymentIntent) {
+      console.error('Payment intent not found for ID:', input.paymentIntentId);
       return createError('Payment intent not found');
     }
 
-    console.log('Confirming payment with Payment Method:', input.paymentMethodId);
 
     // Confirm Payment Intent with Payment Method
     const confirmedPaymentIntent = await stripe.paymentIntents.confirm(
@@ -126,11 +137,12 @@ export async function confirmPayment(input: {
       }
     );
 
-    if (confirmedPaymentIntent.status !== 'succeeded') {
+    if (confirmedPaymentIntent.status !== 'requires_capture') {
+      console.error('Payment confirmation failed with status:', confirmedPaymentIntent.status);
       return createError(`Payment failed with status: ${confirmedPaymentIntent.status}`);
     }
 
-    console.log('Payment confirmed successfully:', confirmedPaymentIntent.id);
+    console.log('Payment intent requires capture:', confirmedPaymentIntent.id);
 
     // Get order from metadata
     const orderIdStr = paymentIntent.metadata.orderId;
@@ -144,14 +156,14 @@ export async function confirmPayment(input: {
       return createError('Order not found');
     }
 
-    // Create payment record with 'processing' status
-    // The webhook will update it to 'succeeded' when payment is confirmed
+    // Create payment record with 'authorized' status
+    // Payment will be captured after bot succeeds
     const paymentRecord = await db.insert(dineInPayments).values({
       orderId: orderId,
       amount: (confirmedPaymentIntent.amount / 100).toFixed(2),
       currency: confirmedPaymentIntent.currency,
       stripePaymentIntentId: confirmedPaymentIntent.id,
-      paymentStatus: 'processing', // Webhook will update to 'succeeded'
+      paymentStatus: 'processing', // Will be captured after bot succeeds
       stripeMetadata: {
         ...confirmedPaymentIntent.metadata,
         paymentMethodId: input.paymentMethodId,
@@ -162,18 +174,6 @@ export async function confirmPayment(input: {
     if (paymentRecord.length === 0) {
       return createError('Failed to create payment record');
     }
-
-    // Keep order status as 'pending' - webhook will update to 'confirmed'
-    // This ensures we don't fulfill orders until payment is truly confirmed
-    console.log('Payment processing initiated for order:', orderId);
-    console.log('Webhook will confirm payment and update order status');
-
-    console.log('Payment processing completed for order:', orderId);
-    console.log('Order will be confirmed when webhook processes payment');
-
-    // Revalidate orders and payments cache
-    revalidateTag('orders');
-    revalidateTag('payments');
 
     return createSuccess({ payment: paymentRecord[0] });
   } catch (error) {

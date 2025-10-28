@@ -1,6 +1,6 @@
 'use client';
 
-import { HomeContent } from '@/components/HomeContent.tsx';
+import { HomeContent } from '@/components/home-content.tsx';
 import { Suspense } from 'react';
 
 export default function Home() {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useTTS } from './useTTS'
+import { useTTS } from './use-tts'
 
 interface UseVoiceIntroductionOptions {
   introText: string

@@ -1,6 +1,6 @@
 "use client";
 
-import { TipStaffScreen } from "@/components/TipStaffScreen";
+import { TipStaffScreen } from "@/components/tip-staff-screen";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { DEFAULT_HOTEL_ID } from "@/constants";

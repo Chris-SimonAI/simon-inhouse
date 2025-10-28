@@ -1,5 +1,5 @@
 import { getAmenityById } from "@/actions/amenities";
-import { AmenityDetailsPage } from "@/components/AmenityDetailsPage";
+import { AmenityDetailsPage } from "@/components/amenity-details-page";
 import { notFound } from "next/navigation";
 
 interface PageProps {

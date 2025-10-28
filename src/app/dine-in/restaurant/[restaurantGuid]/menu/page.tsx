@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
-import { MenuView } from '@/components/MenuView';
+import { MenuView } from '@/components/menu-view';
 import { getCompleteMenuByRestaurant } from '@/actions/menu';
 
 type PageProps = {

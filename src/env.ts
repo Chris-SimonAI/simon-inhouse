@@ -15,6 +15,9 @@ const Env = z.object({
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
   APP_API_KEY: z.string().min(1),
   NEXT_PUBLIC_APP_URL: z.string().url(),
+  AWS_REGION: z.string().min(1),
+  AWS_SQS_QUEUE_URL: z.string().min(1),
+  FULFILLMENT_CALLBACK_SECRET: z.string().min(1),
   NODE_ENV: z.enum(["development", "production"])
 });
 

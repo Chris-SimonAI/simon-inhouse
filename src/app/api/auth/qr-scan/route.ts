@@ -4,7 +4,7 @@ import { generateUUID } from "@/utils/uuid";
 import {
   createSession,
 } from "@/lib/sessions";
-import { validateQRCode } from "@/actions/qrCode";
+import { validateQRCode } from "@/actions/qr-code";
 import { auth } from "@/lib/auth";
 import { createError, createSuccess } from "@/lib/utils";
 import { updateSession } from "@/actions/sessions";

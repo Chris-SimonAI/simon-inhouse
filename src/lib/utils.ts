@@ -46,3 +46,22 @@ export function generateId(prefix?: string): string {
   
   return prefix ? `${prefix}_${uuid}` : uuid;
 }
+
+/**
+ * Detect if device is iOS (iPhone, iPad, iPod)
+ */
+export function isIOS(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+/**
+ * Detect if browser is Safari
+ */
+export function isSafari(): boolean {
+  if (typeof window === "undefined") return false;
+  return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+}
