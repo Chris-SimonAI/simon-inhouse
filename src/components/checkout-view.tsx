@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { CartItem } from './MenuView';
+import type { CartItem } from './menu-view';
 import { Button } from '@/components/ui/button';
 import {X, Trash2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';

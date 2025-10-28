@@ -1,8 +1,8 @@
 "use client";
 
-import { VoiceStatus as VoiceStatusType } from "@/hooks/useVoiceAgentConnection";
+import { VoiceStatus as VoiceStatusType } from "@/hooks/use-voice-agent-connection";
 import { BarVisualizer } from "@/components/ui/bar-visualizer";
-import { useAudioStream, useMicrophoneStream } from "@/hooks/useAudioStream";
+import { useAudioStream, useMicrophoneStream } from "@/hooks/use-audio-stream";
 
 interface VoiceAnimationProps {
   status: VoiceStatusType;

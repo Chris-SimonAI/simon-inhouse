@@ -1,6 +1,6 @@
 'use client'
 
-import { useVoiceIntroduction } from '@/hooks/useVoiceIntroduction'
+import { useVoiceIntroduction } from '@/hooks/use-voice-introduction'
 import { Volume2 } from 'lucide-react'
 import { SimonLogo } from '@/svgs'
 

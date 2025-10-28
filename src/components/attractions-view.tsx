@@ -1,7 +1,7 @@
 "use client";
 
 import type { PlaceResult } from "@/lib/places";
-import { PlaceCard } from "./PlaceCard";
+import { PlaceCard } from "./place-card";
 import {
     Carousel,
     CarouselContent,

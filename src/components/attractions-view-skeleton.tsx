@@ -1,7 +1,7 @@
 "use client";
 
 import { MapPin } from "lucide-react";
-import { CardSkeleton } from "./CardSkeleton";
+import { CardSkeleton } from "./card-skeleton";
 
 export function AttractionsViewSkeleton() {
     return (
