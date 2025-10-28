@@ -1,0 +1,1 @@
+ALTER TABLE "amenities" ADD COLUMN "embedding" vector(1536);
