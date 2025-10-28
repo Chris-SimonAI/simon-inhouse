@@ -4,7 +4,6 @@ import { db } from '@/db';
 import { dineInOrders, dineInPayments } from '@/db/schemas';
 import { eq } from 'drizzle-orm';
 import { env } from '@/env';
-import { revalidateTag } from 'next/cache';
 
 interface BotCallbackPayload {
   orderId: number;
@@ -27,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     // Parse bot result
     const payload: BotCallbackPayload = await request.json();
-    const { orderId, success, data, error, reason } = payload;
+    const { orderId, success, error, reason } = payload;
 
     console.log('Received bot callback:', { orderId, success, error, reason });
 
@@ -47,38 +46,8 @@ export async function POST(request: NextRequest) {
     if (success) {
       // Bot succeeded - capture payment
       try {
-        const capturedPayment = await stripe.paymentIntents.capture(payment.stripePaymentIntentId);
-        
-        if (capturedPayment.status === 'succeeded') {
-          // Update payment status
-          await db.update(dineInPayments)
-            .set({
-              paymentStatus: 'succeeded',
-              stripeMetadata: {
-                ...(payment.stripeMetadata as Record<string, unknown> || {}),
-                capturedAt: new Date().toISOString(),
-                botResult: data,
-              } as Record<string, unknown>,
-            })
-            .where(eq(dineInPayments.id, payment.id));
+        await stripe.paymentIntents.capture(payment.stripePaymentIntentId);
 
-          // Update order status to confirmed
-          await db.update(dineInOrders)
-            .set({
-              orderStatus: 'confirmed',
-              metadata: {
-                ...(order.metadata as Record<string, unknown> || {}),
-                botStatus: 'completed',
-                botResult: data,
-                botCompletedAt: new Date().toISOString(),
-              } as Record<string, unknown>,
-            })
-            .where(eq(dineInOrders.id, orderId));
-
-          console.log('Payment captured and order confirmed:', orderId);
-        } else {
-          throw new Error(`Payment capture failed with status: ${capturedPayment.status}`);
-        }
       } catch (captureError) {
         console.error('Failed to capture payment:', captureError);
         
@@ -101,35 +70,6 @@ export async function POST(request: NextRequest) {
       // Bot failed - cancel/void payment
       try {
         await stripe.paymentIntents.cancel(payment.stripePaymentIntentId);
-        
-        // Update payment status
-        await db.update(dineInPayments)
-          .set({
-            paymentStatus: 'cancelled',
-            stripeMetadata: {
-              ...(payment.stripeMetadata as Record<string, unknown> || {}),
-              cancelledAt: new Date().toISOString(),
-              botError: error,
-              botReason: reason,
-            } as Record<string, unknown>,
-          })
-          .where(eq(dineInPayments.id, payment.id));
-
-        // Update order status to cancelled
-        await db.update(dineInOrders)
-          .set({
-            orderStatus: 'failed',
-            metadata: {
-              ...(order.metadata as Record<string, unknown> || {}),
-              botStatus: 'failed',
-              botError: error,
-              botReason: reason,
-              botCompletedAt: new Date().toISOString(),
-            } as Record<string, unknown>,
-          })
-          .where(eq(dineInOrders.id, orderId));
-
-        console.log('Payment cancelled and order cancelled:', orderId);
       } catch (cancelError) {
         console.error('Failed to cancel payment:', cancelError);
         
@@ -149,10 +89,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Payment cancellation failed' }, { status: 500 });
       }
     }
-
-    // Revalidate caches
-    revalidateTag('orders');
-    revalidateTag('payments');
 
     return NextResponse.json({ success: true });
   } catch (error) {

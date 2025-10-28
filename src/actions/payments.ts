@@ -10,7 +10,6 @@ import { CreateOrderRequestSchema } from '@/validations/dine-in-orders';
 import { eq } from 'drizzle-orm';
 import { revalidateTag } from 'next/cache';
 import { getMenuItemDatabaseId } from '@/actions/menu';
-import { sendOrderToBot, prepareBotPayload } from '@/lib/sqs';
 
 export async function createOrderAndPaymentIntent(input: unknown) {
   try {
@@ -143,7 +142,7 @@ export async function confirmPayment(input: {
       return createError(`Payment failed with status: ${confirmedPaymentIntent.status}`);
     }
 
-    console.log('Payment confirmed successfully:', confirmedPaymentIntent.id);
+    console.log('Payment intent requires capture:', confirmedPaymentIntent.id);
 
     // Get order from metadata
     const orderIdStr = paymentIntent.metadata.orderId;
@@ -164,7 +163,7 @@ export async function confirmPayment(input: {
       amount: (confirmedPaymentIntent.amount / 100).toFixed(2),
       currency: confirmedPaymentIntent.currency,
       stripePaymentIntentId: confirmedPaymentIntent.id,
-      paymentStatus: 'authorized', // Will be captured after bot succeeds
+      paymentStatus: 'processing', // Will be captured after bot succeeds
       stripeMetadata: {
         ...confirmedPaymentIntent.metadata,
         paymentMethodId: input.paymentMethodId,
@@ -175,82 +174,6 @@ export async function confirmPayment(input: {
     if (paymentRecord.length === 0) {
       return createError('Failed to create payment record');
     }
-    // Get restaurant details for bot payload
-    const [restaurant] = await db.select().from(dineInRestaurants).where(eq(dineInRestaurants.id, order[0].restaurantId)).limit(1);
-    if (!restaurant) {
-      return createError('Restaurant not found');
-    }
-    console.log('Restaurant found:', {
-      restaurantId: restaurant.id,
-      name: restaurant.name,
-      hasOrderingUrl: !!(restaurant.metadata as Record<string, unknown>)?.sourceUrl
-    });
-
-    // Get order items for bot payload
-    const orderItems = await db.select({
-      itemName: dineInOrderItems.itemName,
-      quantity: dineInOrderItems.quantity,
-      modifierDetails: dineInOrderItems.modifierDetails,
-    }).from(dineInOrderItems).where(eq(dineInOrderItems.orderId, orderId));
-    // Extract restaurant URL from metadata
-    const restaurantUrl = (restaurant.metadata as Record<string, unknown>)?.sourceUrl as string;
-    if (!restaurantUrl) {
-      return createError('Restaurant ordering URL not configured');
-    }
-
-    // Prepare bot payload
-    const botPayload = prepareBotPayload(
-      orderId,
-      restaurantUrl,
-      orderItems.map(item => ({
-        itemName: item.itemName,
-        quantity: item.quantity,
-        modifierDetails: item.modifierDetails,
-      })),
-      {
-        name: `Guest ${order[0].roomNumber}`, // Basic guest info
-        email: 'guest@example.com',
-        phone: '1234567890',
-      },
-      `23663 Calabasas road Calabasas, CA 91302`, //hardcoded delivery address
-      order[0].roomNumber
-    );
-
-    console.log('Bot payload (JSON):', JSON.stringify(botPayload, null, 2));
-
-    // Send order to bot via SQS (use mock in development)
-    console.log('Sending order to bot via SQS...');
-    const botResult = await sendOrderToBot(botPayload);
-    if (!botResult.ok) {
-      console.error('Failed to send order to bot:', botResult.message || 'Unknown error');
-      console.error('Bot result details:', botResult);
-      // Don't fail the payment - just log the error
-      // The order will remain in pending status
-    } else {
-      console.log('Order sent to bot for processing successfully:', {
-        orderId,
-        messageId: botResult.data.messageId,
-      });
-
-      // Update order status to requested_to_toast and metadata to indicate bot was triggered
-      await db.update(dineInOrders)
-        .set({
-          orderStatus: 'requested_to_toast',
-          metadata: {
-            ...(order[0].metadata as Record<string, unknown> || {}),
-            botTriggered: true,
-            botJobId: botResult.data.messageId,
-            botStatus: 'processing',
-          } as Record<string, unknown>,
-        })
-        .where(eq(dineInOrders.id, orderId));
-    }
-
-    console.log('Payment authorized and bot triggered for order:', orderId);
-
-    // Revalidate orders and payments cache
-    revalidateTag('orders');
-    revalidateTag('payments');
 
     return createSuccess({ payment: paymentRecord[0] });
   } catch (error) {
