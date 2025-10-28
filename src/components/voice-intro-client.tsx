@@ -6,30 +6,16 @@ import { useTTS } from "@/hooks/use-tts";
 import { BarVisualizer } from "@/components/ui/bar-visualizer";
 import { type Hotel } from "@/db/schemas/hotels";
 import { useAudioStream } from "@/hooks/use-audio-stream";
+import { isIOS, isSafari } from "@/lib/utils";
 
 type VoiceIntroClientProps = {
   hotel: Hotel;
-};
-
-// Detect if device is iOS or Safari
-const isIOS = () => {
-  if (typeof window === "undefined") return false;
-  return (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-  );
-};
-
-const isSafari = () => {
-  if (typeof window === "undefined") return false;
-  return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 };
 
 export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
   const router = useRouter();
   const hasStartedRef = useRef(false);
   const [showTapPrompt, setShowTapPrompt] = useState(false);
-  const [audioPreloaded, setAudioPreloaded] = useState(false);
   const isIOSOrSafari = isSafari() || isIOS();
 
   const introText = `Hi, I'm Simon—your 24/7 concierge at ${hotel.name}. I can help with hotel amenities, great places to eat, and things to do around the city. If you are hungry, I can also place food-delivery orders from a variety of our partner restaurants. ${hotel.name} encourages you to place food orders through me, so that I can coordinate with the front desk to ensure your meal comes straight to your room. How can I help today?`;
@@ -40,7 +26,6 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
     preloadAudio,
     stopPlayback,
     isPlaying,
-    audioElement,
     isPreloaded,
     getCurrentAudio,
   } = useTTS({
@@ -54,10 +39,8 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
       router.replace("/");
     },
   });
-  // Fallback: if audioElement is null but we have a ref, use the ref
-  const fallbackAudioElement = audioElement || getCurrentAudio();
 
-  const audioStream = useAudioStream(fallbackAudioElement);
+  const audioStream = useAudioStream(getCurrentAudio());
 
   useEffect(() => {
     // Prevent double-execution in React StrictMode
@@ -68,7 +51,6 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
       try {
         if (isIOSOrSafari) {
           await preloadAudio(introText);
-          setAudioPreloaded(true);
           setShowTapPrompt(true);
         } else {
           try {
@@ -93,7 +75,7 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
 
   const handleTapToStart = async () => {
     setShowTapPrompt(false);
-    if (audioPreloaded && isPreloaded) {
+    if (isPreloaded) {
       await playPreloadedAudio();
     } else {
       await preloadAndPlay(introText);

@@ -17,7 +17,6 @@ export interface UseTTSReturn {
   preloadAndPlay: (text: string) => Promise<void>;
   stopPlayback: () => void;
   error: string | null;
-  audioElement: HTMLAudioElement | null;
   isPreloaded: boolean;
   getCurrentAudio: () => HTMLAudioElement | null;
 }
@@ -29,7 +28,6 @@ export function useTTS({
 }: UseTTSOptions = {}): UseTTSReturn {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [isPreloaded, setIsPreloaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -54,12 +52,11 @@ export function useTTS({
       // Create audio element
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
-      setAudioElement(audio);
       
       // Set up event handlers BEFORE setting isPlaying
       audio.onended = () => {
         setIsPlaying(false);
-        setAudioElement(null);
+        audioRef.current = null;
         callbacksRef.current.onPlaybackComplete?.();
       };
       
@@ -67,7 +64,7 @@ export function useTTS({
         const errorMessage = 'Failed to play audio';
         setError(errorMessage);
         setIsPlaying(false);
-        setAudioElement(null);
+        audioRef.current = null;
         callbacksRef.current.onError?.(new Error(errorMessage));
       };
       
@@ -82,7 +79,7 @@ export function useTTS({
       const errorMessage = err instanceof Error ? err.message : 'TTS failed';
       setError(errorMessage);
       setIsPlaying(false);
-      setAudioElement(null);
+      audioRef.current = null;
       callbacksRef.current.onError?.(err instanceof Error ? err : new Error(errorMessage));
     }
   }, []);
@@ -102,7 +99,7 @@ export function useTTS({
       // Set up event handlers for preloaded audio
       audio.onended = () => {
         setIsPlaying(false);
-        setAudioElement(null);
+        audioRef.current = null;
         callbacksRef.current.onPlaybackComplete?.();
       };
       
@@ -110,7 +107,7 @@ export function useTTS({
         const errorMessage = 'Failed to play preloaded audio';
         setError(errorMessage);
         setIsPlaying(false);
-        setAudioElement(null);
+        audioRef.current = null;
         callbacksRef.current.onError?.(new Error(errorMessage));
       };
       
@@ -139,7 +136,6 @@ export function useTTS({
       
       // Use the preloaded audio
       audioRef.current = preloadedAudioRef.current;
-      setAudioElement(preloadedAudioRef.current);
       
       // Set isPlaying BEFORE starting playback
       setIsPlaying(true);
@@ -152,7 +148,7 @@ export function useTTS({
       const errorMessage = err instanceof Error ? err.message : 'Failed to play preloaded audio';
       setError(errorMessage);
       setIsPlaying(false);
-      setAudioElement(null);
+      audioRef.current = null;
       callbacksRef.current.onError?.(err instanceof Error ? err : new Error(errorMessage));
     }
   }, [isPreloaded]);
@@ -175,7 +171,7 @@ export function useTTS({
       // Set up event handlers BEFORE setting state
       audio.onended = () => {
         setIsPlaying(false);
-        setAudioElement(null);
+        audioRef.current = null;
         callbacksRef.current.onPlaybackComplete?.();
       };
       
@@ -183,7 +179,7 @@ export function useTTS({
         const errorMessage = 'Failed to play audio';
         setError(errorMessage);
         setIsPlaying(false);
-        setAudioElement(null);
+        audioRef.current = null;
         callbacksRef.current.onError?.(new Error(errorMessage));
       };
       
@@ -194,7 +190,6 @@ export function useTTS({
       // Set refs and state
       audioRef.current = audio;
       preloadedAudioRef.current = audio;
-      setAudioElement(audio);
       setIsPreloaded(true);
       
       // Set isPlaying BEFORE starting playback
@@ -213,7 +208,7 @@ export function useTTS({
       const errorMessage = err instanceof Error ? err.message : 'TTS failed';
       setError(errorMessage);
       setIsPlaying(false);
-      setAudioElement(null);
+      audioRef.current = null;
       setIsPreloaded(false);
       callbacksRef.current.onError?.(err instanceof Error ? err : new Error(errorMessage));
     }
@@ -225,7 +220,6 @@ export function useTTS({
       audioRef.current = null;
     }
     setIsPlaying(false);
-    setAudioElement(null);
   }, []);
 
   const getCurrentAudio = useCallback(() => {
@@ -240,7 +234,6 @@ export function useTTS({
     preloadAndPlay,
     stopPlayback,
     error,
-    audioElement,
     isPreloaded,
     getCurrentAudio,
   };
