@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import StripePaymentForm from "./StripePaymentForm";
+import StripePaymentForm from "./stripe-payment-form";
 
 type CardPaymentViewProps = {
   restaurantGuid: string;

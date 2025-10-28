@@ -1,8 +1,8 @@
 'use client';
 
-import { useSession } from '@/contexts/SessionContext';
+import { useSession } from '@/contexts/session-context';
 import { processChatMessageStream, getThreadMessages } from '@/actions/chatbot';
-import ChatbotClient from '@/components/Chatbot';
+import ChatbotClient from '@/components/chatbot';
 import { Loader } from '@/components/ai-elements/loader';
 
 export function ChatbotWrapper() {

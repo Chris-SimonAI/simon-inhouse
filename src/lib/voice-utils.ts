@@ -1,4 +1,4 @@
-import { VoiceStatus } from '@/hooks/useVoiceAgentConnection';
+import { VoiceStatus } from '@/hooks/use-voice-agent-connection';
 
 /**
  * Get the appropriate status text for the voice agent based on connection state and status

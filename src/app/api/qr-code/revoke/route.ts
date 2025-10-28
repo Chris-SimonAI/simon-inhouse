@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revokeQRCodeByCodeAndSessions } from "@/actions/qrCode";
+import { revokeQRCodeByCodeAndSessions } from "@/actions/qr-code";
 import { z } from "zod";
-import { QRRevokeSchema } from "@/validations/qrCodes";
+import { QRRevokeSchema } from "@/validations/qr-codes";
 import { createError, createSuccess } from "@/lib/utils";
 import { validateApiKey } from "@/utils/api-key-validation";
 

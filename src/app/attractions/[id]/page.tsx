@@ -1,5 +1,5 @@
 import { getPlaceDetails } from "@/lib/places";
-import { PlaceDetailsPage } from "@/components/PlaceDetailsPage";
+import { PlaceDetailsPage } from "@/components/place-details-page";
 
 interface PageProps {
   params: Promise<{ id: string }>;

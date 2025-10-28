@@ -10,6 +10,7 @@
 ## Conventions
 
 * **TypeScript:** `"strict": true`; **no default exports**; path alias `@/*`.
+* **File Naming:** All files must use **kebab-case** naming convention (e.g., `amenity-card.tsx`, `auth-client.ts`, `dine-in-orders.ts`).
 * **Env:** Validate once at startup (single `src/env.ts`); never read `process.env.*` in client code (use `server-only` where needed).
 * **Data Flow:** All DB and secret-bearing calls are **server-only**. Validate all **external input** at the edge of a Server Action or Route Handler (Zod).
 * **MCP:** Use **context7**. Add use context7 to prompts where needed. Example: Create a Next.js middleware that checks for a valid JWT in cookies and redirects unauthenticated users to `/login`. use context7

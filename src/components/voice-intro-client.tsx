@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTTS } from "@/hooks/useTTS";
+import { useTTS } from "@/hooks/use-tts";
 import { BarVisualizer } from "@/components/ui/bar-visualizer";
 import { type Hotel } from "@/db/schemas/hotels";
-import { useAudioStream } from "@/hooks/useAudioStream";
+import { useAudioStream } from "@/hooks/use-audio-stream";
 
 type VoiceIntroClientProps = {
   hotel: Hotel;

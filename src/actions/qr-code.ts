@@ -2,7 +2,7 @@
 
 import { db, qrCodes } from "@/db";
 import { generateShortUUID } from "@/utils/uuid";
-import { insertQrCodeSchema, selectQrCodeInputSchema, selectQrCodeIdSchema } from "@/validations/qrCodes";
+import { insertQrCodeSchema, selectQrCodeInputSchema, selectQrCodeIdSchema } from "@/validations/qr-codes";
 import { eq, isNull, and } from "drizzle-orm";
 import { deleteSessionsByQrCode } from "@/actions/sessions"; 
 import { createError, createSuccess } from "@/lib/utils";

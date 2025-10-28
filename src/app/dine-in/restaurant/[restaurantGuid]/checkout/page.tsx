@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { CheckoutView } from '@/components/CheckoutView';
+import { CheckoutView } from '@/components/checkout-view';
 
 type PageProps = {
   params: Promise<{

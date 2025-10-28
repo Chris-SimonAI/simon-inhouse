@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { CardPaymentView } from "@/components/CardPaymentView.tsx";
+import { CardPaymentView } from "@/components/card-payment-view.tsx";
 
 type PageProps = {
   params: Promise<{

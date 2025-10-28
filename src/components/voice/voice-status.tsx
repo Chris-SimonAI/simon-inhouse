@@ -1,6 +1,6 @@
 'use client';
 
-import { VoiceStatus as VoiceStatusType } from '@/hooks/useVoiceAgentConnection';
+import { VoiceStatus as VoiceStatusType } from '@/hooks/use-voice-agent-connection';
 import { getVoiceStatusText, getVoiceTapInstruction } from '@/lib/voice-utils';
 
 interface VoiceStatusDisplayProps {
