@@ -13,13 +13,15 @@ type VoiceIntroClientProps = {
 
 // Detect if device is iOS or Safari
 const isIOS = () => {
-  if (typeof window === 'undefined') return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (typeof window === "undefined") return false;
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
 };
 
 const isSafari = () => {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === "undefined") return false;
   return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 };
 
@@ -27,11 +29,21 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
   const router = useRouter();
   const hasStartedRef = useRef(false);
   const [showTapPrompt, setShowTapPrompt] = useState(false);
+  const [audioPreloaded, setAudioPreloaded] = useState(false);
   const isIOSOrSafari = isSafari() || isIOS();
 
   const introText = `Hi, I'm Simon—your 24/7 concierge at ${hotel.name}. I can help with hotel amenities, great places to eat, and things to do around the city. If you are hungry, I can also place food-delivery orders from a variety of our partner restaurants. ${hotel.name} encourages you to place food orders through me, so that I can coordinate with the front desk to ensure your meal comes straight to your room. How can I help today?`;
 
-  const { playText, stopPlayback, isPlaying, audioElement } = useTTS({
+  const {
+    preloadAndPlay,
+    playPreloadedAudio,
+    preloadAudio,
+    stopPlayback,
+    isPlaying,
+    audioElement,
+    isPreloaded,
+    getCurrentAudio,
+  } = useTTS({
     onPlaybackStart: () => {
       setShowTapPrompt(false);
     },
@@ -42,30 +54,35 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
       router.replace("/");
     },
   });
+  // Fallback: if audioElement is null but we have a ref, use the ref
+  const fallbackAudioElement = audioElement || getCurrentAudio();
 
-  const audioStream = useAudioStream(audioElement);
+  const audioStream = useAudioStream(fallbackAudioElement);
 
   useEffect(() => {
     // Prevent double-execution in React StrictMode
     if (hasStartedRef.current) return;
     hasStartedRef.current = true;
 
-    const tryStart = async () => {
-      // On iOS/Safari, show tap prompt immediately instead of trying autoplay
-      if (isIOSOrSafari) {
-        setShowTapPrompt(true);
-        return;
-      }
-
-      // On Android/other devices, try autoplay
+    const initializeAudio = async () => {
       try {
-        await playText(introText);
-      } catch {
-        // If autoplay fails on non-iOS, show prompt too
+        if (isIOSOrSafari) {
+          await preloadAudio(introText);
+          setAudioPreloaded(true);
+          setShowTapPrompt(true);
+        } else {
+          try {
+            await preloadAndPlay(introText);
+          } catch (_error) {
+            setShowTapPrompt(true);
+          }
+        }
+      } catch (_error) {
         setShowTapPrompt(true);
       }
     };
-    void tryStart();
+
+    void initializeAudio();
 
     return () => {
       // Stop playback only on actual unmount (navigation away)
@@ -74,9 +91,13 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleTapToStart = () => {
+  const handleTapToStart = async () => {
     setShowTapPrompt(false);
-    void playText(introText);
+    if (audioPreloaded && isPreloaded) {
+      await playPreloadedAudio();
+    } else {
+      await preloadAndPlay(introText);
+    }
   };
 
   return (
@@ -121,11 +142,15 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
               </div>
             </div>
             <div className="mt-4 text-sm text-black/80">
-              {isPlaying ? "Speaking..." : "Simon is connecting..."}
+              {isPlaying
+                ? "Speaking..."
+                : isPreloaded
+                  ? "Ready to start..."
+                  : "Simon is connecting..."}
             </div>
           </div>
 
-         {/* Tap to start overlay - only shown on iOS or when autoplay fails */}
+          {/* Tap to start overlay - shown on iOS or when autoplay fails */}
           {showTapPrompt && (
             <div className="absolute inset-0 bg-white/95 flex items-center justify-center z-20">
               <button
