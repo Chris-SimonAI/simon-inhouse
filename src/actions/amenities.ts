@@ -8,6 +8,16 @@ import { CreateError, CreateSuccess } from "@/types/response";
 import { getHotelSession } from "./sessions";
 
 
+interface EmbeddingsAmenityResult {
+  id: number;
+  name: string;
+  description: string | null;
+  longDescription: string | null;
+  tags: string[] | null;
+  imageUrls: string[] | null;
+  distance: number;
+  finalScore: number;
+}
 
 // Get amenity by ID
 export async function getAmenityById(id: number): Promise<CreateSuccess<Amenity> | CreateError<string[]>> {  
@@ -46,7 +56,7 @@ export async function getAmenitiesByHotelId(hotelId: number): Promise<CreateSucc
 export async function getAmenitiesByEmbedding(
   embedding: number[],
   query?: string
-): Promise<CreateSuccess<Amenity[]> | CreateError<string[]>> {
+): Promise<CreateSuccess<(EmbeddingsAmenityResult | Amenity)[]> | CreateError<string[]>> {
   try {
     const hotelSessionResult = await getHotelSession();
     if (!hotelSessionResult.ok || !hotelSessionResult.data) {
@@ -79,7 +89,6 @@ export async function getAmenitiesByEmbedding(
       return createSuccess([]);
     }
 
-    semanticResults.sort((a, b) => a.distance - b.distance);
     const best = semanticResults[0].distance;
     const gapThreshold = 0.25; 
     const filteredByDistance = semanticResults.filter(
@@ -110,10 +119,10 @@ export async function getAmenitiesByEmbedding(
 
     const topScore = weighted[0].finalScore;
     const scoreCutoff = topScore - 0.3;
-    const finalResults = weighted.filter((r) => r.finalScore >= scoreCutoff);
+    const finalResults: EmbeddingsAmenityResult[] = weighted.filter((r) => r.finalScore >= scoreCutoff);
 
     if (finalResults.length > 0) {
-      return createSuccess(finalResults as unknown as Amenity[]);
+      return createSuccess(finalResults);
     }
 
     if (!queryLower) {

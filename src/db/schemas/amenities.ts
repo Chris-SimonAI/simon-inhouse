@@ -16,10 +16,7 @@ export const amenities = pgTable("amenities", {
   metadata: jsonb("metadata"),
   ...timestamps,
 }, (table) => [
-  index("amenities_hotel_id_index").on(table.hotelId),
-  index("amenities_embedding_idx")
-  .using("ivfflat", table.embedding.op("vector_cosine_ops"))
-  .with({ lists: 100 }),
+  index("amenities_hotel_id_index").on(table.hotelId)
 ]);
 
 // Relations

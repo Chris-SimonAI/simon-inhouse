@@ -1,6 +1,6 @@
 services:
   db:
-    image: ankane/pgvector:latest
+    image: pgvector/pgvector:pg17
     container_name: meet-simon-postgres
     restart: unless-stopped
     environment:

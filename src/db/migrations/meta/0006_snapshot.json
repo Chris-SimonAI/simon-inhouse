@@ -1,5 +1,5 @@
 {
-  "id": "238229c0-9493-4b04-8f87-9d2688903f92",
+  "id": "c3b67116-fe43-4aa9-8fa1-2d15fe02b9dc",
   "prevId": "ba43b29c-a7cd-4400-859c-cbacf0201f23",
   "version": "7",
   "dialect": "postgresql",
@@ -51,15 +51,6 @@
           "primaryKey": false,
           "notNull": false
         },
-<<<<<<< HEAD
-=======
-        "embedding": {
-          "name": "embedding",
-          "type": "vector(1536)",
-          "primaryKey": false,
-          "notNull": false
-        },
->>>>>>> dd91c0a (embedding colum added)
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
@@ -97,6 +88,7 @@
           "method": "btree",
           "with": {}
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         },
         "amenities_embedding_idx": {
@@ -117,6 +109,8 @@
             "lists": 100
           }
 >>>>>>> dd91c0a (embedding colum added)
+=======
+>>>>>>> cdeaecd (resolve pr comments)
         }
       },
       "foreignKeys": {
