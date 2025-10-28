@@ -44,7 +44,16 @@ export const CreateOrderRequestSchema = z.object({
 // Update order status request schema
 export const UpdateOrderStatusRequestSchema = z.object({
   orderId: z.number().int().positive(),
-  status: z.enum(['pending', 'confirmed', 'delivered', 'cancelled']),
+  status: z.enum([
+    'pending', 
+    'confirmed', 
+    'delivered', 
+    'cancelled', 
+    'failed',
+    'requested_to_toast',
+    'toast_ordered', 
+    'toast_ok_capture_failed'
+  ]),
 });
 
 // Create payment request schema
@@ -57,7 +66,7 @@ export const CreatePaymentRequestSchema = z.object({
 // Update payment status request schema
 export const UpdatePaymentStatusRequestSchema = z.object({
   paymentId: z.number().int().positive(),
-  status: z.enum(['pending', 'processing', 'succeeded', 'failed', 'cancelled']),
+  status: z.enum(['pending', 'processing', 'authorized', 'succeeded', 'failed', 'cancelled']),
 });
 
 // Create payment intent request schema

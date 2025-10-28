@@ -1,7 +1,7 @@
 import { pgTable, bigserial, bigint, varchar, jsonb, timestamp, pgEnum } from 'drizzle-orm/pg-core';
 import { dineInOrders } from './dine-in-orders';
 
-export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'processing', 'succeeded', 'failed', 'cancelled']);
+export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'processing', 'authorized', 'succeeded', 'failed', 'cancelled']);
 
 export const dineInPayments = pgTable('dine_in_payments', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
