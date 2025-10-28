@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const runtime = "nodejs";
 import { stripe } from '@/lib/stripe';
 import { db } from '@/db';
 import { dineInOrders, dineInPayments } from '@/db/schemas';
