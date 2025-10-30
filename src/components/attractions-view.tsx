@@ -10,7 +10,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { MapPin, MapPinOff } from "lucide-react";
-import Image from "next/image";
+import { useEffect, useRef } from "react";
 
 interface AttractionsViewProps {
   attractions: PlaceResult[];
@@ -24,6 +24,99 @@ export function AttractionsView({
   partIndex,
 }: AttractionsViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const mapRef = useRef<HTMLDivElement>(null);
+  const googleMapRef = useRef<google.maps.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapRef.current || attractions.length === 0 || googleMapRef.current)
+      return;
+
+    // Load Google Maps script
+    const loadGoogleMaps = () => {
+      if (window.google?.maps) {
+        initializeMap();
+        return;
+      }
+
+      // Check if script already exists
+      const existingScript = document.querySelector(
+        `script[src*="maps.googleapis.com"]`
+      );
+      if (existingScript) {
+        existingScript.addEventListener("load", initializeMap);
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeMap;
+      document.head.appendChild(script);
+    };
+
+    const initializeMap = () => {
+      if (!mapRef.current || googleMapRef.current) return;
+
+      // Filter attractions with valid coordinates
+      const validAttractions = attractions.filter(
+        (a) => a.latitude !== undefined && a.longitude !== undefined
+      );
+
+      if (validAttractions.length === 0) return;
+
+      // Create map centered on first attraction with all controls disabled
+      const map = new google.maps.Map(mapRef.current, {
+        zoom: 12,
+        center: {
+          lat: validAttractions[0].latitude!,
+          lng: validAttractions[0].longitude!,
+        },
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        zoomControl: false,
+        scaleControl: false,
+        rotateControl: false,
+        panControl: false,
+        gestureHandling: "cooperative",
+        disableDefaultUI: true,
+      });
+
+      googleMapRef.current = map;
+
+      // Add markers for each attraction
+      const bounds = new google.maps.LatLngBounds();
+      validAttractions.forEach((attraction, idx) => {
+        const marker = new google.maps.Marker({
+          position: {
+            lat: attraction.latitude!,
+            lng: attraction.longitude!,
+          },
+          map,
+          label: {
+            text: `${idx + 1}`,
+            color: "white",
+            fontWeight: "bold",
+          },
+          title: attraction.name,
+        });
+
+        // Extend bounds to include this marker
+        bounds.extend(marker.getPosition()!);
+
+      });
+
+      // Fit map to show all markers
+      map.fitBounds(bounds);
+
+      // Add some padding to bounds
+      const padding = { top: 50, right: 50, bottom: 50, left: 50 };
+      map.fitBounds(bounds, padding);
+    };
+
+    loadGoogleMaps();
+  }, [attractions, apiKey]);
 
   // Empty state when no attractions are found
   if (attractions.length === 0) {
@@ -36,7 +129,7 @@ export function AttractionsView({
           </h3>
 
           <div className="relative w-full h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg shadow flex items-center justify-center overflow-hidden">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgwLDAsMCwwLjAzKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-50" />
+            <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-50" />
             <div className="relative z-10 flex flex-col items-center">
               <div className="bg-white/80 backdrop-blur-sm p-4 rounded-full shadow-lg mb-3">
                 <MapPinOff
@@ -48,9 +141,8 @@ export function AttractionsView({
                 No Attractions Found
               </h4>
               <p className="text-sm text-gray-500 max-w-md px-5 text-center">
-                I couldn't find any attractions matching your request in this
-                area. Try asking about different types of places or a broader
-                location nearby.
+                No attractions matching your request found in this area. Try
+                searching for other places
               </p>
             </div>
           </div>
@@ -58,12 +150,6 @@ export function AttractionsView({
       </div>
     );
   }
-
-  const markers = attractions
-    .map((a, idx) => `markers=label:${idx + 1}|${a.latitude},${a.longitude}`)
-    .join("&");
-
-  const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?size=800x400&${markers}&key=${apiKey}`;
 
   return (
     <div className="w-full space-y-6">
@@ -73,15 +159,7 @@ export function AttractionsView({
           Attractions Map ({attractions.length} locations)
         </h3>
 
-        <div className="relative w-full h-96">
-          <Image
-            src={mapUrl}
-            alt="Map with attractions"
-            fill
-            className="rounded-lg shadow object-cover"
-            unoptimized
-          />
-        </div>
+        <div ref={mapRef} className="w-full h-96 rounded-lg shadow" />
       </div>
 
       <div>
