@@ -10,7 +10,8 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { MapPin, MapPinOff } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
+import { APIProvider, Map, Marker, useMap } from "@vis.gl/react-google-maps";
 
 interface AttractionsViewProps {
   attractions: PlaceResult[];
@@ -24,99 +25,36 @@ export function AttractionsView({
   partIndex,
 }: AttractionsViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const mapRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<google.maps.Map | null>(null);
-
-  useEffect(() => {
-    if (!mapRef.current || attractions.length === 0 || googleMapRef.current)
-      return;
-
-    // Load Google Maps script
-    const loadGoogleMaps = () => {
-      if (window.google?.maps) {
-        initializeMap();
-        return;
-      }
-
-      // Check if script already exists
-      const existingScript = document.querySelector(
-        `script[src*="maps.googleapis.com"]`
-      );
-      if (existingScript) {
-        existingScript.addEventListener("load", initializeMap);
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
-      script.async = true;
-      script.defer = true;
-      script.onload = initializeMap;
-      document.head.appendChild(script);
-    };
-
-    const initializeMap = () => {
-      if (!mapRef.current || googleMapRef.current) return;
-
-      // Filter attractions with valid coordinates
-      const validAttractions = attractions.filter(
+  const validAttractions = useMemo(
+    () =>
+      attractions.filter(
         (a) => a.latitude !== undefined && a.longitude !== undefined
-      );
+      ),
+    [attractions]
+  );
 
-      if (validAttractions.length === 0) return;
-
-      // Create map centered on first attraction with all controls disabled
-      const map = new google.maps.Map(mapRef.current, {
-        zoom: 12,
-        center: {
-          lat: validAttractions[0].latitude!,
-          lng: validAttractions[0].longitude!,
-        },
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        zoomControl: false,
-        scaleControl: false,
-        rotateControl: false,
-        panControl: false,
-        gestureHandling: "cooperative",
-        disableDefaultUI: true,
-      });
-
-      googleMapRef.current = map;
-
-      // Add markers for each attraction
-      const bounds = new google.maps.LatLngBounds();
-      validAttractions.forEach((attraction, idx) => {
-        const marker = new google.maps.Marker({
-          position: {
-            lat: attraction.latitude!,
-            lng: attraction.longitude!,
-          },
-          map,
-          label: {
-            text: `${idx + 1}`,
-            color: "white",
-            fontWeight: "bold",
-          },
-          title: attraction.name,
-        });
-
-        // Extend bounds to include this marker
-        bounds.extend(marker.getPosition()!);
-
-      });
-
-      // Fit map to show all markers
-      map.fitBounds(bounds);
-
-      // Add some padding to bounds
-      const padding = { top: 50, right: 50, bottom: 50, left: 50 };
-      map.fitBounds(bounds, padding);
+  const defaultCenter = useMemo(() => {
+    if (validAttractions.length === 0) return undefined;
+    return {
+      lat: validAttractions[0].latitude as number,
+      lng: validAttractions[0].longitude as number,
     };
+  }, [validAttractions]);
 
-    loadGoogleMaps();
-  }, [attractions, apiKey]);
+  function FitBounds({
+    points,
+  }: {
+    points: { lat: number; lng: number }[];
+  }) {
+    const map = useMap();
+    useEffect(() => {
+      if (!map || points.length === 0) return;
+      const bounds = new google.maps.LatLngBounds();
+      points.forEach((p) => bounds.extend(p));
+      map.fitBounds(bounds, 50);
+    }, [map, points]);
+    return null;
+  }
 
   // Empty state when no attractions are found
   if (attractions.length === 0) {
@@ -158,8 +96,46 @@ export function AttractionsView({
           <MapPin className="w-5 h-5 text-blue-600" />
           Attractions Map ({attractions.length} locations)
         </h3>
-
-        <div ref={mapRef} className="w-full h-96 rounded-lg shadow" />
+        {apiKey ? (
+          <APIProvider apiKey={apiKey}>
+            <div className="w-full h-96 rounded-lg shadow overflow-hidden">
+              <Map
+                defaultCenter={defaultCenter}
+                defaultZoom={12}
+                gestureHandling="cooperative"
+                disableDefaultUI={true}
+                mapTypeControl={false}
+                streetViewControl={false}
+                fullscreenControl={false}
+                zoomControl={false}
+              >
+                {validAttractions.map((attraction, idx) => (
+                  <Marker
+                    key={`${attraction.id}-${idx}`}
+                    position={{
+                      lat: attraction.latitude as number,
+                      lng: attraction.longitude as number,
+                    }}
+                    label={{ text: `${idx + 1}`, color: "#FFFFFF" }}
+                    title={attraction.name}
+                  />
+                ))}
+                <FitBounds
+                  points={validAttractions.map((a) => ({
+                    lat: a.latitude as number,
+                    lng: a.longitude as number,
+                  }))}
+                />
+              </Map>
+            </div>
+          </APIProvider>
+        ) : (
+          <div className="w-full h-96 rounded-lg shadow flex items-center justify-center bg-gray-50">
+            <p className="text-sm text-gray-500">
+              Google Maps API key is not configured
+            </p>
+          </div>
+        )}
       </div>
 
       <div>
