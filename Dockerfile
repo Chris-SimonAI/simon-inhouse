@@ -66,10 +66,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/scripts/migrate.ts ./scripts/migrate.ts
 COPY --from=builder /app/scripts/seed.ts ./scripts/seed.ts
 
-# Copy script dependencies that aren't included in standalone build
-COPY --from=builder /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
-COPY --from=builder /app/node_modules/pg ./node_modules/pg
-COPY --from=builder /app/node_modules/dotenv ./node_modules/dotenv
+# ✅ Install only production dependencies
+COPY --from=builder /app/package-lock.json ./package-lock.json
+RUN npm ci --omit=dev && npm cache clean --force
+
+# ✅ Install pg_isready tool
+RUN apk add --no-cache postgresql-client
 
 USER nextjs
 
