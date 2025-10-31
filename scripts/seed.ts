@@ -67,7 +67,7 @@ const DEMO_QR_CODE = {
 
 export const DEMO_HOTEL = {
   name: "The Anza Hotel",
-  address: "23627 Calabasas Road, Calabasas, CA 91302, USA",
+  address: "2210 Broadway, Santa Monica CA 90404, USA",
   latitude: "34.15667",
   longitude: "-118.64204",
   metadata: {
@@ -191,24 +191,46 @@ export const DEMO_AMENITIES = [
 
 export const DEMO_RESTAURANTS = [
   {
-    name: "Rosti Tuscan Kitchen",
-    restaurantGuid: "1f616b6f-195b-41e7-98e6-4bf1b6402ffc",
-    addressLine1: "23663 Calabasas road",
-    cuisine: "Italian",
-    city: "Calabasas",
+    name: "Bludso's Bar & Que",
+    restaurantGuid: "efee1329-76cb-4021-8dec-645725820bb2",
+    addressLine1: "1329 Santa Monica BoulevardSanta Monica",
+    cuisine: "BBQ",
+    city: "Santa Monica",
     state: "CA",
-    zipCode: "91302",
+    zipCode: "90404",
     country: "USA",
-    description: "Bringing a taste of Tuscany to Calabasas, **Rosti Tuscan Kitchen** serves rustic Italian comfort food made with fresh, wholesome ingredients. Enjoy handmade pasta, wood-fired flatbreads, and seasonal specials in a cozy, relaxed setting.\n\n\n\n### Must-Try\n* **Roasted Butternut Squash Flatbread:** Caramelized squash, goat cheese & balsamic glaze  \n* **Bruschetta Mozzarella:** Toasted ciabatta with melted mozzarella & sun-dried tomatoes  \n* **The Steak Bomb Calzone:** Grilled steak, peppers & smoked mozzarella  \n\n\n\n### Dining Details\n* **Service Style:** Casual dine-in or takeout  \n* **Delivery Time:** Around 30–40 minutes  \n* **Hours:** Daily, 11 am – 9 pm  \n\n\n\n### The Experience\nA neighborhood favorite for **fresh Italian flavor and easygoing vibes**.",
-    phoneNumber: "8185912211",
+    description: "Bringing authentic Texas barbecue to Santa Monica, **Bludso’s BBQ** serves slow-smoked meats and classic Southern sides in a lively, casual setting. Enjoy tender brisket, ribs, and hot links crafted by pitmaster Kevin Bludso.\n\n\n\n### Must-Try\n* **Smoked Brisket:** Juicy, pepper-crusted slices smoked low and slow  \n* **Pork Ribs:** Fall-off-the-bone tender with rich barbecue glaze  \n* **Cornbread with Honey Butter:** Sweet, soft, and perfectly paired  \n\n\n\n### Dining Details\n* **Service Style:** Casual dine-in, takeout, or delivery  \n* **Delivery Time:** Around 30–40 minutes  \n* **Hours:** Daily, 11 am – 10 pm  \n\n\n\n### The Experience\nA crowd favorite for **big flavor, friendly vibes, and true Texas smoke.**",
+    phoneNumber: "3103102775",
     rating: 4.5,
-    imageUrls: ["https://s3-media0.fl.yelpcdn.com/bphoto/tE86IN4rFHilPn37wiOWFA/l.jpg"], 
+    imageUrls: ["https://d2s742iet3d3t1.cloudfront.net/restaurants/restaurant-156527000000000000/banner_1716317865.jpg?size=medium"], 
     metadata: {
-      sourceUrl: "https://www.toasttab.com/local/order/rosti-tuscan-kitchen-calabasas-23663-calabasas-road",
-      extractedAt: "2025-10-23T07:41:58.855Z",
+      sourceUrl: "https://www.toasttab.com/local/order/bludsos-bbq-santamonica",
+      extractedAt: "2025-10-31T13:59:53.170Z",
       scraperVersion: "1.0.0",
       urls: {
-        orderOnline: "https://www.toasttab.com/local/order/rosti-tuscan-kitchen-calabasas-23663-calabasas-road"
+        orderOnline: "https://www.toasttab.com/local/order/bludsos-bbq-santamonica"
+      },
+    }
+  },
+  {
+    name: "Pizza Fling",
+    restaurantGuid: "fa3b226a-3cc9-4515-aebe-1779126f696a",
+    addressLine1: "3032 Wilshire BoulevardSanta Monica",
+    cuisine: "Pizza",
+    city: "Santa Monica",
+    state: "CA",
+    zipCode: "90403",
+    country: "USA",
+    description: "A neighborhood favorite for classic and creative pizzas, **Pizza Fling** blends hand-tossed dough, rich sauces, and premium toppings into every pie. Known for its crispy crust and generous portions, this spot is a go-to for casual dining and takeout.\n\n\n\n### Must-Try\n* **Margherita Pizza:** Fresh mozzarella, basil, and tomato sauce perfection  \n* **Pepperoni Blast:** Crispy edges and a hearty flavor punch  \n* **Garlic Knots:** Buttery, garlicky, and impossible to resist  \n\n\n\n### Dining Details\n* **Service Style:** Dine-in, takeout, or delivery  \n* **Delivery Time:** Around 25–35 minutes  \n* **Hours:** Daily, 11 am – 10 pm  \n\n\n\n### The Experience\nA **casual and friendly** pizza joint that hits the spot every time — whether you're grabbing a quick slice or sharing a pie with friends.",
+    phoneNumber: "3103103462",
+    rating: 4.3,
+    imageUrls: ["https://d2s742iet3d3t1.cloudfront.net/restaurant_service/restaurants/e2bb67bf-956f-4f35-99ff-7ccc42a20525/Restaurant/dcd0e0ed-e85c-4928-bcad-f2132753f53d.jpg?size=medium"],
+    metadata: {
+      sourceUrl: "https://www.toasttab.com/local/order/pizza-fling-3032-wilshire-boulevard",
+      extractedAt: "2025-10-31T12:17:30.808Z",
+      scraperVersion: "1.0.0",
+      urls: {
+        orderOnline: "https://www.toasttab.com/local/order/pizza-fling-3032-wilshire-boulevard"
       }
     }
   }
@@ -229,72 +251,160 @@ export const DEMO_MENU = {
 };
 
 export const DEMO_MENU_GROUPS = [
-  { menuGroupGuid: "1bff7e0e-b778-4e2c-94fd-e514d1f15456", name: "Seasonal Chef Specials", description: "Roasted butternut squash soup\n\n*Dairy free, Gluten free, Vegan", imageUrls: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=60"], metadata: { category: "specials", featured: true } },
-  { menuGroupGuid: "af2f2e30-b779-4c73-b3e9-63803a8f646f", name: "Appetizers", description: "Toasted Garlic Cibatta Crisps  Topped With Melted Fresh Mozzarella Cheese And Sun-Dried Tomatoes", imageUrls: ["https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&auto=format&fit=crop&q=60"], metadata: { category: "appetizers", featured: false } },
-  { menuGroupGuid: "25acf481-79f9-4fe8-be2d-feffe3a8b31c", name: "Calzone", description: "Grilled Steak, Roasted Peppers, Caramelized Onions, Smoked Mozzarella", imageUrls: ["https://images.unsplash.com/photo-1607013251379-e6eecfffe234?w=800&auto=format&fit=crop&q=60"], metadata: { category: "calzone", featured: true } },
+  { menuGroupGuid: "7f266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Meats", description: "Seasoned with our custom dry rubs & smoked slow & low. All sauce is served on the side.", imageUrls: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=60"], metadata: { category: "meats", featured: true } },
+  { menuGroupGuid: "3d6df852-c2eb-490c-9784-209659616463", name: "Sides", description: "All sides are made in house from scratch. \n1/2 Pint Feeds 1-2ppl\nPint Feeds 3-4ppl\nQuart Feeds 6-8ppl", imageUrls: ["https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&auto=format&fit=crop&q=60"], metadata: { category: "sides", featured: false } },
+  { menuGroupGuid: "e8da858e-0000-4266-860b-b241e578aab8", name: "Starters", description: "Hushpuppies", imageUrls: ["https://images.unsplash.com/photo-1607013251379-e6eecfffe234?w=800&auto=format&fit=crop&q=60"], metadata: { category: "starters", featured: true } },
+  { menuGroupGuid: "7eca7639-ccd1-4f88-8562-a56b8d9caa6b", name: "Drinks", description: "Bludsos famous sweet tea, available in half gallon size.", imageUrls: ["https://images.unsplash.com/photo-1607013251379-e6eecfffe234?w=800&auto=format&fit=crop&q=60"], metadata: { category: "drinks", featured: true } },
 ];
 
 export const DEMO_MENU_ITEMS = [
-  { menuItemGuid: "57bb8c12-fa5c-435d-a22a-7020a962664e", menuGroupGuid: "1bff7e0e-b778-4e2c-94fd-e514d1f15456", name: "Roasted Butternut Squash Soup", description: "Roasted butternut squash soup\n\n*Dairy free, Gluten free, Vegan", price: "12.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/74rRoh-Xa2fuEg0S1nOXFGho1jJZvqcsQIdKYTUOIO8/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-61653000000000000/menu/items/7/item-100000013117007337_1730401285.jpg"], allergens: ['Gluten'], sortOrder: 0, modifierGroupsReferences: ["a1b2c3d4-e5f6-7890-1234-567890abcdef"], metadata: { currency: "USD", hasModifiers: true } },
-  { menuItemGuid: "d6fc0e41-4d8b-4304-98a4-9b6f794d218d", menuGroupGuid: "1bff7e0e-b778-4e2c-94fd-e514d1f15456", name: "Smoked Salmon Bruschetta", description: "with ricotta, fennel and a drizzle of honey", price: "18.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/JpVqyfdWPRKdP8lLjJst4V87xXfCyvht0ogvCqDnqMo/resize:fit:720:720/plain/s3://toasttab/menu_service/restaurants/6d44d2c3-36bf-421d-83b7-d7559277718d/MenuItem/1b288721-1cb3-4aaf-a33e-f958c4152945.png"], allergens: [], sortOrder: 1, modifierGroupsReferences: [], metadata: { currency: "USD", hasModifiers: false } },
-  { menuItemGuid: "2cb5ee80-efb5-4a20-964f-ac5b64c7ea1d", menuGroupGuid: "1bff7e0e-b778-4e2c-94fd-e514d1f15456", name: "Roasted Butternut Squash Flatbread", description: "Topped with caramelized roasted butternut squash, creamy goat cheese \nand a drizzle of balsamic glaze", price: "19.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/iEwUluRAACaYMdh8AaLOqKAQ85eIPrpylo4F9gw7co8/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-61653000000000000/menu/items/3/item-100000006165875703_1606344988.jpg"], allergens: [], sortOrder: 2, modifierGroupsReferences: [], metadata: { currency: "USD", hasModifiers: false } },
-  { menuItemGuid: "f33399bd-3583-49ec-82c7-b39115b7bbd7", menuGroupGuid: "af2f2e30-b779-4c73-b3e9-63803a8f646f", name: "Bruschetta Mozzarella", description: "Toasted Garlic Cibatta Crisps  Topped With Melted Fresh Mozzarella Cheese And Sun-Dried Tomatoes", price: "17.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/Nm_16HOjnnM4ek5g5a2h15kaCjWkSS3FQO98JM2lL9E/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-61653000000000000/menu/items/0/item-100000006165875470_1606343769.jpg"], allergens: [], sortOrder: 0, modifierGroupsReferences: [], metadata: { currency: "USD", hasModifiers: false } },
-  { menuItemGuid: "258217a3-fb0a-4128-ba5c-2a572e339c44", menuGroupGuid: "af2f2e30-b779-4c73-b3e9-63803a8f646f", name: "Bruschetta Pomodoro", description: "Toasted Garlic Cibatta Crisps Served With Fresh Tomato Checca", price: "14.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/MdNfj73bLGrf2GHzBGdHhDTLOg34iiZD0M_VqYwuAEw/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-61653000000000000/menu/items/8/item-100000006165875468_1607575977.jpg"], allergens: [], sortOrder: 1, modifierGroupsReferences: [], metadata: { currency: "USD", hasModifiers: false } },
-  { menuItemGuid: "f5176d89-2b19-4e1b-93e2-2cb90904eea0", menuGroupGuid: "af2f2e30-b779-4c73-b3e9-63803a8f646f", name: "Caprese Salad", description: "Fresh Mozzarella, Tomato & Fresh Basil. Drizzled with Italian Extra Virgin Olive Oil", price: "17.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/qU_4cvADCbjgh02mvoeg-RcELXOiWpbUi-l1PN4nq_I/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-61653000000000000/menu/items/2/item-100000006165875452_1606343578.jpg"], allergens: [], sortOrder: 2, modifierGroupsReferences: [], metadata: { currency: "USD", hasModifiers: false } },
-  { menuItemGuid: "d33481bb-1e36-4fd0-86ce-58d621166865", menuGroupGuid: "25acf481-79f9-4fe8-be2d-feffe3a8b31c", name: "The Steak Bomb Calzone", description: "Grilled Steak, Roasted Peppers, Caramelized Onions, Smoked Mozzarella", price: "25.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/SUbyrpTzsH9HZbNcegbtqWOS9qMQfHzFVBCIF637xis/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-61653000000000000/menu/items/2/item-100000006165875652_1606348223.jpg"], allergens: [], sortOrder: 0, modifierGroupsReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabca", "a1a2b3c4-d5e6-7890-1234-567890abcdea"], metadata: { currency: "USD", hasModifiers: true } },
-  { menuItemGuid: "32ab2b9a-c251-4b2c-a874-42d5c20589ef", menuGroupGuid: "25acf481-79f9-4fe8-be2d-feffe3a8b31c", name: "Chicken and Pepper Calzone", description: "Chicken and Pepper Calzone with Ricotta Cheese", price: "24.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/k35f9YVERiDoA64rHh8irmfSNRx-4SeJI6ojA0uesDE/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-61653000000000000/menu/items/4/item-100000006165875654_1607576104.jpg"], allergens: [], sortOrder: 1, modifierGroupsReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcb", "a1a2b3c4-d5e6-7890-1234-567890abcdeb"], metadata: { currency: "USD", hasModifiers: true } },
-  { menuItemGuid: "e2d58955-dad6-4eb1-b11f-02c03c6b8dcf", menuGroupGuid: "25acf481-79f9-4fe8-be2d-feffe3a8b31c", name: "Sausage and Spinach Calzone", description: "Sausage and Spinach Calzone with Ricotta Cheese", price: "23.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/oGVgBcowFT0g33pNUCSA2-YMYplJxv-3pku6ZAaOlTw/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-61653000000000000/menu/items/3/item-100000006165875133_1606347008.jpg"], allergens: [], sortOrder: 2, modifierGroupsReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcd", "a1a2b3c4-d5e6-7890-1234-567890abcdef"], metadata: { currency: "USD", hasModifiers: true } },
+  { menuItemGuid: "5998d2cb-bfd8-4a7e-9d91-0183f6ac6a85", menuGroupGuid: "7f266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Pork Ribs", description: "Seasoned with our custom dry rubs & smoked slow & low. All sauce is served on the side.", price: "12.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/lGgAfZKogd-C7wHuoIu3ede-3VKgrIkFP5F-E9do-QE/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-156527000000000000/menu/images/item-59b5ca6c-61f5-4737-8abe-bc66a2f2459a.jpg"], allergens: ["Gluten"], modifierGroupsReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a11", "9a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d", "3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d7e"], sortOrder: 0, metadata: { currency: "USD", hasModifiers: true } },
+  { menuItemGuid: "0475a6d0-116e-4720-b355-bfca578e5043", menuGroupGuid: "7f266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Brisket", description: "Seasoned with our custom dry rubs & smoked slow & low. All sauce is served on the side.", price: "12.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/Tv7QU7AwtcXY7Ie3K2pjYZJ9CnSsdVny-JelpOHgvOk/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-156527000000000000/menu/images/item-adcf00ec-ee21-4e53-b9b1-4688480ee814.jpg"], allergens: [], modifierGroupsReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a12", "8b2c4d5e-6f7a-48b0-9c1d-2e3f4a5b6c7e", "3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d7f"], sortOrder: 1, metadata: { currency: "USD", hasModifiers: true } },
+  { menuItemGuid: "8577e3a7-13da-418d-96fc-a0d5302fa237", menuGroupGuid: "7f266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Turkey", description: "Seasoned with our custom dry rubs & smoked slow & low. All sauce is served on the side.", price: "9.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/0gJlvFCEu-fDmYJ5S0DDrIBKO4SWZJwWSXLa9m1527w/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-156527000000000000/menu/items/9/item-400000031700806209_1739563357.png"], allergens: [], modifierGroupsReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a13", "7e9f0a1b-2c3d-4e5f-9012-3456789abcde", "3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d81"], sortOrder: 2, metadata: { currency: "USD", hasModifiers: true } },
+  { menuItemGuid: "260b4013-9dd3-454c-a12b-c0c1d1bdf3f3", menuGroupGuid: "3d6df852-c2eb-490c-9784-209659616463", name: "Mac and Cheese", description: "All sides are made in house from scratch. \n1/2 Pint Feeds 1-2ppl\nPint Feeds 3-4ppl\nQuart Feeds 6-8ppl", price: "7.50", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/-1MoaRAYbDy0orCWQediEwNPxreQCtJSEhOCF8IMwJQ/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-156527000000000000/menu/images/item-53959e10-d5a8-4280-b7b4-4583f13ea9ca.jpg"], allergens: [], modifierGroupsReferences: ["5a6b7c8d-9e0f-4a1b-2c3d-4e5f60718293"], sortOrder: 0, metadata: { currency: "USD", hasModifiers: true } },
+  { menuItemGuid: "d1326e87-8190-492f-9d04-abe87c6ca3b1", menuGroupGuid: "3d6df852-c2eb-490c-9784-209659616463", name: "Cornbread", description: "All sides are made in house from scratch", price: "3.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/mOeQy7DDkJcD3VWJR_gpJ2ZNcjRnI_HiYDYIjkTmIdI/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-156527000000000000/menu/images/item-11265470-b2c5-4e4d-a683-6d13e15612e7.jpg"], allergens: [], modifierGroupsReferences: ["6f8a9b0c-1d2e-3f40-5a6b-7c8d9e0f1a2b"], sortOrder: 1, metadata: { currency: "USD", hasModifiers: true } },
+  { menuItemGuid: "91dce625-0678-47d7-bc9e-e1ce4843e5f2", menuGroupGuid: "3d6df852-c2eb-490c-9784-209659616463", name: "Pickles", description: "All sides are made in house from scratch", price: "2.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/pqRmPKAJ2t6jRkToWrpA7Li5SdDZAiNqcOvz4VqXIro/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-156527000000000000/menu/images/item-7575822f-23c6-4e4f-bca7-298964b58802.jpg"], allergens: [], modifierGroupsReferences: [], sortOrder: 2, metadata: { currency: "USD", hasModifiers: false } },
+  { menuItemGuid: "a98be9dd-f901-490d-bcb7-99b0313d951b", menuGroupGuid: "e8da858e-0000-4266-860b-b241e578aab8", name: "Hushpuppies", description: " ", price: "10.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/-f_2KOQgJLy2AxYsF5lucVGlqBnwDUPJ-j-qZ_qso58/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-156527000000000000/menu/items/1/item-400000031699848561_1739561756.png"], allergens: [], modifierGroupsReferences: [], sortOrder: 0, metadata: { currency: "USD", hasModifiers: false } },
+  { menuItemGuid: "a8bd4247-f63e-47be-975a-b0b6e2db277c", menuGroupGuid: "7eca7639-ccd1-4f88-8562-a56b8d9caa6b", name: "Sweet Tea", description: "Bludsos famous sweet tea, available in half gallon size.", calories: 0, price: "4.50", imageUrls: ["https://d1w7312wesee68.cloudfront.net/NUY3AgPqcaphWBthx9qcjSr8amYP8EGabwQWyrBPScg/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-156527000000000000/menu/images/item-5afef588-fd39-44a5-90e6-7a296a0fddd7.jpg"], allergens: [], modifierGroupsReferences: ["2a3b4c5d-6e7f-4890-9123-456789abcde1"], sortOrder: 0, metadata: { currency: "USD", hasModifiers: true } },
+  { menuItemGuid: "559d7ee3-5e31-4007-be85-511f5d6ff726", menuGroupGuid: "7eca7639-ccd1-4f88-8562-a56b8d9caa6b", name: "Arnold Palmer", description: "a perfect blend of our famous sweet tea and home made lemonade, available in half gallon.", price: "4.50", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/VJjJ7zjXcX1MNe8caTsKFuESg0a_Ro2NAHyGuVtBF4k/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-156527000000000000/menu/images/item-d89d19fe-79a7-4c15-8e1b-bc044d5fc8e3.jpg"], allergens: [], modifierGroupsReferences: ["2a3b4c5d-6e7f-4890-9123-456789abcde2"], sortOrder: 1, metadata: { currency: "USD", hasModifiers: true } },
+  { menuItemGuid: "0425b29e-f639-4569-95d2-9e94f82f0f51", menuGroupGuid: "7eca7639-ccd1-4f88-8562-a56b8d9caa6b", name: "Lemonade", description: "Home made lemonade, available in half gallon size.", price: "4.50", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/FP88tjfbBbNbtUAAtTI-NwyY0PkovKuMZ15fFXnOszU/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-156527000000000000/menu/images/item-a8894937-d1e8-4148-8fb3-16337dd96df6.jpg"], allergens: [], modifierGroupsReferences: ["2a3b4c5d-6e7f-4890-9123-456789abcde3"], sortOrder: 2, metadata: { currency: "USD", hasModifiers: true } },
 ];
 
 export const DEMO_MODIFIER_GROUPS = [
-  { modifierGroupGuid: "a1b2c3d4-e5f6-7890-1234-567890abcdef", name: "Size", description: "Choose your size", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["b2c3d4e5-f6a7-8901-2345-678901abcdef", "c3d4e5f6-a7b8-9012-3456-789012abcdef", "d4e5f6a7-b8c9-0123-4567-890123abcdef"], metadata: { category: "size" } },
+  { modifierGroupGuid: "0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a11", name: "Sauce Selection", description: "Choose one sauce on the side.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["b2c3d4e5-f6a7-8901-2345-678901abcdea", "b2c3d4e5-f6a7-8901-2345-678901abcdeb", "b2c3d4e5-f6a7-8901-2345-678901abcdec"], metadata: { category: "sauce-selection" } },
+  { modifierGroupGuid: "9a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d", name: "Pork Ribs Size", description: "Pick a rack size for Pork Ribs.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["c3d4e5f6-a7b8-9012-3456-789012abcdea", "c3d4e5f6-a7b8-9012-3456-789012abcdeb", "c3d4e5f6-a7b8-9012-3456-789012abcdec"], metadata: { category: "pork-ribs-size" } },
+  { modifierGroupGuid: "3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d7e", name: "Extra Sauce", description: "Add extra sauce cups.", minSelections: 0, maxSelections: 2, isRequired: false, isMultiSelect: true, modifierOptionsReferences: ["d4e5f6a7-b8c9-0123-4567-890123abcdea", "d4e5f6a7-b8c9-0123-4567-890123abcdeb"], metadata: { category: "extra-sauce" } },
+
+  { modifierGroupGuid: "0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a12", name: "Sauce Selection", description: "Choose one sauce on the side for brisket.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["b2c3d4e5-f6a7-8901-2345-678901abce10", "b2c3d4e5-f6a7-8901-2345-678901abce11", "b2c3d4e5-f6a7-8901-2345-678901abce12"], metadata: { category: "sauce-selection-brisket" } },
+  { modifierGroupGuid: "8b2c4d5e-6f7a-48b0-9c1d-2e3f4a5b6c7e", name: "Brisket Size", description: "Pick a portion size for Brisket.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["e3f4a5b6-c7d8-9012-3456-789012abcdea", "e3f4a5b6-c7d8-9012-3456-789012abcdef", "e3f4a5b6-c7d8-9012-3456-789012abcdff"], metadata: { category: "brisket-size" } },
+  { modifierGroupGuid: "3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d7f", name: "Extra Sauce", description: "Add extra sauce cups for brisket.", minSelections: 0, maxSelections: 2, isRequired: false, isMultiSelect: true, modifierOptionsReferences: ["d4e5f6a7-b8c9-0123-4567-890123abced0", "d4e5f6a7-b8c9-0123-4567-890123abced1"], metadata: { category: "extra-sauce-brisket" } },
+
+  { modifierGroupGuid: "0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a13", name: "Sauce Selection", description: "Choose one sauce on the side for turkey.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["b2c3d4e5-f6a7-8901-2345-678901abce20", "b2c3d4e5-f6a7-8901-2345-678901abce21", "b2c3d4e5-f6a7-8901-2345-678901abce22"], metadata: { category: "sauce-selection-turkey" } },
+  { modifierGroupGuid: "7e9f0a1b-2c3d-4e5f-9012-3456789abcde", name: "Turkey Size", description: "Pick a portion size for Turkey.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["e4f5a6b7-c8d9-0123-4567-890123abcdea", "e4f5a6b7-c8d9-0123-4567-890123abcdef", "e4f5a6b7-c8d9-0123-4567-890123abcdee"], metadata: { category: "turkey-size" } },
+  { modifierGroupGuid: "3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d81", name: "Extra Sauce", description: "Add extra sauce cups for turkey.", minSelections: 0, maxSelections: 2, isRequired: false, isMultiSelect: true, modifierOptionsReferences: ["d4e5f6a7-b8c9-0123-4567-890123abcee0", "d4e5f6a7-b8c9-0123-4567-890123abcee1"], metadata: { category: "extra-sauce-turkey" } },
+
+  { modifierGroupGuid: "6f8a9b0c-1d2e-3f40-5a6b-7c8d9e0f1a2b", name: "Cornbread Size", description: "Select size for cornbread.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["aa11bb22-cc33-dd44-ee55-ff6677889900"], metadata: { category: "cornbread-size" } },
+  { modifierGroupGuid: "5a6b7c8d-9e0f-4a1b-2c3d-4e5f60718293", name: "Hot Side Size", description: "Customize your item", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["bb11cc22-dd33-ee44-ff55-001122334455", "bb11cc22-dd33-ee44-ff55-001122334456", "bb11cc22-dd33-ee44-ff55-001122334457"], metadata: { category: "hot-side-size" } },
+
+  { modifierGroupGuid: "2a3b4c5d-6e7f-4890-9123-456789abcde1", name: "Size", description: "Choose a size for Sweet Tea.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["de1f2a3b-4c5d-6e7f-8091-23456789abc1", "de1f2a3b-4c5d-6e7f-8091-23456789abc2"], metadata: { category: "drink-size-sweet-tea" } },
+  { modifierGroupGuid: "2a3b4c5d-6e7f-4890-9123-456789abcde2", name: "Size", description: "Choose a size for Arnold Palmer.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["de1f2a3b-4c5d-6e7f-8091-23456789abd1", "de1f2a3b-4c5d-6e7f-8091-23456789abd2"], metadata: { category: "drink-size-arnold-palmer" } },
+  { modifierGroupGuid: "2a3b4c5d-6e7f-4890-9123-456789abcde3", name: "Size", description: "Choose a size for Lemonade.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["de1f2a3b-4c5d-6e7f-8091-23456789abe1", "de1f2a3b-4c5d-6e7f-8091-23456789abe2"], metadata: { category: "drink-size-lemonade" } },
+
   
-  { modifierGroupGuid: "e5f6a7b8-c9d0-1234-5678-901234efabca", name: "Toppings", description: "Add extra toppings to your calzone", minSelections: 0, maxSelections: 5, isRequired: false, isMultiSelect: true, modifierOptionsReferences: ["f6a7b8c9-d0e1-2345-6789-012345abcdef", "a7a8b9c0-d1e2-3456-7890-123456abcdef", "b8a9b0c1-d2e3-4567-8901-234567abcdef", "c9a0b1c2-d3e4-5678-9012-345678abcdef", "d0a1b2c3-d4e5-6789-0123-456789abcdef"], metadata: { category: "toppings" } },
-  { modifierGroupGuid: "a1a2b3c4-d5e6-7890-1234-567890abcdea", name: "Sauce Options", description: "Select up to 1 sauce", minSelections: 0, maxSelections: 1, isRequired: false, isMultiSelect: false, modifierOptionsReferences: ["e2a3b4c5-d6e7-8901-2345-678901abcdef", "f3a4b5c6-d7e8-9012-3456-789012abcdef", "a4a5b6c7-d8e9-0123-4567-890123abcdef"], metadata: { category: "sauce" } },
-
-  { modifierGroupGuid: "e5f6a7b8-c9d0-1234-5678-901234efabcb", name: "Toppings", description: "Add extra toppings to your calzone", minSelections: 0, maxSelections: 5, isRequired: false, isMultiSelect: true, modifierOptionsReferences: ["f6a7b8c9-d0e1-2345-6789-012345abcdee", "a7a8b9c0-d1e2-3456-7890-123456abcdee", "b8a9b0c1-d2e3-4567-8901-234567abcdee", "c9a0b1c2-d3e4-5678-9012-345678abcdee", "d0a1b2c3-d4e5-6789-0123-456789abcdee"], metadata: { category: "toppings" } },
-  { modifierGroupGuid: "a1a2b3c4-d5e6-7890-1234-567890abcdeb", name: "Sauce Options", description: "Select up to 1 sauce", minSelections: 0, maxSelections: 1, isRequired: false, isMultiSelect: false, modifierOptionsReferences: ["e2a3b4c5-d6e7-8901-2345-678901abcdee", "f3a4b5c6-d7e8-9012-3456-789012abcdee", "a4a5b6c7-d8e9-0123-4567-890123abcdee"], metadata: { category: "sauce" } },
-
-  { modifierGroupGuid: "e5f6a7b8-c9d0-1234-5678-901234efabcd", name: "Toppings", description: "Add extra toppings to your calzone", minSelections: 0, maxSelections: 5, isRequired: false, isMultiSelect: true, modifierOptionsReferences: ["f6a7b8c9-d0e1-2345-6789-012345abcded", "a7a8b9c0-d1e2-3456-7890-123456abcded", "b8a9b0c1-d2e3-4567-8901-234567abcded", "c9a0b1c2-d3e4-5678-9012-345678abcded", "d0a1b2c3-d4e5-6789-0123-456789abcded"], metadata: { category: "toppings" } },
-  { modifierGroupGuid: "a1a2b3c4-d5e6-7890-1234-567890abcdef", name: "Sauce Options", description: "Select up to 1 sauce", minSelections: 0, maxSelections: 1, isRequired: false, isMultiSelect: false, modifierOptionsReferences: ["e2a3b4c5-d6e7-8901-2345-678901abcded", "f3a4b5c6-d7e8-9012-3456-789012abcded", "a4a5b6c7-d8e9-0123-4567-890123abcded"], metadata: { category: "sauce" } },
 ];
 
 export const DEMO_MODIFIER_OPTIONS = [
-  { modifierOptionGuid: "b2c3d4e5-f6a7-8901-2345-678901abcdef", name: "Cup", description: "Regular cup size", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["a1b2c3d4-e5f6-7890-1234-567890abcdef"] },
-  { modifierOptionGuid: "c3d4e5f6-a7b8-9012-3456-789012abcdef", name: "Bowl", description: "Large bowl size", price: "2.00", calories: 0, isDefault: false, modifierGroupReferences: ["a1b2c3d4-e5f6-7890-1234-567890abcdef"] },
-  { modifierOptionGuid: "d4e5f6a7-b8c9-0123-4567-890123abcdef", name: "Quart", description: "Family size quart", price: "9.00", calories: 0, isDefault: false, modifierGroupReferences: ["a1b2c3d4-e5f6-7890-1234-567890abcdef"] },
-  
-  { modifierOptionGuid: "f6a7b8c9-d0e1-2345-6789-012345abcdef", name: "Arugula", description: "Fresh arugula leaves", price: "2.00", calories: 10, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabca"] },
-  { modifierOptionGuid: "a7a8b9c0-d1e2-3456-7890-123456abcdef", name: "Pepperoni", description: "Spicy pepperoni slices", price: "2.00", calories: 50, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabca"] },
-  { modifierOptionGuid: "b8a9b0c1-d2e3-4567-8901-234567abcdef", name: "Italian Sausage", description: "Seasoned Italian sausage", price: "2.00", calories: 80, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabca"] },
-  { modifierOptionGuid: "c9a0b1c2-d3e4-5678-9012-345678abcdef", name: "Onions", description: "Caramelized onions", price: "2.00", calories: 15, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabca"] },
-  { modifierOptionGuid: "d0a1b2c3-d4e5-6789-0123-456789abcdef", name: "Black Olives", description: "Sliced black olives", price: "2.00", calories: 20, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabca"] },
-  
-  { modifierOptionGuid: "e2a3b4c5-d6e7-8901-2345-678901abcdef", name: "Pomodoro Sauce", description: "Classic tomato sauce", price: "0.00", calories: 10, isDefault: true, modifierGroupReferences: ["a1a2b3c4-d5e6-7890-1234-567890abcdea"] },
-  { modifierOptionGuid: "f3a4b5c6-d7e8-9012-3456-789012abcdef", name: "Marinara Sauce", description: "Traditional marinara", price: "0.00", calories: 15, isDefault: false, modifierGroupReferences: ["a1a2b3c4-d5e6-7890-1234-567890abcdea"] },
-  { modifierOptionGuid: "a4a5b6c7-d8e9-0123-4567-890123abcdef", name: "Pesto Sauce", description: "Basil pesto sauce", price: "2.00", calories: 25, isDefault: false, modifierGroupReferences: ["a1a2b3c4-d5e6-7890-1234-567890abcdea"] },
+  { modifierOptionGuid: "b2c3d4e5-f6a7-8901-2345-678901abcdea", name: "Mild BBQ Sauce", description: "(on the side)", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a11"] },
+  { modifierOptionGuid: "b2c3d4e5-f6a7-8901-2345-678901abcdeb", name: "Hot BBQ Sauce", description: "(on the side)", price: "0.00", calories: 0, isDefault: false, modifierGroupReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a11"] },
+  { modifierOptionGuid: "b2c3d4e5-f6a7-8901-2345-678901abcdec", name: "No Sauce", description: "No sauce added", price: "0.00", calories: 0, isDefault: false, modifierGroupReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a11"] },
 
-  { modifierOptionGuid: "f6a7b8c9-d0e1-2345-6789-012345abcdee", name: "Arugula", description: "Fresh arugula leaves", price: "2.00", calories: 10, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcb"] },
-  { modifierOptionGuid: "a7a8b9c0-d1e2-3456-7890-123456abcdee", name: "Pepperoni", description: "Spicy pepperoni slices", price: "2.00", calories: 50, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcb"] },
-  { modifierOptionGuid: "b8a9b0c1-d2e3-4567-8901-234567abcdee", name: "Italian Sausage", description: "Seasoned Italian sausage", price: "2.00", calories: 80, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcb"] },
-  { modifierOptionGuid: "c9a0b1c2-d3e4-5678-9012-345678abcdee", name: "Onions", description: "Caramelized onions", price: "2.00", calories: 15, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcb"] },
-  { modifierOptionGuid: "d0a1b2c3-d4e5-6789-0123-456789abcdee", name: "Black Olives", description: "Sliced black olives", price: "2.00", calories: 20, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcb"] },
-  
-  { modifierOptionGuid: "e2a3b4c5-d6e7-8901-2345-678901abcdee", name: "Pomodoro Sauce", description: "Classic tomato sauce", price: "0.00", calories: 10, isDefault: true, modifierGroupReferences: ["a1a2b3c4-d5e6-7890-1234-567890abcdeb"] },
-  { modifierOptionGuid: "f3a4b5c6-d7e8-9012-3456-789012abcdee", name: "Marinara Sauce", description: "Traditional marinara", price: "0.00", calories: 15, isDefault: false, modifierGroupReferences: ["a1a2b3c4-d5e6-7890-1234-567890abcdeb"] },
-  { modifierOptionGuid: "a4a5b6c7-d8e9-0123-4567-890123abcdee", name: "Pesto Sauce", description: "Basil pesto sauce", price: "2.00", calories: 25, isDefault: false, modifierGroupReferences: ["a1a2b3c4-d5e6-7890-1234-567890abcdeb"] },
+  { modifierOptionGuid: "c3d4e5f6-a7b8-9012-3456-789012abcdea", name: "1/4 Rack Pork Ribs", description: "Quarter rack of pork ribs", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["9a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"] },
+  { modifierOptionGuid: "c3d4e5f6-a7b8-9012-3456-789012abcdeb", name: "Half Rack Pork Ribs", description: "Half rack of pork ribs", price: "12.00", calories: 0, isDefault: false, modifierGroupReferences: ["9a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"] },
+  { modifierOptionGuid: "c3d4e5f6-a7b8-9012-3456-789012abcdec", name: "Full Rack Pork Ribs", description: "Full rack of pork ribs", price: "36.00", calories: 0, isDefault: false, modifierGroupReferences: ["9a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"] },
 
-  { modifierOptionGuid: "f6a7b8c9-d0e1-2345-6789-012345abcded", name: "Arugula", description: "Fresh arugula leaves", price: "2.00", calories: 10, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcd"] },
-  { modifierOptionGuid: "a7a8b9c0-d1e2-3456-7890-123456abcded", name: "Pepperoni", description: "Spicy pepperoni slices", price: "2.00", calories: 50, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcd"] },
-  { modifierOptionGuid: "b8a9b0c1-d2e3-4567-8901-234567abcded", name: "Italian Sausage", description: "Seasoned Italian sausage", price: "2.00", calories: 80, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcd"] },
-  { modifierOptionGuid: "c9a0b1c2-d3e4-5678-9012-345678abcded", name: "Onions", description: "Caramelized onions", price: "2.00", calories: 15, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcd"] },
-  { modifierOptionGuid: "d0a1b2c3-d4e5-6789-0123-456789abcded", name: "Black Olives", description: "Sliced black olives", price: "2.00", calories: 20, isDefault: false, modifierGroupReferences: ["e5f6a7b8-c9d0-1234-5678-901234efabcd"] },
-  
-  { modifierOptionGuid: "e2a3b4c5-d6e7-8901-2345-678901abcded", name: "Pomodoro Sauce", description: "Classic tomato sauce", price: "0.00", calories: 10, isDefault: true, modifierGroupReferences: ["a1a2b3c4-d5e6-7890-1234-567890abcdef"] },
-  { modifierOptionGuid: "f3a4b5c6-d7e8-9012-3456-789012abcded", name: "Marinara Sauce", description: "Traditional marinara", price: "0.00", calories: 15, isDefault: false, modifierGroupReferences: ["a1a2b3c4-d5e6-7890-1234-567890abcdef"] },
-  { modifierOptionGuid: "a4a5b6c7-d8e9-0123-4567-890123abcded", name: "Pesto Sauce", description: "Basil pesto sauce", price: "2.00", calories: 25, isDefault: false, modifierGroupReferences: ["a1a2b3c4-d5e6-7890-1234-567890abcdef"] },
+  { modifierOptionGuid: "d4e5f6a7-b8c9-0123-4567-890123abcdea", name: "Small Mild BBQ", description: "Small cup of mild BBQ", price: "2.00", calories: 0, isDefault: false, modifierGroupReferences: ["3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d7e"] },
+  { modifierOptionGuid: "d4e5f6a7-b8c9-0123-4567-890123abcdeb", name: "Small Hot BBQ", description: "Small cup of hot BBQ", price: "2.00", calories: 0, isDefault: false, modifierGroupReferences: ["3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d7e"] },
 
+  { modifierOptionGuid: "b2c3d4e5-f6a7-8901-2345-678901abce10", name: "Mild BBQ Sauce", description: "(on the side)", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a12"] },
+  { modifierOptionGuid: "b2c3d4e5-f6a7-8901-2345-678901abce11", name: "Hot BBQ Sauce", description: "(on the side)", price: "0.00", calories: 0, isDefault: false, modifierGroupReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a12"] },
+  { modifierOptionGuid: "b2c3d4e5-f6a7-8901-2345-678901abce12", name: "No Sauce", description: "No sauce added", price: "0.00", calories: 0, isDefault: false, modifierGroupReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a12"] },
+
+  { modifierOptionGuid: "e3f4a5b6-c7d8-9012-3456-789012abcdea", name: "1/4 lb Brisket", description: "Quarter pound of brisket", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["8b2c4d5e-6f7a-48b0-9c1d-2e3f4a5b6c7e"] },
+  { modifierOptionGuid: "e3f4a5b6-c7d8-9012-3456-789012abcdef", name: "1/2 lb Brisket", description: "Half pound of brisket", price: "11.00", calories: 0, isDefault: false, modifierGroupReferences: ["8b2c4d5e-6f7a-48b0-9c1d-2e3f4a5b6c7e"] },
+  { modifierOptionGuid: "e3f4a5b6-c7d8-9012-3456-789012abcdff", name: "1 lb Brisket", description: "One pound of brisket", price: "33.00", calories: 0, isDefault: false, modifierGroupReferences: ["8b2c4d5e-6f7a-48b0-9c1d-2e3f4a5b6c7e"] },
+
+  
+  { modifierOptionGuid: "d4e5f6a7-b8c9-0123-4567-890123abced0", name: "Small Mild BBQ", description: "Small cup of mild BBQ", price: "2.00", calories: 0, isDefault: false, modifierGroupReferences: ["3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d7f"] },
+  { modifierOptionGuid: "d4e5f6a7-b8c9-0123-4567-890123abced1", name: "Small Hot BBQ", description: "Small cup of hot BBQ", price: "2.00", calories: 0, isDefault: false, modifierGroupReferences: ["3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d7f"] },
+
+  
+  { modifierOptionGuid: "b2c3d4e5-f6a7-8901-2345-678901abce20", name: "Mild BBQ Sauce", description: "(on the side)", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a13"] },
+  { modifierOptionGuid: "b2c3d4e5-f6a7-8901-2345-678901abce21", name: "Hot BBQ Sauce", description: "(on the side)", price: "0.00", calories: 0, isDefault: false, modifierGroupReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a13"] },
+  { modifierOptionGuid: "b2c3d4e5-f6a7-8901-2345-678901abce22", name: "No Sauce", description: "No sauce added", price: "0.00", calories: 0, isDefault: false, modifierGroupReferences: ["0f7f2a2a-8f0a-4f5e-9c32-5b6c9e2b1a13"] },
+
+  { modifierOptionGuid: "e4f5a6b7-c8d9-0123-4567-890123abcdea", name: "1/4 lb Turkey", description: "Quarter pound of turkey", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["7e9f0a1b-2c3d-4e5f-9012-3456789abcde"] },
+  { modifierOptionGuid: "e4f5a6b7-c8d9-0123-4567-890123abcdef", name: "1/2 lb Turkey", description: "Half pound of turkey", price: "8.00", calories: 0, isDefault: false, modifierGroupReferences: ["7e9f0a1b-2c3d-4e5f-9012-3456789abcde"] },
+  { modifierOptionGuid: "e4f5a6b7-c8d9-0123-4567-890123abcdee", name: "1 lb Turkey", description: "One pound of turkey", price: "24.00", calories: 0, isDefault: false, modifierGroupReferences: ["7e9f0a1b-2c3d-4e5f-9012-3456789abcde"] },
+
+  { modifierOptionGuid: "d4e5f6a7-b8c9-0123-4567-890123abcee0", name: "Small Mild BBQ", description: "Small cup of mild BBQ", price: "2.00", calories: 0, isDefault: false, modifierGroupReferences: ["3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d81"] },
+  { modifierOptionGuid: "d4e5f6a7-b8c9-0123-4567-890123abcee1", name: "Small Hot BBQ", description: "Small cup of hot BBQ", price: "2.00", calories: 0, isDefault: false, modifierGroupReferences: ["3c4d5e6f-7a8b-49c0-9d1e-2f3a4b5c6d81"] },
+
+  { modifierOptionGuid: "aa11bb22-cc33-dd44-ee55-ff6677889900", name: "1 pc", description: "Single piece", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["6f8a9b0c-1d2e-3f40-5a6b-7c8d9e0f1a2b"] },
+
+  { modifierOptionGuid: "bb11cc22-dd33-ee44-ff55-001122334455", name: "1/2 Pint", description: "Half pint", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["5a6b7c8d-9e0f-4a1b-2c3d-4e5f60718293"] },
+  { modifierOptionGuid: "bb11cc22-dd33-ee44-ff55-001122334456", name: "Pint", description: "One pint", price: "6.50", calories: 0, isDefault: false, modifierGroupReferences: ["5a6b7c8d-9e0f-4a1b-2c3d-4e5f60718293"] },
+  { modifierOptionGuid: "bb11cc22-dd33-ee44-ff55-001122334457", name: "Quart", description: "One quart", price: "17.50", calories: 0, isDefault: false, modifierGroupReferences: ["5a6b7c8d-9e0f-4a1b-2c3d-4e5f60718293"] },
+
+  { modifierOptionGuid: "de1f2a3b-4c5d-6e7f-8091-23456789abc1", name: "16oz", description: "16 ounce", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["2a3b4c5d-6e7f-4890-9123-456789abcde1"] },
+  { modifierOptionGuid: "de1f2a3b-4c5d-6e7f-8091-23456789abc2", name: "Half Gallon", description: "Half gallon", price: "15.50", calories: 0, isDefault: false, modifierGroupReferences: ["2a3b4c5d-6e7f-4890-9123-456789abcde1"] },
+
+  { modifierOptionGuid: "de1f2a3b-4c5d-6e7f-8091-23456789abd1", name: "16oz", description: "16 ounce", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["2a3b4c5d-6e7f-4890-9123-456789abcde2"] },
+  { modifierOptionGuid: "de1f2a3b-4c5d-6e7f-8091-23456789abd2", name: "Half Gallon", description: "Half gallon", price: "15.50", calories: 0, isDefault: false, modifierGroupReferences: ["2a3b4c5d-6e7f-4890-9123-456789abcde2"] },
+
+  { modifierOptionGuid: "de1f2a3b-4c5d-6e7f-8091-23456789abe1", name: "16oz", description: "16 ounce", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["2a3b4c5d-6e7f-4890-9123-456789abcde3"] },
+  { modifierOptionGuid: "de1f2a3b-4c5d-6e7f-8091-23456789abe2", name: "Half Gallon", description: "Half gallon", price: "15.50", calories: 0, isDefault: false, modifierGroupReferences: ["2a3b4c5d-6e7f-4890-9123-456789abcde3"] },  
 ];
+
+export const DEMO_MENU_TWO = { 
+  menuGuid: "5ecdbd3b-f8f0-4e27-b645-ad6c854114a3", 
+  name: "Main Menu", 
+  description: "Restaurant menu from Toast ordering system",
+  imageUrls: ["https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&auto=format&fit=crop&q=60"], 
+  lastUpdated: new Date(), 
+  metadata: { 
+    version: "1.0", 
+    lastUpdated: new Date().toISOString(),
+    coffeeShop: true,
+    specialties: ["single-origin", "espresso", "pastries"]
+  } 
+};
+
+export const DEMO_MENU_GROUPS_TWO = [
+  { menuGroupGuid: "af266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Pizza - 12\"", description: "Tomato Sauce, Mozzarella.", imageUrls: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=60"], metadata: { category: "pizza", featured: true } },
+  { menuGroupGuid: "ad6df852-c2eb-490c-9784-209659616463", name: "Drinks", description: "Italian Artisanal Sprite", imageUrls: ["https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&auto=format&fit=crop&q=60"], metadata: { category: "drinks", featured: true } },
+]
+export const DEMO_MENU_ITEMS_TWO = [
+  { menuItemGuid: "b911b98d-c648-4622-836c-3b0c5f9172ea", menuGroupGuid: "af266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Margherita", description: "Tomato Sauce, Mozzarella", price: "19.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/xLqeBntVXd6oXs0XedCkjaPlPz6ncKZyEXR5y8U6Wi8/resize:fit:720:720/plain/s3://toasttab/menu_service/restaurants/a9afc1a7-87d3-40e8-9fb4-4535cafb947e/MenuItem/716d3c79-6754-49c5-96a3-6df607d1b4d7.png"], allergens: [], modifierGroupsReferences: ["f7a0c6c4-3d71-4a7f-9a40-8ad2b1c0a012", "a4c7b1d2-59ef-4b8d-a3b3-1f2a9e7c5d34", "e9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c3"], sortOrder: 0, metadata: { currency: "USD", hasModifiers: true } },
+  { menuItemGuid: "10970c73-d39a-45ea-8201-d3b0a5570cb2", menuGroupGuid: "af266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Diavolina", description: "Tomato Sauce, Mozzarella, Spicy Salame ( Sub. Turkey Pepperoni)", price: "24.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/V8gb8gS_ke8eZfXjPtcaNeGAD95t9wTKmXicJh0Xbls/resize:fit:720:720/plain/s3://toasttab/menu_service/restaurants/a9afc1a7-87d3-40e8-9fb4-4535cafb947e/MenuItem/665cbd0a-7b84-4976-9ac3-a45965f1ecd2.png"], allergens: [], modifierGroupsReferences: ["d1a2b3c4-d5e6-47f8-9a0b-1c2d3e4f5d10", "d2a3b4c5-d6e7-48f9-9a0c-1c2d3e4f5d20"], sortOrder: 1, metadata: { currency: "USD", hasModifiers: true}  },
+  { menuItemGuid: "1d681287-e559-4075-b614-671fcaec1305", menuGroupGuid: "af266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Mediterranea", description: "Tomato Sauce, Cherry Tomato Confit, Sautéed Eggplant, Capers, Taggiasche Olives, Oregano", price: "22.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/FBsWBk2m045RCdGeTBXbKnIGCPa4zfKh15AwVvqJFjU/resize:fit:720:720/plain/s3://toasttab/menu_service/restaurants/a9afc1a7-87d3-40e8-9fb4-4535cafb947e/MenuItem/33d7a2ab-7810-4c33-b9b4-8ab7a1b80e09.png"], allergens: [], modifierGroupsReferences: ["e1a2b3c4-e5f6-47f8-9a0b-1c2d3e4f5e10", "e2a3b4c5-e6f7-48f9-9a0c-1c2d3e4f5e20"], sortOrder: 2, metadata: { currency: "USD", hasModifiers: true } },
+  { menuItemGuid: "12efe4ed-90e2-47e0-a097-7ae68f3372d2", menuGroupGuid: "ad6df852-c2eb-490c-9784-209659616463", name: "Mexican Coke", description: "Italian Artisanal Sprite", price: "4.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/WlwHP9_0Va74NJfJmj1N5AxVL-_tYXSnMSV3Pb_G5Jg/resize:fit:720:720/plain/s3://toasttab/menu_service/restaurants/a9afc1a7-87d3-40e8-9fb4-4535cafb947e/MenuItem/f8e70584-f904-43cc-9a04-aac047924f20.png"], allergens: [], modifierGroupsReferences: [], sortOrder: 0, metadata: { currency: "USD", hasModifiers: false } },
+  { menuItemGuid: "4308d25c-f9bf-40bd-8ceb-02a445d43d2d", menuGroupGuid: "ad6df852-c2eb-490c-9784-209659616463", name: "Diet Coke", description: "Italian Artisanal Sprite", price: "3.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/BVZ9vTSLO700cX6kyN1mSSAtiNW5m4EtoHkVGMnhf7M/resize:fit:720:720/plain/s3://toasttab/menu_service/restaurants/a9afc1a7-87d3-40e8-9fb4-4535cafb947e/MenuItem/304d3730-49fb-4322-97ce-e7341608e571.png"], allergens: [], modifierGroupsReferences: [], sortOrder: 1, metadata: { currency: "USD", hasModifiers: false } },
+  { menuItemGuid: "365c7d2f-77f8-4d36-a669-90546f97ee82", menuGroupGuid: "ad6df852-c2eb-490c-9784-209659616463", name: "Gassosa", description: "Italian Artisanal Sprite", price: "4.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/k2XnxwsLN7sN7rE5PRObLLp77aCtCXiDXuPQENUSwmA/resize:fit:720:720/plain/s3://toasttab/restaurants/restaurant-272227000000000000/menu/items/9/item-1400000000800342589_1753927982.png"], allergens: [], modifierGroupsReferences: [], sortOrder: 2, metadata: { currency: "USD", hasModifiers: false } }
+]
+export const DEMO_MODIFIER_GROUPS_TWO = [
+  { modifierGroupGuid: "f7a0c6c4-3d71-4a7f-9a40-8ad2b1c0a012", name: "Pizza Crust 12\"", description: "Choose your crust.", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["a9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c1", "a9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c2"], metadata: { category: "pizza-crust-12" } },
+  { modifierGroupGuid: "a4c7b1d2-59ef-4b8d-a3b3-1f2a9e7c5d34", name: "Pizza Add ON", description: "Add extra toppings.", minSelections: 0, maxSelections: 3, isRequired: false, isMultiSelect: true, modifierOptionsReferences: ["b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c1", "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c2", "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c3"], metadata: { category: "pizza-add-on" } },
+  { modifierGroupGuid: "e9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c3", name: "Margherita", description: "Customize your Margherita.", minSelections: 0, maxSelections: 2, isRequired: false, isMultiSelect: true, modifierOptionsReferences: ["c9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c1", "c9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c2"], metadata: { category: "margherita-custom" } },
+  { modifierGroupGuid: "d1a2b3c4-d5e6-47f8-9a0b-1c2d3e4f5d10", name: "Pizza Crust 12\"", description: "Choose your crust (Diavolina).", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b3c1", "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b3c2"], metadata: { category: "pizza-crust-12-diavolina" } },
+  { modifierGroupGuid: "d2a3b4c5-d6e7-48f9-9a0c-1c2d3e4f5d20", name: "Pizza Add ON", description: "Add extra toppings (Diavolina).", minSelections: 0, maxSelections: 3, isRequired: false, isMultiSelect: true, modifierOptionsReferences: ["b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b4c1", "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b4c2", "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b4c3"], metadata: { category: "pizza-add-on-diavolina" } },
+  { modifierGroupGuid: "e1a2b3c4-e5f6-47f8-9a0b-1c2d3e4f5e10", name: "Pizza Crust 12\"", description: "Choose your crust (Mediterranea).", minSelections: 1, maxSelections: 1, isRequired: true, isMultiSelect: false, modifierOptionsReferences: ["d1b7d4c1-2a36-4c83-ae8f-50d6f9a1b4c1", "d1b7d4c1-2a36-4c83-ae8f-50d6f9a1b4c2"], metadata: { category: "pizza-crust-12-mediterranea" } },
+  { modifierGroupGuid: "e2a3b4c5-e6f7-48f9-9a0c-1c2d3e4f5e20", name: "Pizza Add ON", description: "Add extra toppings (Mediterranea).", minSelections: 0, maxSelections: 3, isRequired: false, isMultiSelect: true, modifierOptionsReferences: ["d1b7d4c1-2a46-4c83-ae8f-50d6f9a1b4c1", "d1b7d4c1-2a46-4c83-ae8f-50d6f9a1b4c2", "d1b7d4c1-2a46-4c83-ae8f-50d6f9a1b4c3"], metadata: { category: "pizza-add-on-mediterranea" } },
+]
+export const DEMO_MODIFIER_OPTIONS_TWO = [
+  { modifierOptionGuid: "a9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c1", name: "Thin", description: "Thin crust", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["f7a0c6c4-3d71-4a7f-9a40-8ad2b1c0a012"] },
+  { modifierOptionGuid: "a9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c2", name: "Thick", description: "Thick crust", price: "3.00", calories: 0, isDefault: false, modifierGroupReferences: ["f7a0c6c4-3d71-4a7f-9a40-8ad2b1c0a012"] },
+
+  { modifierOptionGuid: "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c1", name: "Sauteed Mushrooms", description: "", price: "3.00", calories: 0, isDefault: false, modifierGroupReferences: ["a4c7b1d2-59ef-4b8d-a3b3-1f2a9e7c5d34"] },
+  { modifierOptionGuid: "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c2", name: "Porcini Mushrooms", description: "", price: "4.00", calories: 0, isDefault: false, modifierGroupReferences: ["a4c7b1d2-59ef-4b8d-a3b3-1f2a9e7c5d34"] },
+  { modifierOptionGuid: "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c3", name: "Turkey Pepperoni", description: "", price: "3.00", calories: 0, isDefault: false, modifierGroupReferences: ["a4c7b1d2-59ef-4b8d-a3b3-1f2a9e7c5d34"] },
+
+  { modifierOptionGuid: "c9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c1", name: "No Tomato Sauce", description: "", price: "0.00", calories: 0, isDefault: false, modifierGroupReferences: ["e9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c3"] },
+  { modifierOptionGuid: "c9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c2", name: "No Mozzarella", description: "", price: "0.00", calories: 0, isDefault: false, modifierGroupReferences: ["e9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c3"] },
+  
+  { modifierOptionGuid: "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b3c1", name: "Thin", description: "Thin crust", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["d1a2b3c4-d5e6-47f8-9a0b-1c2d3e4f5d10"] },
+  { modifierOptionGuid: "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b3c2", name: "Thick", description: "Thick crust", price: "3.00", calories: 0, isDefault: false, modifierGroupReferences: ["d1a2b3c4-d5e6-47f8-9a0b-1c2d3e4f5d10"] },
+  
+  { modifierOptionGuid: "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b4c1", name: "Sauteed Mushrooms", description: "", price: "3.00", calories: 0, isDefault: false, modifierGroupReferences: ["d2a3b4c5-d6e7-48f9-9a0c-1c2d3e4f5d20"] },
+  { modifierOptionGuid: "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b4c2", name: "Porcini Mushrooms", description: "", price: "4.00", calories: 0, isDefault: false, modifierGroupReferences: ["d2a3b4c5-d6e7-48f9-9a0c-1c2d3e4f5d20"] },
+  { modifierOptionGuid: "b9b7d4c1-2a36-4c83-ae8f-50d6f9a1b4c3", name: "Turkey Pepperoni", description: "", price: "3.00", calories: 0, isDefault: false, modifierGroupReferences: ["d2a3b4c5-d6e7-48f9-9a0c-1c2d3e4f5d20"] },
+  
+  { modifierOptionGuid: "d1b7d4c1-2a36-4c83-ae8f-50d6f9a1b4c1", name: "Thin", description: "Thin crust", price: "0.00", calories: 0, isDefault: true, modifierGroupReferences: ["e1a2b3c4-e5f6-47f8-9a0b-1c2d3e4f5e10"] },
+  { modifierOptionGuid: "d1b7d4c1-2a36-4c83-ae8f-50d6f9a1b4c2", name: "Thick", description: "Thick crust", price: "3.00", calories: 0, isDefault: false, modifierGroupReferences: ["e1a2b3c4-e5f6-47f8-9a0b-1c2d3e4f5e10"] },
+  
+  { modifierOptionGuid: "d1b7d4c1-2a46-4c83-ae8f-50d6f9a1b4c1", name: "Sauteed Mushrooms", description: "", price: "3.00", calories: 0, isDefault: false, modifierGroupReferences: ["e2a3b4c5-e6f7-48f9-9a0c-1c2d3e4f5e20"] },
+  { modifierOptionGuid: "d1b7d4c1-2a46-4c83-ae8f-50d6f9a1b4c2", name: "Porcini Mushrooms", description: "", price: "4.00", calories: 0, isDefault: false, modifierGroupReferences: ["e2a3b4c5-e6f7-48f9-9a0c-1c2d3e4f5e20"] },
+  { modifierOptionGuid: "d1b7d4c1-2a46-4c83-ae8f-50d6f9a1b4c3", name: "Turkey Pepperoni", description: "", price: "3.00", calories: 0, isDefault: false, modifierGroupReferences: ["e2a3b4c5-e6f7-48f9-9a0c-1c2d3e4f5e20"] },
+]
 
 const USE_SSL = process.env.USE_SSL_FOR_POSTGRES === "true";
 
@@ -385,7 +495,7 @@ async function insertedMenu(
   // Insert menu groups
   const insertedMenuGroups = [];
   for (const group of menuGroups) {
-    const imageUrlsArray = `{${group.imageUrls.map(url => `"${url.replace(/"/g, '\\"')}"`).join(',')}}`;
+    const imageUrlsArray = `{${group.imageUrls.map((url: string) => `"${url.replace(/"/g, '\\"')}"`).join(',')}}`;
     const result = await db.execute(sql`
       INSERT INTO menu_groups (menu_id, menu_group_guid, name, image_urls, description, metadata, created_at, updated_at)
       VALUES (${menuId}, ${group.menuGroupGuid}, ${group.name}, ${imageUrlsArray}::text[], ${group.description}, ${JSON.stringify(group.metadata)}, NOW(), NOW())
@@ -424,7 +534,7 @@ async function insertedMenu(
     const allergensArray = `{${itemWithoutRefs.allergens.map((allergen: string) => `"${allergen.replace(/"/g, '\\"')}"`).join(',')}}`;
     const result = await db.execute(sql`
       INSERT INTO menu_items (menu_group_id, menu_item_guid, name, description, price, calories, image_urls, allergens, modifier_groups_references, sort_order, metadata, created_at, updated_at)
-      VALUES (${menuGroupId}, ${itemWithoutRefs.menuItemGuid}, ${itemWithoutRefs.name}, ${itemWithoutRefs.description}, ${itemWithoutRefs.price}, ${itemWithoutRefs.calories}, ${imageUrlsArray}::text[], ${allergensArray}::text[], ARRAY[]::integer[], ${itemWithoutRefs.sortOrder}, ${JSON.stringify(itemWithoutRefs.metadata)}, NOW(), NOW())
+      VALUES (${menuGroupId}, ${itemWithoutRefs.menuItemGuid}, ${itemWithoutRefs.name}, ${itemWithoutRefs.description ?? ''}, ${itemWithoutRefs.price}, ${itemWithoutRefs.calories ?? 0}, ${imageUrlsArray}::text[], ${allergensArray}::text[], ARRAY[]::integer[], ${itemWithoutRefs.sortOrder ?? 0}, ${JSON.stringify(itemWithoutRefs.metadata)}, NOW(), NOW())
       RETURNING id
     `);
     insertedMenuItems.push(result);
@@ -449,7 +559,7 @@ async function insertedMenu(
 
   // Map modifier groups to items based on the modifierGroupsReferences in menu items
   menuItems.forEach(item => {
-    item.modifierGroupsReferences.forEach(modifierGroupGuid => {
+    item.modifierGroupsReferences.forEach((modifierGroupGuid: string) => {
       modifierGroupToItemMapping.set(modifierGroupGuid, item.menuItemGuid);
     });
   });
@@ -489,8 +599,8 @@ async function insertedMenu(
   // Update menu items with correct modifier group IDs
   for (const item of menuItems) {
     const modifierGroupIds = item.modifierGroupsReferences
-      .map(guid => modifierGroupIdMap.get(guid))
-      .filter(id => id !== undefined) as number[];
+      .map((guid: string) => modifierGroupIdMap.get(guid))
+      .filter((id: number | undefined) => id !== undefined) as number[];
 
     if (modifierGroupIds.length > 0) {
       await db.execute(sql`
@@ -507,7 +617,7 @@ async function insertedMenu(
 
   // Map modifier options to groups based on the modifierOptionsReferences in modifier groups
   modifierGroups.forEach(group => {
-    group.modifierOptionsReferences.forEach(modifierOptionGuid => {
+    group.modifierOptionsReferences.forEach((modifierOptionGuid: string) => {
       modifierOptionToGroupMapping.set(modifierOptionGuid, group.modifierGroupGuid);
     });
   });
@@ -624,18 +734,27 @@ async function main() {
       RETURNING id
     `);
 
-    const restaurantId = restaurantResult.rows[0].id as number;
-    console.log(`Inserted restaurant with ID: ${restaurantId}`);
-
+    console.log(`Inserted restaurant with ID: ${restaurantResult.rows[0].id}`);
     // Insert menu for this restaurant
-    await insertedMenu(
-      restaurantId,
-      DEMO_MENU,
-      DEMO_MENU_GROUPS,
-      DEMO_MENU_ITEMS,
-      DEMO_MODIFIER_GROUPS,
-      DEMO_MODIFIER_OPTIONS
-    );
+    if (restaurant.restaurantGuid === "efee1329-76cb-4021-8dec-645725820bb2") {
+      await insertedMenu(
+        restaurantResult.rows[0].id as number,
+        DEMO_MENU,
+        DEMO_MENU_GROUPS,
+        DEMO_MENU_ITEMS,
+        DEMO_MODIFIER_GROUPS,
+        DEMO_MODIFIER_OPTIONS
+      );
+    } else {
+      await insertedMenu(
+        restaurantResult.rows[0].id as number,
+        DEMO_MENU_TWO,
+        DEMO_MENU_GROUPS_TWO,
+        DEMO_MENU_ITEMS_TWO,
+        DEMO_MODIFIER_GROUPS_TWO,
+        DEMO_MODIFIER_OPTIONS_TWO
+      );
+    }
   }
 
   console.log(`- Hotel: ${hotelId}`);
