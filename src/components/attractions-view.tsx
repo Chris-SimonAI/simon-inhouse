@@ -41,11 +41,7 @@ export function AttractionsView({
     };
   }, [validAttractions]);
 
-  function FitBounds({
-    points,
-  }: {
-    points: { lat: number; lng: number }[];
-  }) {
+  function FitBounds({ points }: { points: { lat: number; lng: number }[] }) {
     const map = useMap();
     useEffect(() => {
       if (!map || points.length === 0) return;
