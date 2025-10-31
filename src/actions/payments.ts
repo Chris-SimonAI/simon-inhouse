@@ -38,7 +38,10 @@ export async function createOrderAndPaymentIntent(input: unknown) {
       specialInstructions: validatedInput.specialInstructions,
       totalAmount: totalAmount.toFixed(2),
       orderStatus: 'pending',
-      metadata: {} as Record<string, unknown>,
+      metadata: {
+        email: validatedInput.email,
+        phoneNumber: validatedInput.phoneNumber,
+      } as Record<string, unknown>,
     }).returning();
 
     if (orderResult.length === 0) {
@@ -89,6 +92,8 @@ export async function createOrderAndPaymentIntent(input: unknown) {
               roomNumber: order.roomNumber,
               botTriggered: 'false',
               botStatus: 'pending',
+              email: validatedInput.email,
+              phoneNumber: validatedInput.phoneNumber,
             },
           });
     console.log('Stripe payment intent created:', {
