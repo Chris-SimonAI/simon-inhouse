@@ -1,6 +1,6 @@
 {
-  "id": "f408b423-b547-4f7c-ad2b-1b7fe67114bc",
-  "prevId": "ba43b29c-a7cd-4400-859c-cbacf0201f23",
+  "id": "a310ffc7-bd40-4a85-adf8-03f7480eaebe",
+  "prevId": "f408b423-b547-4f7c-ad2b-1b7fe67114bc",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -48,6 +48,12 @@
         "tags": {
           "name": "tags",
           "type": "varchar(255)[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "embedding": {
+          "name": "embedding",
+          "type": "vector(1536)",
           "primaryKey": false,
           "notNull": false
         },

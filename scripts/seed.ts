@@ -3,6 +3,59 @@ import { sql } from "drizzle-orm";
 import "dotenv/config";
 import { type ClientConfig } from "pg";
 import fs from "fs";
+import { OpenAIEmbeddings } from "@langchain/openai";
+
+/**
+ * Normalizes a vector to unit length for consistent distance calculations
+ */
+function normalizeVector(v: number[]): number[] {
+  const norm = Math.sqrt(v.reduce((sum, val) => sum + val * val, 0));
+  if (norm === 0) return v; // Avoid division by zero
+  return v.map((val) => val / norm);
+}
+
+/**
+ * Converts an amenity (or any JSON object) into a semantically meaningful embedding.
+ * Adds context, removes formatting noise, and handles nested fields gracefully.
+ */
+export async function generateEmbeddingFromJSON(
+  data: Record<string, unknown>,
+  model = "text-embedding-3-small"
+): Promise<number[]> {
+  const embeddings = new OpenAIEmbeddings({ model });
+  const text = jsonToReadableText(data);
+  const embedding = await embeddings.embedQuery(text);
+  return normalizeVector(embedding);
+}
+
+/**
+ * Converts an amenity object into a clean, readable text string for embedding.
+ * Emphasizes semantic meaning while stripping Markdown and formatting artifacts.
+ */
+export function jsonToReadableText(obj: Record<string, unknown>): string {
+  if (obj.name && obj.description) {
+    const cleanLongDescription = obj.longDescription && typeof obj.longDescription === 'string'
+      ? obj.longDescription.replace(/[*_#>\n]+/g, " ").trim()
+      : "";
+    const tagsText =
+      obj.tags && Array.isArray(obj.tags) && obj.tags.length > 0
+        ? `Tags: ${obj.tags.join(", ")}.`
+        : "";
+    return `Amenity: ${obj.name}. Description: ${obj.description}. ${cleanLongDescription} ${tagsText}`;
+  }
+  const flatten = (input: unknown): string => {
+    if (input === null || input === undefined) return "";
+    if (typeof input === "object") {
+      if (Array.isArray(input)) return input.map(flatten).join(", ");
+      return Object.entries(input)
+        .map(([key, value]) => `${key}: ${flatten(value)}`)
+        .join(". ");
+    }
+    return String(input);
+  };
+
+  return flatten(obj);
+}
 
 const DEMO_QR_CODE = {
   code: "e4c1f2a9",
@@ -52,6 +105,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["pool"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Fitness Center",
@@ -62,6 +116,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["fitness", "gym"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Meeting & Event Space",
@@ -72,6 +127,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["meeting", "conference"],
     metadata: { capacity: 50 },
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Graze Bistro (On-site Dining)",
@@ -83,6 +139,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["dining", "restaurant"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Complimentary Wi-Fi",
@@ -94,6 +151,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["wifi", "internet"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Parking",
@@ -104,6 +162,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["parking", "car", "parking lot"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Pet-Friendly",
@@ -114,6 +173,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["pet-friendly", "dogs", "pets"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   },
   {
     name: "Marketplace & Boarding Pass Kiosk",
@@ -124,6 +184,7 @@ export const DEMO_AMENITIES = [
     ],
     tags: ["marketplace", "boarding pass", "kiosk"],
     metadata: {},
+    embedding: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
   }
 ];
 
@@ -484,6 +545,21 @@ async function insertedMenu(
   console.log(`- Modifier Options: ${insertedModifierOptions?.length}`);
 }
 
+async function generateEmbeddingForAmenities() {
+  const UPDATED_DEMO_AMENITIES = [];
+  for (const amenity of DEMO_AMENITIES) {
+    // Create a copy of the amenity to avoid modifying the original
+    const amenityCopy = { ...amenity };
+    console.log(`Generating embedding for: ${amenity.name}`);
+    const embedding = await generateEmbeddingFromJSON(amenityCopy);
+    amenityCopy["embedding"] = embedding;
+    console.log(`Generated embedding length: ${embedding.length}, first 5 values: ${embedding.slice(0, 5).join(', ')}`);
+    UPDATED_DEMO_AMENITIES.push(amenityCopy);
+  }
+  console.log(`Generated embeddings for ${UPDATED_DEMO_AMENITIES.length} amenities`);
+  return UPDATED_DEMO_AMENITIES;
+}
+
 async function main() {
   console.log("Starting comprehensive seed...");
 
@@ -509,14 +585,19 @@ async function main() {
   console.log(`Inserted QR code with ID: ${qrCodeId}`);
 
   // Insert amenities using direct SQL with proper array formatting
-  for (const amenity of DEMO_AMENITIES) {
+  const amenitiesWithEmbeddings = await generateEmbeddingForAmenities();
+  for (const amenity of amenitiesWithEmbeddings) {
     // Convert arrays to PostgreSQL array format
     const imageUrlsArray = `{${amenity.imageUrls.map(url => `"${url.replace(/"/g, '\\"')}"`).join(',')}}`;
     const tagsArray = `{${amenity.tags.map(tag => `"${tag.replace(/"/g, '\\"')}"`).join(',')}}`;
+    // Convert embedding array to PostgreSQL vector format
+    const embeddingVector = `[${amenity.embedding.join(',')}]`;
+    
+    console.log(`Inserting amenity: ${amenity.name} with embedding length: ${amenity.embedding.length}`);
 
     await db.execute(sql`
-      INSERT INTO amenities (hotel_id, name, description, long_description, image_urls, tags, metadata, created_at, updated_at)
-      VALUES (${hotelId}, ${amenity.name}, ${amenity.description}, ${amenity.longDescription}, ${imageUrlsArray}::text[], ${tagsArray}::varchar[], ${JSON.stringify(amenity.metadata)}, NOW(), NOW())
+      INSERT INTO amenities (hotel_id, name, description, long_description, image_urls, tags, embedding, metadata, created_at, updated_at)
+      VALUES (${hotelId}, ${amenity.name}, ${amenity.description}, ${amenity.longDescription}, ${imageUrlsArray}::text[], ${tagsArray}::varchar[], ${embeddingVector}::vector, ${JSON.stringify(amenity.metadata)}, NOW(), NOW())
     `);
   }
   console.log(`Inserted ${DEMO_AMENITIES.length} amenities`);
