@@ -60,6 +60,8 @@ export const PromptInputTextarea = ({
       if (form) {
         form.requestSubmit();
       }
+      // Blur to dismiss mobile keyboard
+      e.currentTarget.blur();
     }
   };
 
