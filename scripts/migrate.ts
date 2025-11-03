@@ -39,9 +39,14 @@ async function runMigrations() {
 
   const pool = new Pool(poolConfig);
 
-  const db = drizzle(pool);
-
   try {
+    // ✅ Step 1: Check if pgvector is installed
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS vector;`);
+    console.log("✅ pgvector extension installed successfully.");
+    
+
+    // ✅ Step 2: Run migrations
+    const db = drizzle(pool);
     await migrate(db, { migrationsFolder: "./src/db/migrations" });
     console.log("✅ Database migrations completed successfully");
   } catch (error) {

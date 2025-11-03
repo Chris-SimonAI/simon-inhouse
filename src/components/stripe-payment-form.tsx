@@ -6,6 +6,7 @@ import { X, CreditCard, Lock, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { createOrderAndPaymentIntent, confirmPayment } from '@/actions/payments';
+import { getDineInRestaurantByGuid } from '@/actions/dine-in-restaurants';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { stripePublishableKey } from '@/lib/stripe-client';
@@ -13,8 +14,10 @@ import {
   type CardPaymentForm,
   validateCardPayment,
   validateRoomNumber,
-  validateLastName,
-  validateNameOnCard
+  validateFullName,
+    validateNameOnCard,
+    validateEmail,
+    validatePhoneNumber
 } from '@/validations/card-payment';
 
 type CartItem = {
@@ -110,8 +113,10 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
 
   // Form state
   const [roomNumber, setRoomNumber] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [nameOnCard, setNameOnCard] = useState("");
+  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [errors, setErrors] = useState<
     Partial<Record<keyof CardPaymentForm, string>>
   >({});
@@ -123,11 +128,11 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
     setErrors(prev => ({ ...prev, roomNumber: error || undefined }));
   };
 
-  const handleLastNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFullNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setLastName(value);
-    const error = validateLastName(value);
-    setErrors(prev => ({ ...prev, lastName: error || undefined }));
+    setFullName(value);
+    const error = validateFullName(value);
+    setErrors(prev => ({ ...prev, fullName: error || undefined }));
   };
 
   const handleNameOnCardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,15 +142,31 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
     setErrors(prev => ({ ...prev, nameOnCard: error || undefined }));
   };
 
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEmail(value);
+    const error = validateEmail(value);
+    setErrors(prev => ({ ...prev, email: error || undefined }));
+  };
+
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPhoneNumber(value);
+    const error = validatePhoneNumber(value);
+    setErrors(prev => ({ ...prev, phoneNumber: error || undefined }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
     setError(null);
 
-    const formData = {
+    const formData: CardPaymentForm = {
       roomNumber,
-      lastName,
+      fullName,
       nameOnCard,
+      email,
+      phoneNumber,
     };
 
     const result = validateCardPayment(formData);
@@ -218,13 +239,24 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         };
       });
 
+      // Resolve restaurant and hotel IDs from restaurantGuid
+      const restaurantLookup = await getDineInRestaurantByGuid(restaurantGuid);
+      if (!restaurantLookup.ok || !restaurantLookup.data) {
+        throw new Error('Restaurant not found');
+      }
+      const restaurantId = restaurantLookup.data.id as number;
+      const hotelId = restaurantLookup.data.hotelId as number;
+
       // 2. Create order + Stripe payment intent
       const orderResult = await createOrderAndPaymentIntent({
-        hotelId: 1, // Hardcoded for testing
-        restaurantId: 1, // Hardcoded for testing
+        hotelId: hotelId,
+        restaurantId: restaurantId,
         userId: 123, // Hardcoded for testing
         roomNumber: roomNumber,
+        fullName: fullName,
         specialInstructions: "Please deliver to room",
+        email: email,
+        phoneNumber: phoneNumber,
         items: orderItems
       });
 
@@ -251,6 +283,8 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         card: cardNumberElement,
         billing_details: {
           name: nameOnCard,
+          email: email || undefined,
+          phone: phoneNumber || undefined,
         },
       });
 
@@ -272,6 +306,8 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       paymentDetails.status = 'completed';
       paymentDetails.orderId = orderResult.data.order.id;
       paymentDetails.paymentId = confirmResult.data.payment.id;
+      paymentDetails.email = email;
+      paymentDetails.phoneNumber = phoneNumber;
       localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
       
       // Clear cart
@@ -392,27 +428,86 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
               )}
             </div>
 
-            {/* Last Name */}
+            {/* Full Name */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label htmlFor="lastName" className="text-sm font-medium text-gray-700">
-                  Last Name
+                <label htmlFor="fullName" className="text-sm font-medium text-gray-700">
+                  Full Name
                 </label>
                 <span className="text-xs text-red-500">Required</span>
               </div>
               <input
                 type="text"
-                id="lastName"
-                value={lastName}
-                onChange={handleLastNameChange}
+                id="fullName"
+                value={fullName}
+                onChange={handleFullNameChange}
                 className={cn(
                   "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
-                  errors.lastName && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                  errors.fullName && "border-red-500 focus:ring-red-500 focus:border-red-500"
                 )}
-                placeholder="Enter last name"
+                placeholder="Enter full name"
               />
-              {errors.lastName && (
-                <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>
+              {errors.fullName && (
+                <p className="mt-1 text-xs text-red-600">{errors.fullName}</p>
+              )}
+            </div>
+
+            {/* Email */}
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <span className="text-xs text-red-500">Required</span>
+              </div>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={handleEmailChange}
+                className={cn(
+                  "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
+                  errors.email && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                )}
+                placeholder="Enter email"
+                inputMode="email"
+                autoComplete="email"
+                required
+              />
+              {errors.email && (
+                <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+              )}
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700">
+                  Phone Number
+                </label>
+                <span className="text-xs text-red-500">Required</span>
+              </div>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10 select-none text-gray-500 text-sm">
+                  +1
+                </div>
+                <input
+                  type="tel"
+                  id="phoneNumber"
+                  value={phoneNumber}
+                  onChange={handlePhoneNumberChange}
+                  className={cn(
+                    "w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
+                    errors.phoneNumber && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                  )}
+                  placeholder="Enter phone number"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  required
+                />
+              </div>
+              {errors.phoneNumber && (
+                <p className="mt-1 text-xs text-red-600">{errors.phoneNumber}</p>
               )}
             </div>
 

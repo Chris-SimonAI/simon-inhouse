@@ -4,7 +4,7 @@ import 'server-only';
 export const runtime = 'nodejs';
 
 import { db } from '@/db';
-import { dineInOrderItems, dineInOrders, dineInPayments, dineInRestaurants } from '@/db/schemas';
+import { dineInOrderItems, dineInOrders, dineInPayments, dineInRestaurants, hotels } from '@/db/schemas';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { createError } from '@/lib/utils';
@@ -154,6 +154,18 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
       return createError('Restaurant ordering URL not configured');
     }
 
+    const hotel = await db.select().from(hotels).where(eq(hotels.id, order[0].hotelId)).limit(1);
+    if (hotel.length === 0) {
+      console.error('Hotel not found:', order[0].hotelId);
+      return;
+    }
+
+    const hotelAddress = hotel[0].address;
+    if (!hotelAddress) {
+      console.error('Hotel address not found:', order[0].hotelId);
+      return;
+    }
+
     // Prepare bot payload
     const botPayload = prepareBotPayload(
       orderIdNum,
@@ -164,11 +176,11 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
         modifierDetails: item.modifierDetails,
       })),
       {
-        name: `Guest ${order[0].roomNumber}`, // Basic guest info
-        email: 'guest@example.com',
-        phone: '1234567890',
+        name: paymentIntent.metadata.fullName,
+        email: paymentIntent.metadata.email,
+        phone: paymentIntent.metadata.phoneNumber,
       },
-      `23663 Calabasas road Calabasas, CA 91302`, //hardcoded delivery address
+      hotelAddress,
       order[0].roomNumber
     );
 

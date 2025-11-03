@@ -2,8 +2,16 @@ import { DynamicStructuredTool, DynamicTool } from "@langchain/core/tools";
 import { searchRestaurants, searchAttractions } from "@/lib/places";
 import { SearchPlacesArgsSchema, SearchPlacesArgsInput } from "@/validations/places";
 import { InitiateTippingArgsSchema, InitiateTippingArgsInput } from "@/validations/tipping";
-import { getAmenitiesByHotelId } from "@/actions/amenities";
+import { getAmenitiesByHotelId, getAmenitiesByEmbedding } from "@/actions/amenities";
 import { getDineInRestaurantsByHotelId } from "@/actions/dine-in-restaurants";
+import { generateEmbeddingFromJSON } from "@/lib/embedding";
+import { GetAmenitiesArgsSchema, GetAmenitiesArgsInput } from "@/validations/amenities";
+
+const createErrorResponse = (error: string, message: string) => 
+  JSON.stringify({ error, message });
+
+const createSuccessResponse = (data: unknown, message?: string) => 
+  JSON.stringify({ data, ...(message && { message }) });
 
 export const searchRestaurantsTool = new DynamicStructuredTool({
   name: "search_restaurants",
@@ -51,32 +59,41 @@ export const searchAttractionsTool = new DynamicStructuredTool({
   },
 });
 
-export const getAmenitiesTool = new DynamicTool({
+export const getAmenitiesTool = new DynamicStructuredTool({
   name: "get_amenities",
-  description: "Get all amenities available at the hotel. Use this for questions about hotel facilities, services, and amenities like pool, gym, spa, restaurant, bar, etc. Input: hotel ID as a string (e.g., '1')",
-  func: async (input: string) => {
+  description: "Get hotel amenities - handles both specific searches and general requests. For specific amenities (e.g., 'pool', 'fitness center', 'spa'), it uses semantic search. For general requests (e.g., 'what amenities do you have'), it returns all amenities. If query is provided, it searches for matching amenities; if no matches found or no query provided, it returns all amenities.",
+  schema: GetAmenitiesArgsSchema,
+  func: async (args: GetAmenitiesArgsInput) => {
     try {
-      // The hotelId will be passed through the tool context, but for now we take it as input
-      const hotelId = parseInt(input);
-      if (isNaN(hotelId)) {
-        return JSON.stringify({
-          error: "INVALID_HOTEL_ID",
-          message: "Hotel ID must be a valid number"
-        });
+      const { hotelId, query } = args;
+      const getAllAmenities = async (message?: string) => {
+        const result = await getAmenitiesByHotelId(hotelId);
+        if (!result.ok) {
+          return createErrorResponse("AMENITIES_FETCH_FAILED", result.message || "Failed to fetch amenities");
+        }
+        return createSuccessResponse(result.data, message);
+      };
+
+      if (!query?.trim()) {
+        return getAllAmenities();
       }
 
-      const result = await getAmenitiesByHotelId(hotelId);
+      // Perform semantic search
+      const queryEmbedding = await generateEmbeddingFromJSON({ query });
+      const result = await getAmenitiesByEmbedding(queryEmbedding, query);
+      
       if (!result.ok) {
-        return JSON.stringify({
-          error: "AMENITIES_FETCH_FAILED",
-          message: result.message || "Failed to fetch amenities"
-        });
+        return createErrorResponse("AMENITIES_SEARCH_FAILED", result.message || "Failed to search amenities");
       }
 
-      return JSON.stringify({
-        data: result.data
-      });
+      // If no matches found, fall back to all amenities
+      if (!result.data?.length) {
+        return getAllAmenities("No specific matches found, showing all amenities");
+      }
+      return createSuccessResponse(result.data);
+      
     } catch (err) {
+      console.error("Error in get_amenities tool:", err);
       return JSON.stringify({
         error: "AMENITIES_TOOL_ERROR",
         message: err instanceof Error ? err.message : String(err)
