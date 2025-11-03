@@ -68,8 +68,8 @@ const DEMO_QR_CODE = {
 export const DEMO_HOTEL = {
   name: "The Anza Hotel",
   address: "2210 Broadway, Santa Monica CA 90404, USA",
-  latitude: "34.15667",
-  longitude: "-118.64204",
+  latitude: "34.029117",
+  longitude: "-118.476193",
   metadata: {
     rooms_total: 122,
     pet_friendly: true,
@@ -191,7 +191,7 @@ export const DEMO_AMENITIES = [
 
 export const DEMO_RESTAURANTS = [
   {
-    name: "Bludso's Bar & Que",
+    name: "Bludso's BBQ",
     restaurantGuid: "efee1329-76cb-4021-8dec-645725820bb2",
     addressLine1: "1329 Santa Monica BoulevardSanta Monica",
     cuisine: "BBQ",

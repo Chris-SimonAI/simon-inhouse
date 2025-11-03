@@ -253,6 +253,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         restaurantId: restaurantId,
         userId: 123, // Hardcoded for testing
         roomNumber: roomNumber,
+        lastName: lastName,
         specialInstructions: "Please deliver to room",
         email: email,
         phoneNumber: phoneNumber,

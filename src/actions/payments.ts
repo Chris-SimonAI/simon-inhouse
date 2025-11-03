@@ -39,6 +39,7 @@ export async function createOrderAndPaymentIntent(input: unknown) {
       totalAmount: totalAmount.toFixed(2),
       orderStatus: 'pending',
       metadata: {
+        lastName: validatedInput.lastName,
         email: validatedInput.email,
         phoneNumber: validatedInput.phoneNumber,
       } as Record<string, unknown>,
@@ -92,6 +93,7 @@ export async function createOrderAndPaymentIntent(input: unknown) {
               roomNumber: order.roomNumber,
               botTriggered: 'false',
               botStatus: 'pending',
+              lastName: validatedInput.lastName,
               email: validatedInput.email,
               phoneNumber: validatedInput.phoneNumber,
             },
