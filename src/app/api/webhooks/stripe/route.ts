@@ -176,7 +176,7 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
         modifierDetails: item.modifierDetails,
       })),
       {
-        name: paymentIntent.metadata.name,
+        name: paymentIntent.metadata.fullName,
         email: paymentIntent.metadata.email,
         phone: paymentIntent.metadata.phoneNumber,
       },

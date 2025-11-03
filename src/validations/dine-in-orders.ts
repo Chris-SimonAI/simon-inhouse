@@ -38,6 +38,7 @@ export const CreateOrderRequestSchema = z.object({
   userId: z.number().int().positive(),
   roomNumber: z.string().min(1).max(10),
   specialInstructions: z.string().optional(),
+  fullName: z.string().min(1, { message: 'Full name is required' }),
   email: z.string().email({ message: 'Valid email is required' }),
   phoneNumber: z.string().min(7, { message: 'Phone number is required' }).max(20),
   items: z.array(orderItemSchema).min(1, 'At least one item is required'),
