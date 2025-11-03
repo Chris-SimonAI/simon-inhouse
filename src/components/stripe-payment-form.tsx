@@ -14,7 +14,7 @@ import {
   type CardPaymentForm,
   validateCardPayment,
   validateRoomNumber,
-  validateLastName,
+  validateFullName,
     validateNameOnCard,
     validateEmail,
     validatePhoneNumber
@@ -113,7 +113,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
 
   // Form state
   const [roomNumber, setRoomNumber] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [nameOnCard, setNameOnCard] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -128,11 +128,11 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
     setErrors(prev => ({ ...prev, roomNumber: error || undefined }));
   };
 
-  const handleLastNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFullNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setLastName(value);
-    const error = validateLastName(value);
-    setErrors(prev => ({ ...prev, lastName: error || undefined }));
+    setFullName(value);
+    const error = validateFullName(value);
+    setErrors(prev => ({ ...prev, fullName: error || undefined }));
   };
 
   const handleNameOnCardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,7 +163,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
 
     const formData: CardPaymentForm = {
       roomNumber,
-      lastName,
+      fullName,
       nameOnCard,
       email,
       phoneNumber,
@@ -253,7 +253,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         restaurantId: restaurantId,
         userId: 123, // Hardcoded for testing
         roomNumber: roomNumber,
-        lastName: lastName,
+        fullName: fullName,
         specialInstructions: "Please deliver to room",
         email: email,
         phoneNumber: phoneNumber,
@@ -428,27 +428,27 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
               )}
             </div>
 
-            {/* Last Name */}
+            {/* Full Name */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label htmlFor="lastName" className="text-sm font-medium text-gray-700">
-                  Last Name
+                <label htmlFor="fullName" className="text-sm font-medium text-gray-700">
+                  Full Name
                 </label>
                 <span className="text-xs text-red-500">Required</span>
               </div>
               <input
                 type="text"
-                id="lastName"
-                value={lastName}
-                onChange={handleLastNameChange}
+                id="fullName"
+                value={fullName}
+                onChange={handleFullNameChange}
                 className={cn(
                   "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
-                  errors.lastName && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                  errors.fullName && "border-red-500 focus:ring-red-500 focus:border-red-500"
                 )}
-                placeholder="Enter last name"
+                placeholder="Enter full name"
               />
-              {errors.lastName && (
-                <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>
+              {errors.fullName && (
+                <p className="mt-1 text-xs text-red-600">{errors.fullName}</p>
               )}
             </div>
 
