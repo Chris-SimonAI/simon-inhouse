@@ -2,7 +2,7 @@
 
 import { TipStaffScreen } from "@/components/tip-staff-screen";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState } from "react";
 
 interface TipStaffClientProps {
   hotel: { id: number; name: string };
