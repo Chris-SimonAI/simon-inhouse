@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
-import { AppWrapper } from "@/components/app-wrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,23 +15,30 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Meet Simon",
-  description: "Meet Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here.",
+  description:
+    "Meet Simon, your personal AI concierge for curated recommendations, exclusive hotel services, and local experiences.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-dvh h-dvh w-full max-w-md mx-auto bg-gray-50 relative`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-dvh h-dvh w-full bg-gray-50`}
       >
-          <AppWrapper>
+        {/* 
+          Outer shell with centered content and consistent sizing.
+          Mirrors old AppWrapper structure.
+        */}
+        <div className="flex justify-center items-center h-full w-full">
+          <div className="h-dvh w-full max-w-md bg-white">
             {children}
-          </AppWrapper>
-          <Toaster />
+          </div>
+        </div>
+
+        {/* Global toast notifications */}
+        <Toaster />
       </body>
     </html>
   );
