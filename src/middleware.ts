@@ -15,7 +15,8 @@ export function middleware(req: Request) {
     "/_next",               // internal Next.js assets
     "/api",                 // API routes handle their own auth
     "/favicon.ico",         // favicon
-    "/assets",              // static files if any
+    "/hotel",
+    "/public"           
   ];
 
   const isPublic = publicRoutes.some((path) => pathname.startsWith(path));
@@ -27,7 +28,7 @@ export function middleware(req: Request) {
   const hasSession =
     req.headers.get("cookie")?.includes("better-auth.session_token");
 
-  // 🚫 Redirect users without session trying to access protected pages
+  // Redirect users without session trying to access protected pages
   if (!isPublic && !hasSession) {
     return NextResponse.redirect(new URL("/hotel-not-found", req.url));
   }

@@ -13,18 +13,15 @@ export default async function HomePage({
 }: {
   searchParams?: { voice?: string };
 }) {
-  // ✅ 1. Get validated session (hotel + threadId)
-  const { hotel, hotelId, threadId } = await requireHotelSession();
+  const { hotel, threadId } = await requireHotelSession();
 
-  // ✅ 2. Fetch hotel context (specific to this page)
-  const hotelContextResult = await getVoiceAgentHotelContextAction(hotelId);
+  const hotelContextResult = await getVoiceAgentHotelContextAction(hotel.id);
   if (!hotelContextResult.ok || !hotelContextResult.data) {
     redirect("/hotel-not-found");
   }
 
   const hotelContext = hotelContextResult.data.context;
 
-  // ✅ 3. Handle cookies and intro flow
   const hasPlayedIntro =
     (await cookies()).get("simon-intro-played")?.value === "true";
   const showVoiceIntro = searchParams?.voice === "true";
@@ -37,7 +34,6 @@ export default async function HomePage({
     return <WelcomeClient hotel={hotel} />;
   }
 
-  // ✅ 4. Main chatbot interface
   return (
     <main className="h-dvh w-full bg-gray-50">
       <OrderSuccessToast />

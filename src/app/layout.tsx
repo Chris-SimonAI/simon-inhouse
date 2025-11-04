@@ -27,17 +27,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-dvh h-dvh w-full bg-gray-50`}
       >
-        {/* 
-          Outer shell with centered content and consistent sizing.
-          Mirrors old AppWrapper structure.
-        */}
         <div className="flex justify-center items-center h-full w-full">
           <div className="h-dvh w-full max-w-md bg-white">
             {children}
           </div>
         </div>
-
-        {/* Global toast notifications */}
         <Toaster />
       </body>
     </html>

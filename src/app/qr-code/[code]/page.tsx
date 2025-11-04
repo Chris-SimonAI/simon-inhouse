@@ -12,7 +12,7 @@ export default function QrCodePage() {
       try {
         const response = await fetch(`/api/auth/qr-scan?qrCode=${code}`, {
           method: 'POST',
-          credentials: 'include', // ✅ cookies will be handled by browser
+          credentials: 'include',
         });
 
         if (!response.ok) {
@@ -26,7 +26,7 @@ export default function QrCodePage() {
           return;
         }
 
-        router.replace('/'); // ✅ cookies now set in browser
+        router.replace('/');
       } catch (error) {
         console.error('QR session error:', error);
         router.replace('/session-not-found');
