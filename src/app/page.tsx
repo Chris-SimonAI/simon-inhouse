@@ -13,6 +13,7 @@ export default async function HomePage({
 }: {
   searchParams?: { voice?: string };
 }) {
+  const params = await searchParams;
   const { hotel, threadId } = await requireHotelSession();
 
   const hotelContextResult = await getVoiceAgentHotelContextAction(hotel.id);
@@ -24,7 +25,7 @@ export default async function HomePage({
 
   const hasPlayedIntro =
     (await cookies()).get("simon-intro-played")?.value === "true";
-  const showVoiceIntro = searchParams?.voice === "true";
+  const showVoiceIntro = params?.voice === "true";
 
   if (showVoiceIntro) {
     return <VoiceIntroClient hotel={hotel} />;
