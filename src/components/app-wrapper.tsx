@@ -22,8 +22,8 @@ export function AppWrapper({ children }: AppWrapperProps) {
     <SessionProvider>
       <div className="h-dvh w-full bg-gray-50">
         <Suspense fallback={<div />}>
-          <QRCodeHandler />
-          <SessionLoader />
+          {/* <QRCodeHandler /> */}
+          <SessionLoader /> 
         </Suspense>
         <div className="h-dvh w-full flex justify-center">
           <div className="h-dvh w-full max-w-md">
