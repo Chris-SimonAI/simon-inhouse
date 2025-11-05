@@ -9,10 +9,21 @@ import { searchRestaurantsTool, searchAttractionsTool, getAmenitiesTool, getDine
 import { getCheckpointer } from "./checkpointer";
 import { shouldEmitPrefaceNode, generatePrefaceNode, routeAfterClassifier } from "./preface-gate";
 
+// there could be 4 messages per chat turn
+// including tool calls and tool results
+const MAX_MESSAGES = 20 * 4;
+function appendCap<T>(n: number) {
+  return (prev: T[] = [], next: T[] = []) => {
+    const out = (prev ?? []).concat(next ?? []);
+    return out.length > n ? out.slice(out.length - n) : out;
+  };
+}
+
 const GraphState = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
-    reducer: (x, y) => x.concat(y),
+    reducer: appendCap<BaseMessage>(MAX_MESSAGES),
   }),
+
   shouldEmitPreface: Annotation<boolean>({
     reducer: (x, y) => y ?? x,
     default: () => false,
