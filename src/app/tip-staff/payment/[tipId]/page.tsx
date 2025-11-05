@@ -1,15 +1,16 @@
-"use client";
+import { requireHotelSession } from "@/utils/require-hotel-session";
+import PaymentProcessingClient from "./payment-processing-client.tsx";
 
-import { PaymentProcessingScreen } from "@/components/payment-processing-screen";
-import { useParams } from "next/navigation";
+export default async function PaymentProcessingPage({
+  params,
+}: {
+  params: { tipId: string };
+}) {
+  // ✅ Run session validation server-side
+  await requireHotelSession();
 
-export default function PaymentProcessingPage() {
-  const params = useParams();
-  const tipId = parseInt(params.tipId as string);
+  // ✅ Pass the tipId as a prop to the client component
+  const tipId = parseInt(params.tipId);
 
-  return (
-    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
-      <PaymentProcessingScreen tipId={tipId} />
-    </div>
-  );
+  return <PaymentProcessingClient tipId={tipId} />;
 }

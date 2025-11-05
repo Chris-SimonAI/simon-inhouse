@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { CheckoutView } from '@/components/checkout-view';
+import { requireHotelSession } from '@/utils/require-hotel-session';
 
 type PageProps = {
   params: Promise<{
@@ -8,6 +9,7 @@ type PageProps = {
 };
 
 export default async function CheckoutPage({ params }: PageProps) {
+  await requireHotelSession();
   const { restaurantGuid } = await params;
 
   return (
@@ -18,4 +20,3 @@ export default async function CheckoutPage({ params }: PageProps) {
     </div>
   );
 }
-
