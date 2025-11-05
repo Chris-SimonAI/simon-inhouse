@@ -9,7 +9,7 @@ import {
   modifierOptions,
   dineInRestaurants 
 } from "@/db/schemas";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 import { createSuccess, createError } from "@/lib/utils";
 import { CreateError, CreateSuccess } from "@/types/response";
 
@@ -89,6 +89,7 @@ export async function getCompleteMenuByRestaurant(
         menuGroupName: menuGroups.name,
         menuGroupDescription: menuGroups.description,
         menuGroupImageUrls: menuGroups.imageUrls,
+        menuGroupSortOrder: menuGroups.sortOrder,
         // Menu item data
         menuItemId: menuItems.id,
         menuItemGuid: menuItems.menuItemGuid,
@@ -124,7 +125,7 @@ export async function getCompleteMenuByRestaurant(
       .leftJoin(modifierGroups, eq(modifierGroups.menuItemId, menuItems.id))
       .leftJoin(modifierOptions, eq(modifierOptions.modifierGroupId, modifierGroups.id))
       .where(whereCondition)
-      .orderBy(desc(menuItems.sortOrder));
+      .orderBy(asc(menuGroups.sortOrder), desc(menuItems.sortOrder));
 
     if (result.length === 0) {
       return createError("Restaurant not found");

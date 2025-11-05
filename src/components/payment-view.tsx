@@ -262,32 +262,6 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
                   )}
                 </div>
               </button>
-
-              {/* Pay on delivery */}
-              <button
-                type="button"
-                disabled
-                onClick={() => setPaymentMethod("delivery")}
-                className={cn(
-                  "w-full flex items-center justify-between rounded-lg transition-colors"
-                )}
-              >
-                <span className="text-base font-medium text-gray-500">
-                  Pay on delivery
-                </span>
-                <div
-                  className={cn(
-                    "w-6 h-6 rounded-full border-2 flex items-center justify-center",
-                    paymentMethod === "delivery"
-                      ? "border-gray-900"
-                      : "border-gray-300"
-                  )}
-                >
-                  {paymentMethod === "delivery" && (
-                    <div className="w-3 h-3 rounded-full bg-gray-900" />
-                  )}
-                </div>
-              </button>
             </div>
           </div>
         </div>

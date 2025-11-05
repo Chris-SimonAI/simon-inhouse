@@ -57,6 +57,13 @@
       "when": 1761661057184,
       "tag": "0007_medical_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1762347358154,
+      "tag": "0008_tiresome_tusk",
+      "breakpoints": true
     }
   ]
 }
