@@ -141,7 +141,7 @@ export function MenuView({ menuData, restaurantGuid }: MenuViewProps) {
     if (selectedItem) {
       setSelectedItem(null);
     } else {
-      router.push(`/dine-in/restaurant/${restaurantGuid}/details`);
+      router.push("/?l1=open", { scroll: false });
     }
   };
 
