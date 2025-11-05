@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { PaymentView } from '@/components/payment-view.tsx';
+import { requireHotelSession } from '@/utils/require-hotel-session';
 
 type PageProps = {
   params: Promise<{
@@ -8,6 +9,7 @@ type PageProps = {
 };
 
 export default async function PaymentPage({ params }: PageProps) {
+  await requireHotelSession();
   const { restaurantGuid } = await params;
 
   return (
