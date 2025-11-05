@@ -1,0 +1,1 @@
+ALTER TABLE "menu_groups" ADD COLUMN "sort_order" integer DEFAULT 0;

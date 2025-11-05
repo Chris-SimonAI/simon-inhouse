@@ -191,7 +191,7 @@ export const DEMO_AMENITIES = [
 
 export const DEMO_RESTAURANTS = [
   {
-    name: "Bludso's BBQ",
+    name: "BBQ",
     restaurantGuid: "efee1329-76cb-4021-8dec-645725820bb2",
     addressLine1: "1329 Santa Monica BoulevardSanta Monica",
     cuisine: "BBQ",
@@ -199,7 +199,7 @@ export const DEMO_RESTAURANTS = [
     state: "CA",
     zipCode: "90404",
     country: "USA",
-    description: "Bringing authentic Texas barbecue to Santa Monica, **Bludso’s BBQ** serves slow-smoked meats and classic Southern sides in a lively, casual setting. Enjoy tender brisket, ribs, and hot links crafted by pitmaster Kevin Bludso.\n\n\n\n### Must-Try\n* **Smoked Brisket:** Juicy, pepper-crusted slices smoked low and slow  \n* **Pork Ribs:** Fall-off-the-bone tender with rich barbecue glaze  \n* **Cornbread with Honey Butter:** Sweet, soft, and perfectly paired  \n\n\n\n### Dining Details\n* **Service Style:** Casual dine-in, takeout, or delivery  \n* **Delivery Time:** Around 30–40 minutes  \n* **Hours:** Daily, 11 am – 10 pm  \n\n\n\n### The Experience\nA crowd favorite for **big flavor, friendly vibes, and true Texas smoke.**",
+    description: "Fire up your appetite with our bold and smoky BBQ favorites! From tender, slow-cooked ribs to juicy grilled meats and savory sides, every bite is packed with flavor and backyard-style goodness. Get ready to dig in — the ultimate BBQ feast is just a click away!",
     phoneNumber: "3103102775",
     rating: 4.5,
     imageUrls: ["https://d2s742iet3d3t1.cloudfront.net/restaurants/restaurant-156527000000000000/banner_1716317865.jpg?size=medium"], 
@@ -213,7 +213,7 @@ export const DEMO_RESTAURANTS = [
     }
   },
   {
-    name: "Pizza Fling",
+    name: "Pizza",
     restaurantGuid: "fa3b226a-3cc9-4515-aebe-1779126f696a",
     addressLine1: "3032 Wilshire BoulevardSanta Monica",
     cuisine: "Pizza",
@@ -221,7 +221,7 @@ export const DEMO_RESTAURANTS = [
     state: "CA",
     zipCode: "90403",
     country: "USA",
-    description: "A neighborhood favorite for classic and creative pizzas, **Pizza Fling** blends hand-tossed dough, rich sauces, and premium toppings into every pie. Known for its crispy crust and generous portions, this spot is a go-to for casual dining and takeout.\n\n\n\n### Must-Try\n* **Margherita Pizza:** Fresh mozzarella, basil, and tomato sauce perfection  \n* **Pepperoni Blast:** Crispy edges and a hearty flavor punch  \n* **Garlic Knots:** Buttery, garlicky, and impossible to resist  \n\n\n\n### Dining Details\n* **Service Style:** Dine-in, takeout, or delivery  \n* **Delivery Time:** Around 25–35 minutes  \n* **Hours:** Daily, 11 am – 10 pm  \n\n\n\n### The Experience\nA **casual and friendly** pizza joint that hits the spot every time — whether you're grabbing a quick slice or sharing a pie with friends.",
+    description: "Savor the flavors of Italy with our mouth-watering selection of pizzas and classic Italian favorites! From crispy, cheesy slices straight from the oven to rich pastas and hearty sauces, every bite is crafted for comfort and joy. Buon appetito — your Italian feast is just a click away!",
     phoneNumber: "3103103462",
     rating: 4.3,
     imageUrls: ["https://d2s742iet3d3t1.cloudfront.net/restaurant_service/restaurants/e2bb67bf-956f-4f35-99ff-7ccc42a20525/Restaurant/dcd0e0ed-e85c-4928-bcad-f2132753f53d.jpg?size=medium"],
@@ -251,10 +251,10 @@ export const DEMO_MENU = {
 };
 
 export const DEMO_MENU_GROUPS = [
-  { menuGroupGuid: "7f266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Meats", description: "Seasoned with our custom dry rubs & smoked slow & low. All sauce is served on the side.", imageUrls: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=60"], metadata: { category: "meats", featured: true } },
-  { menuGroupGuid: "3d6df852-c2eb-490c-9784-209659616463", name: "Sides", description: "All sides are made in house from scratch. \n1/2 Pint Feeds 1-2ppl\nPint Feeds 3-4ppl\nQuart Feeds 6-8ppl", imageUrls: ["https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&auto=format&fit=crop&q=60"], metadata: { category: "sides", featured: false } },
-  { menuGroupGuid: "e8da858e-0000-4266-860b-b241e578aab8", name: "Starters", description: "Hushpuppies", imageUrls: ["https://images.unsplash.com/photo-1607013251379-e6eecfffe234?w=800&auto=format&fit=crop&q=60"], metadata: { category: "starters", featured: true } },
-  { menuGroupGuid: "7eca7639-ccd1-4f88-8562-a56b8d9caa6b", name: "Drinks", description: "Bludsos famous sweet tea, available in half gallon size.", imageUrls: ["https://images.unsplash.com/photo-1607013251379-e6eecfffe234?w=800&auto=format&fit=crop&q=60"], metadata: { category: "drinks", featured: true } },
+  { menuGroupGuid: "e8da858e-0000-4266-860b-b241e578aab8", name: "Starters", description: "Hushpuppies", imageUrls: ["https://images.unsplash.com/photo-1607013251379-e6eecfffe234?w=800&auto=format&fit=crop&q=60"],sortOrder: 0, metadata: { category: "starters", featured: true } },
+  { menuGroupGuid: "7f266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Meats", description: "Seasoned with our custom dry rubs & smoked slow & low. All sauce is served on the side.", imageUrls: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=60"],sortOrder: 1, metadata: { category: "meats", featured: true } },
+  { menuGroupGuid: "3d6df852-c2eb-490c-9784-209659616463", name: "Sides", description: "All sides are made in house from scratch. \n1/2 Pint Feeds 1-2ppl\nPint Feeds 3-4ppl\nQuart Feeds 6-8ppl", imageUrls: ["https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&auto=format&fit=crop&q=60"],sortOrder: 2, metadata: { category: "sides", featured: false } },
+  { menuGroupGuid: "7eca7639-ccd1-4f88-8562-a56b8d9caa6b", name: "Drinks", description: "Bludsos famous sweet tea, available in half gallon size.", imageUrls: ["https://images.unsplash.com/photo-1607013251379-e6eecfffe234?w=800&auto=format&fit=crop&q=60"],sortOrder: 3, metadata: { category: "drinks", featured: true } },
 ];
 
 export const DEMO_MENU_ITEMS = [
@@ -360,8 +360,8 @@ export const DEMO_MENU_TWO = {
 };
 
 export const DEMO_MENU_GROUPS_TWO = [
-  { menuGroupGuid: "af266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Pizza - 12\"", description: "Tomato Sauce, Mozzarella.", imageUrls: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=60"], metadata: { category: "pizza", featured: true } },
-  { menuGroupGuid: "ad6df852-c2eb-490c-9784-209659616463", name: "Drinks", description: "Italian Artisanal Sprite", imageUrls: ["https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&auto=format&fit=crop&q=60"], metadata: { category: "drinks", featured: true } },
+  { menuGroupGuid: "af266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Pizza - 12\"", description: "Tomato Sauce, Mozzarella.", imageUrls: ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=60"],sortOrder: 0, metadata: { category: "pizza", featured: true } },
+  { menuGroupGuid: "ad6df852-c2eb-490c-9784-209659616463", name: "Drinks", description: "Italian Artisanal Sprite", imageUrls: ["https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&auto=format&fit=crop&q=60"],sortOrder: 1, metadata: { category: "drinks", featured: true } },
 ]
 export const DEMO_MENU_ITEMS_TWO = [
   { menuItemGuid: "b911b98d-c648-4622-836c-3b0c5f9172ea", menuGroupGuid: "af266c48-74ec-4c8e-9ad1-7d68cf98660b", name: "Margherita", description: "Tomato Sauce, Mozzarella", price: "19.00", calories: 0, imageUrls: ["https://d1w7312wesee68.cloudfront.net/xLqeBntVXd6oXs0XedCkjaPlPz6ncKZyEXR5y8U6Wi8/resize:fit:720:720/plain/s3://toasttab/menu_service/restaurants/a9afc1a7-87d3-40e8-9fb4-4535cafb947e/MenuItem/716d3c79-6754-49c5-96a3-6df607d1b4d7.png"], allergens: [], modifierGroupsReferences: ["f7a0c6c4-3d71-4a7f-9a40-8ad2b1c0a012", "a4c7b1d2-59ef-4b8d-a3b3-1f2a9e7c5d34", "e9b7d4c1-2a36-4c83-ae8f-50d6f9a1b2c3"], sortOrder: 0, metadata: { currency: "USD", hasModifiers: true } },
@@ -497,8 +497,8 @@ async function insertedMenu(
   for (const group of menuGroups) {
     const imageUrlsArray = `{${group.imageUrls.map((url: string) => `"${url.replace(/"/g, '\\"')}"`).join(',')}}`;
     const result = await db.execute(sql`
-      INSERT INTO menu_groups (menu_id, menu_group_guid, name, image_urls, description, metadata, created_at, updated_at)
-      VALUES (${menuId}, ${group.menuGroupGuid}, ${group.name}, ${imageUrlsArray}::text[], ${group.description}, ${JSON.stringify(group.metadata)}, NOW(), NOW())
+      INSERT INTO menu_groups (menu_id, menu_group_guid, name, image_urls, description, metadata, sort_order, created_at, updated_at)
+      VALUES (${menuId}, ${group.menuGroupGuid}, ${group.name}, ${imageUrlsArray}::text[], ${group.description}, ${JSON.stringify(group.metadata)}, ${group.sortOrder}, NOW(), NOW())
       RETURNING id
     `);
     insertedMenuGroups.push(result);

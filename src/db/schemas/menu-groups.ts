@@ -1,4 +1,4 @@
-import { bigserial, pgTable, bigint, text, uuid, jsonb, index } from "drizzle-orm/pg-core";
+import { bigserial, pgTable, bigint, text, uuid, jsonb, index, integer } from "drizzle-orm/pg-core";
 import { menus } from "@/db/schemas/menus";
 import { timestamps } from "../columns.helpers";
 import { relations } from "drizzle-orm";
@@ -10,6 +10,7 @@ export const menuGroups = pgTable("menu_groups", {
   name: text("name").notNull(),
   description: text("description"),
   imageUrls: text("image_urls").array().$type<string[]>().default([]),
+  sortOrder: integer("sort_order").default(0),
   metadata: jsonb("metadata"),
   ...timestamps,
 }, (table) => [

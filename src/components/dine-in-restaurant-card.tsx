@@ -8,10 +8,8 @@ export function DineInRestaurantCard({
     restaurantGuid,  
     name,
     imageUrls,
-    cuisine,
-    rating,
   }: DineInRestaurant) {
-  const href = `/dine-in/restaurant/${restaurantGuid}/details`;
+  const href = `/dine-in/restaurant/${restaurantGuid}/menu`;
 
   return (
     <div
@@ -41,18 +39,18 @@ export function DineInRestaurantCard({
               <span className="mr-0.5">{name}</span>
             </h3>
 
-            {rating ? (
+            {/* {rating ? (
               <span className="flex items-center text-base text-gray-600 flex-shrink-0">
                 <span className="font-medium">{parseFloat(rating).toFixed(1)}</span>
                 <span className="ml-1 text-yellow-500">★</span>
               </span>
-            ) : null}
+            ) : null} */}
           </div>
 
           {/* Subtext line: cuisine (if provided) TODO: clarify if we can get this from scraping as it is not available in the Toast API */}
-          <p className="text-sm text-gray-600 truncate">
+          {/* <p className="text-sm text-gray-600 truncate">
             {cuisine ? <span className="capitalize">{cuisine}</span> : null}
-          </p>
+          </p> */}
 
           {/* Bottom row pinned */}
           <div className="flex items-end justify-between gap-3 mt-auto">
