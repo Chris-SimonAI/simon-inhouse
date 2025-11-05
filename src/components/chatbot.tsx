@@ -480,7 +480,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
               onChange={handleInputChange}
               value={input}
               placeholder="Ask Simon anything"
-              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none min-h-[50px] rounded-full pl-4 pr-16 pt-4"
+              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] rounded-full pl-4 pr-16 pt-4"
             />
             <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
               <PromptInputTools>
