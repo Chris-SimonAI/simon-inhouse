@@ -419,7 +419,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
 
                           return (
                             <div key={`${message.id}-${i}`} className="space-y-2 py-2">
-                              <h4 className="font-semibold">Deliver to your room</h4>
+                              <h4 className="font-semibold">Delivered to your room</h4>
                               {restaurantResults.map((restaurant: DineInRestaurant) => (
                                 <DineInRestaurantCard
                                   key={restaurant.restaurantGuid}
