@@ -44,6 +44,7 @@ import { AttractionsViewSkeleton } from "@/components/attractions-view-skeleton"
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { hotelPath } from "@/utils/hotel-path";
 
 type Props = {
   processChatMessageStream: RscServerAction
@@ -91,6 +92,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
 
   const searchParams = useSearchParams();
   const router = useRouter();
+  const basePath = hotelPath(hotel.slug);
   const [openL1, setOpenL1] = useState(false);
   const [scrollToBottom, setScrollToBottom] = useState(false);
   const [input, setInput] = useState("");
@@ -101,6 +103,14 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
 
   const [processedTippingMessages, setProcessedTippingMessages] = useState<Set<string>>(new Set());
   const [historicalMessageIds, setHistoricalMessageIds] = useState<Set<string>>(new Set());
+  const defaultTipMessage =
+    "Thank you for choosing to show your appreciation to our team. Your generosity is greatly appreciated!";
+  const staffTipHref = `${hotelPath(
+    hotel.slug,
+    "/tip-staff",
+  )}?hotelId=${hotel.id}&message=${encodeURIComponent(defaultTipMessage)}&return_to=${encodeURIComponent(
+    basePath,
+  )}`;
 
   // Check for L1 parameter to open chat screen
   useEffect(() => {
@@ -108,18 +118,18 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
     if (l1Param === 'open') {
       setOpenL1(true);
       // Clean up the URL parameter
-      router.replace('/', { scroll: false });
+      router.replace(basePath, { scroll: false });
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, basePath]);
 
   // Clean up tipping return URL parameter
   useEffect(() => {
     const tippingReturn = searchParams.get('tipping_return');
     if (tippingReturn === 'true') {
       // Clean up the URL parameter
-      router.replace('/', { scroll: false });
+      router.replace(basePath, { scroll: false });
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, basePath]);
 
   // Track historical messages to prevent tipping detection on chat history load
   useEffect(() => {
@@ -186,6 +196,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
       voiceAgentRef={voiceAgentRef}
       sendMessage={sendMessage}
       hotelContext={hotelContext}
+      basePath={basePath}
     />
   }
 
@@ -203,6 +214,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
     hotel={hotel}
     voiceAgentRef={voiceAgentRef}
     hotelContext={hotelContext}
+    staffTipHref={staffTipHref}
   />
 }
 
@@ -222,9 +234,10 @@ type ChatBotContentProps = {
   voiceAgentRef: React.RefObject<RealtimeVoiceAgentRef | null>
   sendMessage: (message: string, options: { inputType: 'text' | 'voice' }) => void
   hotelContext: string
+  basePath: string
 }
 
-function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, processedTippingMessages, setProcessedTippingMessages, historicalMessageIds, voiceAgentRef, sendMessage, hotelContext }: ChatBotContentProps) {
+function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, processedTippingMessages, setProcessedTippingMessages, historicalMessageIds, voiceAgentRef, sendMessage, hotelContext, basePath }: ChatBotContentProps) {
   const conversationScrollContextRef = useRef<StickToBottomContext>(null);
   const latestMessage = messages[messages.length - 1];
   // we stop if the latest message is assistant, and the part of the message is in the SCROLL_STOP_TYPES
@@ -271,7 +284,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
 
   // this hook is to restore the scroll position when the user navigates back to the chatbot
   useLayoutEffect(() => {
-    if (pathname !== "/") return;
+    if (pathname !== basePath) return;
     const el = conversationScrollContextRef.current?.scrollRef?.current;
     if (!el) return;
 
@@ -285,7 +298,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
     }
 
 
-  }, [pathname, conversationScrollContextRef, messages.length, scrollToBottom]);
+  }, [pathname, conversationScrollContextRef, messages.length, scrollToBottom, basePath]);
 
   return (
     <div className={cn(
@@ -480,7 +493,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
               onChange={handleInputChange}
               value={input}
               placeholder="Ask Simon anything"
-              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] rounded-full pl-4 pr-16 pt-4"
+              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] min-h-[50px] pt-3 rounded-full pl-4 pr-16 pt-4"
             />
             <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
               <PromptInputTools>
@@ -517,9 +530,10 @@ type ChatBotContentHomeProps = {
   hotel: Hotel
   voiceAgentRef: React.RefObject<RealtimeVoiceAgentRef | null>
   hotelContext: string
+  staffTipHref: string
 }
 
-function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, handleVoiceToggle, displayError, sendMessage, setInput, setScrollToBottom, hotel, voiceAgentRef, hotelContext }: ChatBotContentHomeProps) {
+function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, handleVoiceToggle, displayError, sendMessage, setInput, setScrollToBottom, hotel, voiceAgentRef, hotelContext, staffTipHref }: ChatBotContentHomeProps) {
   const introText = `Hi, I'm Simon—your 24/7 concierge at ${hotel.name}. I can help with hotel amenities, great places to eat, and things to do around the city. If you are hungry, I can also place food-delivery orders from a variety of our partner restaurants. ${hotel.name} encourages you to place food orders through me, so that I can coordinate with the front desk to ensure your meal comes straight to your room. How can I help today?`
   const displayText = "Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here."
 
@@ -691,7 +705,7 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
                         <div className="flex items-end justify-between gap-3 mt-auto">
                           <div className="flex gap-2">
                             <Link
-                              href="/tip-staff?hotelId=1&message=Thank+you+for+choosing+to+show+your+appreciation+to+our+team.+Your+generosity+is+greatly+appreciated%21&return_to=%2F"
+                              href={staffTipHref}
                               className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
                             >
                               Tip Staff
@@ -723,7 +737,7 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
               onChange={(e) => setInput(e.target.value)}
               value={input}
               placeholder="Ask Simon anything"
-              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] rounded-full pl-4 pr-16 pt-4"
+              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] min-h-[50px] pt-3 rounded-full pl-4 pr-16 pt-4"
             />
             <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
               <PromptInputTools>

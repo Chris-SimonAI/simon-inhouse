@@ -57,16 +57,9 @@ export function jsonToReadableText(obj: Record<string, unknown>): string {
   return flatten(obj);
 }
 
-const DEMO_QR_CODE = {
-  code: "e4c1f2a9",
-  hotelId: 1,
-  isValid: true,
-  expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3000),
-  revokedAt: null
-}
-
 export const DEMO_HOTEL = {
   name: "The Anza Hotel",
+  slug: "anza",
   address: "2210 Broadway, Santa Monica CA 90404, USA",
   latitude: "34.029117",
   longitude: "-118.476193",
@@ -455,7 +448,6 @@ async function resetAllTables() {
 
   // Reset in correct dependency order (children first, then parents)
   const table_names = [
-    "qr_codes",           // Depends on hotels
     "dine_in_payments",   // Depends on dine_in_orders
     "dine_in_order_items", // Depends on dine_in_orders and menu_items
     "dine_in_orders",     // Depends on hotels, dine_in_restaurants
@@ -467,6 +459,7 @@ async function resetAllTables() {
     "tips",               // Depends on dine_in_restaurants
     "dine_in_restaurants", // Depends on hotels
     "amenities",          // Depends on hotels
+    "session",            // Depends on hotels
     "hotels"              // No dependencies
   ];
 
@@ -678,21 +671,12 @@ async function main() {
 
   // Insert hotel using direct SQL
   const insertedHotel = await db.execute(sql`
-    INSERT INTO hotels (name, address, latitude, longitude, metadata, created_at, updated_at)
-    VALUES (${DEMO_HOTEL.name}, ${DEMO_HOTEL.address}, ${DEMO_HOTEL.latitude}, ${DEMO_HOTEL.longitude}, ${JSON.stringify(DEMO_HOTEL.metadata)}, NOW(), NOW())
+    INSERT INTO hotels (name, slug, address, latitude, longitude, metadata, created_at, updated_at)
+    VALUES (${DEMO_HOTEL.name}, ${DEMO_HOTEL.slug}, ${DEMO_HOTEL.address}, ${DEMO_HOTEL.latitude}, ${DEMO_HOTEL.longitude}, ${JSON.stringify(DEMO_HOTEL.metadata)}, NOW(), NOW())
     RETURNING id
   `);
   const hotelId = insertedHotel.rows[0].id;
   console.log(`Inserted hotel with ID: ${hotelId}`);
-
-  // Insert QR code using direct SQL
-  const insertedQrCode = await db.execute(sql`
-    INSERT INTO qr_codes (hotel_id, code, expires_at, created_at, updated_at)
-    VALUES (${hotelId}, ${DEMO_QR_CODE.code}, ${DEMO_QR_CODE.expiresAt}, NOW(), NOW())
-    RETURNING id
-  `);
-  const qrCodeId = insertedQrCode.rows[0].id;
-  console.log(`Inserted QR code with ID: ${qrCodeId}`);
 
   // Insert amenities using direct SQL with proper array formatting
   const amenitiesWithEmbeddings = await generateEmbeddingForAmenities();
@@ -758,7 +742,6 @@ async function main() {
   }
 
   console.log(`- Hotel: ${hotelId}`);
-  console.log(`- QR Code: ${qrCodeId}`);
   console.log(`- Amenities: ${DEMO_AMENITIES.length}`);
   console.log(`- Restaurants: ${DEMO_RESTAURANTS.length}`);
   console.log("Comprehensive seed completed successfully!");

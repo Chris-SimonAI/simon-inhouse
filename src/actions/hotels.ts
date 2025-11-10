@@ -14,6 +14,7 @@ export async function createHotel(input: unknown) {
     // Convert numbers to strings for decimal database fields
     const dbInput = {
       ...validatedInput,
+      slug: validatedInput.slug.toLowerCase(),
       latitude: validatedInput.latitude.toString(),
       longitude: validatedInput.longitude.toString(),
     };
@@ -47,6 +48,23 @@ export async function getHotelById(id: number) {
   }
 }
 
+// Get hotel by slug
+export async function getHotelBySlug(slug: string) {
+  try {
+    const normalizedSlug = slug.toLowerCase();
+    const [hotel] = await db.select().from(hotels).where(eq(hotels.slug, normalizedSlug));
+
+    if (!hotel) {
+      return { ok: false, message: "Hotel not found" };
+    }
+
+    return { ok: true, data: hotel };
+  } catch (error) {
+    console.error("Error in getHotelBySlug:", error);
+    return { ok: false, message: "Failed to fetch hotel" };
+  }
+}
+
 // Update hotel
 export async function updateHotel(id: number, input: unknown) {
   try {
@@ -54,6 +72,9 @@ export async function updateHotel(id: number, input: unknown) {
     
     // Convert numbers to strings for decimal database fields if they exist
     const dbInput: Record<string, unknown> = { ...validatedInput };
+    if (validatedInput.slug !== undefined) {
+      dbInput.slug = validatedInput.slug.toLowerCase();
+    }
     if (validatedInput.latitude !== undefined) {
       dbInput.latitude = validatedInput.latitude.toString();
     }

@@ -23,18 +23,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get QR data from session additional fields
-    const qrData = {
-      hotelId: session.session.hotelId,
-      qrId: session.session.qrId,
-      threadId: session.session.threadId,
-      qrCode: session.session.qrCode,
-    };
-
-    // Check if all required data is present
-    if (!qrData.hotelId || !qrData.qrId || !qrData.threadId) {
+    if (!session.session.hotelId || !session.session.threadId) {
       return NextResponse.json(
-        createError("Incomplete QR session data"),
+        createError("Session not initialised for a hotel"),
         { status: 401 }
       );
     }
@@ -42,7 +33,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(createSuccess({
       sessionId: session.session.id,
       userId: session.session.userId,
-      qrData,
+      hotelId: session.session.hotelId,
+      threadId: session.session.threadId,
       sessionActive: true,
     }));
 

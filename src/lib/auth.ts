@@ -24,10 +24,8 @@ const options = {
 
   session: {
     additionalFields: {
-      hotelId: { type: "string", input: false },
-      qrId:    { type: "string", input: false },
+      hotelId: { type: "number", input: false },
       threadId:{ type: "string", input: false },
-      qrCode:  { type: "string", input: false },
     },
     cookieCache: {
       enabled: true,
@@ -83,9 +81,7 @@ export const auth = betterAuth({
           session: {
             ...session,
             hotelId: session.hotelId,
-            qrId: session.qrId,
             threadId: session.threadId,
-            qrCode: session.qrCode,
           }
         };
       },

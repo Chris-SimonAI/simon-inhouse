@@ -2,105 +2,80 @@
 
 import { db, session } from "@/db";
 import { auth } from "@/lib/auth";
-import { SessionData } from "@/lib/sessions";
 import { createError, createSuccess } from "@/lib/utils";
 import { CreateError, CreateSuccess } from "@/types/response";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
-
-export interface UpdateSessionData {
-  id: string;
-  hotelId: string;
-  qrId: string;
-  threadId: string;
-  qrCode: string;
-  token: string;
-}
-
-export interface HotelSessionResult {
-  ok: boolean;
-  data?: {
-    sessionId: string;
-    userId: string;
-    qrData: {
-      hotelId: string;
-      qrId: string;
-      threadId: string;
-      qrCode: string;
-    };
-  };
-  message?: string;
-}
+import { generateUUID } from "@/utils/uuid";
 
 export interface SessionDataResponse {
   sessionId: string;
   userId: string;
-  qrData: {
-    hotelId: string;
-    qrId: string;
-    threadId: string;
-    qrCode: string;
-  };
+  hotelId: number;
+  threadId: string;
+}
+
+interface SessionRecord {
+  id: string;
+  userId: string;
+  hotelId: number;
+  threadId: string;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}
+
+interface UpdateSessionPayload {
+  token: string;
+  hotelId: number;
+  threadId: string;
 }
 
 /**
- * Get the current hotel session with QR data
- * This is a server action for client boot hydration
+ * Get the current Better Auth session (if any).
  */
-export async function getHotelSession(): Promise<CreateSuccess<SessionDataResponse> | CreateError<string[]>> {
+export async function getHotelSession(): Promise<
+  CreateSuccess<SessionDataResponse> | CreateError<string[]>
+> {
   try {
-    const session = await auth.api.getSession({
+    const currentSession = await auth.api.getSession({
       headers: await headers(),
-      query: {
-        disableCookieCache: true
-      }
+      query: { disableCookieCache: true },
     });
 
-    if (!session) {
+    if (!currentSession) {
       return createError("No active session found");
     }
 
-    // Get QR data from session additional fields
-    const qrData = {
-      hotelId: session.session.hotelId,
-      qrId: session.session.qrId,
-      threadId: session.session.threadId,
-      qrCode: session.session.qrCode,
-    };
-
-    // Check if all required data is present
-    if (!qrData.hotelId || !qrData.qrId || !qrData.threadId) {
-      return createError("Incomplete QR session data");
-    }
-
     const data: SessionDataResponse = {
-      sessionId: session.session.id,
-      userId: session.session.userId,
-      qrData,
+      sessionId: currentSession.session.id,
+      userId: currentSession.session.userId,
+      hotelId: currentSession.session.hotelId,
+      threadId: currentSession.session.threadId,
     };
 
-    return createSuccess(data, "Hotel session retrieved successfully"); 
-
+    return createSuccess(data, "Session retrieved successfully");
   } catch (error) {
     console.error("Get hotel session error:", error);
     return createError("Failed to get session data", error);
   }
 }
 
-export async function updateSession(data: Partial<Pick<UpdateSessionData, 'hotelId' | 'qrId' | 'threadId' | 'qrCode' | 'token'>>): Promise<CreateSuccess<SessionData> | CreateError<string[]>> {  
+export async function updateSession(
+  data: UpdateSessionPayload,
+): Promise<CreateSuccess<SessionRecord> | CreateError<string[]>> {
   try {
-    // Validate that token is provided
     if (!data.token) {
       return createError("Token is required for session update");
     }
 
-    // Update the session in the database
-    const result = await db.update(session)
+    const result = await db
+      .update(session)
       .set({
         hotelId: data.hotelId,
-        qrId: data.qrId,
         threadId: data.threadId,
-        qrCode: data.qrCode,
         updatedAt: new Date(),
       })
       .where(eq(session.token, data.token))
@@ -111,19 +86,21 @@ export async function updateSession(data: Partial<Pick<UpdateSessionData, 'hotel
     }
 
     const updatedSession = result[0];
-    // Return the session data in the expected format
-    const sessionData: SessionData = {
+
+    if (!updatedSession.hotelId || !updatedSession.threadId) {
+      return createError("Session missing hotel context after update");
+    }
+
+    const sessionData: SessionRecord = {
       id: updatedSession.id,
       userId: updatedSession.userId,
-      hotelId: updatedSession.hotelId!,
-      qrId: updatedSession.qrId!,
-      threadId: updatedSession.threadId!,
-      qrCode: updatedSession.qrCode!,
+      hotelId: updatedSession.hotelId,
+      threadId: updatedSession.threadId,
       expiresAt: updatedSession.expiresAt,
       createdAt: updatedSession.createdAt,
       updatedAt: updatedSession.updatedAt,
-      ipAddress: updatedSession.ipAddress || undefined,
-      userAgent: updatedSession.userAgent || undefined,
+      ipAddress: updatedSession.ipAddress,
+      userAgent: updatedSession.userAgent,
     };
 
     return createSuccess(sessionData, "Session updated successfully");
@@ -133,13 +110,83 @@ export async function updateSession(data: Partial<Pick<UpdateSessionData, 'hotel
   }
 }
 
-export async function deleteSessionsByQrCode(qrCode: string): Promise<CreateSuccess<number> | CreateError<string[]>> {
+export async function initialiseSessionForHotel(
+  hotelId: number,
+  token: string,
+): Promise<CreateSuccess<SessionDataResponse> | CreateError<string[]>> {
   try {
-    const result = await db.delete(session).where(eq(session.qrCode, qrCode)).returning();
-    const deletedCount = result.length || 0;
-    return createSuccess(deletedCount, `Deleted ${deletedCount} sessions`);
+    const threadId = generateUUID();
+    const updateResult = await updateSession({
+      hotelId,
+      threadId,
+      token,
+    });
+
+    if (!updateResult.ok || !updateResult.data) {
+      return createError("Failed to initialise session for hotel");
+    }
+
+    return createSuccess({
+      sessionId: updateResult.data.id,
+      userId: updateResult.data.userId,
+      hotelId: updateResult.data.hotelId,
+      threadId: updateResult.data.threadId,
+    });
   } catch (error) {
-    console.error("Error deleting sessions by QR Code:", error);
-    return createError("Failed to delete sessions", error);
+    console.error("Initialise session error:", error);
+    return createError("Failed to initialise session for hotel", error);
+  }
+}
+
+export async function ensureSessionForHotel(
+  hotelId: number,
+): Promise<CreateSuccess<SessionDataResponse> | CreateError<string[]>> {
+  try {
+    const currentSession = await auth.api.getSession({
+      headers: await headers(),
+      query: { disableCookieCache: true },
+    });
+
+    if (!currentSession) {
+      return createError("No active session found");
+    }
+
+    const existingHotelId = currentSession.session.hotelId;
+    const existingThreadId = currentSession.session.threadId;
+    const existingToken = currentSession.session.token;
+
+    if (!existingToken) {
+      return createError("Session token missing for update");
+    }
+
+    if (existingHotelId === hotelId && existingThreadId) {
+      return createSuccess({
+        sessionId: currentSession.session.id,
+        userId: currentSession.session.userId,
+        hotelId: existingHotelId,
+        threadId: existingThreadId,
+      });
+    }
+
+    const threadId = generateUUID();
+    const updateResult = await updateSession({
+      hotelId,
+      threadId,
+      token: existingToken,
+    });
+
+    if (!updateResult.ok || !updateResult.data) {
+      return createError("Failed to update session for hotel");
+    }
+
+    return createSuccess({
+      sessionId: updateResult.data.id,
+      userId: updateResult.data.userId,
+      hotelId: updateResult.data.hotelId,
+      threadId: updateResult.data.threadId,
+    });
+  } catch (error) {
+    console.error("Ensure session for hotel error:", error);
+    return createError("Failed to ensure session for hotel", error);
   }
 }

@@ -15,6 +15,8 @@ import ReactMarkdown from "react-markdown";
 import { markdownComponents } from "@/components/ui/markdown";
 import Link from "next/link";
 import { DineInRestaurant } from "@/db/schemas";
+import { useHotelSlug } from "@/hooks/use-hotel-slug";
+import { hotelPath } from "@/utils/hotel-path";
 
 export function DineInRestaurantPage({
   restaurantGuid,
@@ -26,9 +28,11 @@ export function DineInRestaurantPage({
   description,
 }: DineInRestaurant) {
   const router = useRouter();
+  const slug = useHotelSlug();
 
   const handleBackToChat = () => {
-    router.push("/?l1=open", { scroll: false });
+    if (!slug) return;
+    router.push(`${hotelPath(slug)}?l1=open`, { scroll: false });
   };
 
   return (
@@ -120,7 +124,14 @@ export function DineInRestaurantPage({
       {/* Sticky Footer */}
       <div className="sticky bottom-0 z-30 bg-white">
         <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <Link href={`/dine-in/restaurant/${restaurantGuid}/menu`} className="w-full">
+          <Link
+            href={
+              slug
+                ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`)
+                : "#"
+            }
+            className="w-full"
+          >
             <Button className="w-full text-lg bg-black text-white py-6 font-medium hover:bg-black/80">
               Order From Menu
             </Button>

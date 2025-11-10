@@ -3,13 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { type DineInRestaurant } from "@/db/schemas";
+import { useHotelSlug } from "@/hooks/use-hotel-slug";
+import { hotelPath } from "@/utils/hotel-path";
 
 export function DineInRestaurantCard({
     restaurantGuid,  
     name,
     imageUrls,
   }: DineInRestaurant) {
-  const href = `/dine-in/restaurant/${restaurantGuid}/menu`;
+  const slug = useHotelSlug();
+  const href = slug
+    ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`)
+    : "#";
 
   return (
     <div
@@ -58,6 +63,7 @@ export function DineInRestaurantCard({
               <Link
                 href={href}
                 className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
+                aria-disabled={!slug}
               >
                 Order Now
               </Link>
