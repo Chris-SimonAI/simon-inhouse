@@ -75,23 +75,20 @@ export default function HotelPage() {
                     </p>
                 </div>
 
-                {/* QR Code */}
-                <div className="flex flex-col items-center justify-center flex-1 lg:flex-none">
-                    <div className="w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] lg:w-[160px] lg:h-[160px] bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center mb-4 lg:mb-6">
-                        <Image
-                            src="/hotel/qr_code.png"
-                            alt="QR Code to access Simon"
-                            width={160}
-                            height={160}
-                            className="rounded-lg w-full h-full object-contain"
-                        />
-                    </div>
-
-                    {/* Instruction */}
-                    <p className="text-black text-2xl sm:text-xl lg:text-lg text-center font-[400] px-2">
-                        Scan the QR code to access Simon
-                    </p>
-                </div>
+            {/* Direct Link */}
+            <div className="flex flex-col items-center justify-center flex-1 lg:flex-none text-center space-y-3">
+              <p className="text-black text-xl sm:text-lg lg:text-base font-medium px-2">
+                Access Simon directly at
+              </p>
+              <div className="bg-white border-2 border-gray-300 rounded-lg px-4 py-3">
+                <p className="text-black text-xl sm:text-xl lg:text-lg font-semibold tracking-wide">
+                  app.meetsimon.ai/anza
+                </p>
+              </div>
+              <p className="text-black text-lg sm:text-base lg:text-sm font-normal px-4">
+                Share this link with guests to open The Anza Hotel&apos;s concierge experience instantly.
+              </p>
+            </div>
             </div>
         </div>
     );

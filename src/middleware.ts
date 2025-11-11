@@ -9,21 +9,35 @@ export function middleware(req: Request) {
    * Public routes that don't require a session
    */
   const publicRoutes = [
-    "/qr-code",            
-    "/hotel-not-found",     
-    "/not-found",   
-    "/_next",               // internal Next.js assets
-    "/api",                 // API routes handle their own auth
-    "/favicon.ico",         // favicon
+    "/hotel-not-found",
+    "/not-found",
+    "/_next", // internal Next.js assets
+    "/api", // API routes handle their own auth
+    "/favicon.ico",
     "/hotel",
-    "/public"           
+    "/public",
   ];
 
-  const isPublic = publicRoutes.some((path) => pathname.startsWith(path));
+  const reservedRoots = new Set([
+    "",
+    "_next",
+    "api",
+    "hotel-not-found",
+    "not-found",
+    "hotel",
+    "public",
+    "favicon.ico",
+  ]);
+
+  const [ , firstSegment = "" ] = pathname.split("/");
+  const isHotelSlugRoute =
+    firstSegment.length > 0 && !reservedRoots.has(firstSegment);
+
+  const isPublic =
+    publicRoutes.some((path) => pathname.startsWith(path)) || isHotelSlugRoute;
 
   /**
    * Check for presence of the Better Auth session cookie
-   * (set by /api/auth/qr-scan)
    */
   const hasSession =
     req.headers.get("cookie")?.includes("better-auth.session_token");

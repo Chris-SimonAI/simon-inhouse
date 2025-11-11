@@ -10,6 +10,8 @@ import { getDineInRestaurantByGuid } from '@/actions/dine-in-restaurants';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { stripePublishableKey } from '@/lib/stripe-client';
+import { useHotelSlug } from '@/hooks/use-hotel-slug';
+import { hotelPath } from '@/utils/hotel-path';
 import { 
   type CardPaymentForm,
   validateCardPayment,
@@ -106,6 +108,7 @@ const transformModifierDetails = (item: CartItem) => {
 // Inner component that uses Stripe Elements
 function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
   const router = useRouter();
+  const slug = useHotelSlug();
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -314,7 +317,10 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       localStorage.removeItem(`cart-${restaurantGuid}`);
       
       // Note: Order is still 'pending' until webhook confirms payment
-      router.push(`/?orderSuccess=true&orderId=${orderResult.data.order.id}&paymentId=${confirmResult.data.payment.id}&status=processing`);
+      const successPath = slug
+        ? `${hotelPath(slug)}?orderSuccess=true&orderId=${orderResult.data.order.id}&paymentId=${confirmResult.data.payment.id}&status=processing`
+        : `/?orderSuccess=true&orderId=${orderResult.data.order.id}&paymentId=${confirmResult.data.payment.id}&status=processing`;
+      router.push(successPath);
       
     } catch (err) {
       console.error('Payment error:', err);
@@ -334,11 +340,14 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
   };
 
   const handleClose = () => {
-    router.push(`/dine-in/restaurant/${restaurantGuid}/payment`);
+    if (!slug) return;
+    router.push(
+      hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/payment`),
+    );
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col h-dvh bg-gray-50">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
@@ -678,7 +687,7 @@ export default function StripePaymentForm({ restaurantGuid, total }: StripePayme
 
   if (!stripe) {
     return (
-      <div className="flex flex-col min-h-screen bg-gray-50">
+      <div className="flex flex-col h-dvh bg-gray-50">
         {/* Header */}
         <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
           <div className="flex items-center justify-between px-4 py-3">

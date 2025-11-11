@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from "react";
 import StripePaymentForm from "./stripe-payment-form";
+import { useHotelSlug } from "@/hooks/use-hotel-slug";
+import { hotelPath } from "@/utils/hotel-path";
 
 type CardPaymentViewProps = {
   restaurantGuid: string;
 };
 
 export function CardPaymentView({ restaurantGuid }: CardPaymentViewProps) {
+  const slug = useHotelSlug();
   const [paymentDetails, setPaymentDetails] = useState({
     subtotal: 0,
     tax: 0,
@@ -33,7 +36,10 @@ export function CardPaymentView({ restaurantGuid }: CardPaymentViewProps) {
             console.log('Payment session expired, redirecting to checkout');
             localStorage.removeItem(`payment-details-${restaurantGuid}`);
             localStorage.removeItem(`payment-session-${restaurantGuid}`);
-            window.location.href = `/dine-in/restaurant/${restaurantGuid}/checkout`;
+            const checkoutPath = slug
+              ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/checkout`)
+              : "/";
+            window.location.href = checkoutPath;
             return;
           }
           
@@ -41,7 +47,10 @@ export function CardPaymentView({ restaurantGuid }: CardPaymentViewProps) {
         } else if (parsedDetails.status === 'completed') {
           // Payment already completed, redirect to success
           console.log('Payment already completed, redirecting to success');
-          window.location.href = `/?orderSuccess=true&orderId=${parsedDetails.orderId}&status=completed`;
+          const successPath = slug
+            ? `${hotelPath(slug)}?orderSuccess=true&orderId=${parsedDetails.orderId}&status=completed`
+            : `/?orderSuccess=true&orderId=${parsedDetails.orderId}&status=completed`;
+          window.location.href = successPath;
           return;
         } else if (parsedDetails.status === 'processing') {
           // Payment is being processed, show processing state
@@ -52,7 +61,10 @@ export function CardPaymentView({ restaurantGuid }: CardPaymentViewProps) {
           console.log('Invalid payment session, redirecting to checkout');
           localStorage.removeItem(`payment-details-${restaurantGuid}`);
           localStorage.removeItem(`payment-session-${restaurantGuid}`);
-          window.location.href = `/dine-in/restaurant/${restaurantGuid}/checkout`;
+          const checkoutPath = slug
+            ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/checkout`)
+            : "/";
+          window.location.href = checkoutPath;
           return;
         }
       } catch (error) {
@@ -65,11 +77,11 @@ export function CardPaymentView({ restaurantGuid }: CardPaymentViewProps) {
         });
       }
     }
-  }, [restaurantGuid]);
+  }, [restaurantGuid, slug]);
 
   if (paymentDetails.total === 0) {
     return (
-      <div className="flex flex-col min-h-screen bg-gray-50">
+      <div className="flex flex-col h-dvh bg-gray-50">
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="text-center">
             <p className="text-gray-500 text-lg mb-4">No payment details found</p>

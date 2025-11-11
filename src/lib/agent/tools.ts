@@ -136,22 +136,15 @@ export const getDineInRestaurantsTool = new DynamicTool({
 export const initiateTippingTool = new DynamicStructuredTool({
   name: "initiate_tipping",
   description:
-    "Initiate the tipping process when guests want to tip hotel service team. Use this when guests ask about tipping, want to leave a tip, or show appreciation for service. Args: hotelId (required) and optional message to display on the tipping page.",
+    "Shows the tipping card to tip hotel service team. Use this when guests ask about tipping, want to leave a tip, or show appreciation for service. Args: hotelId (required) and optional message to display on the tipping page.",
   schema: InitiateTippingArgsSchema,
   func: async (args: InitiateTippingArgsInput) => {
     try {
-      const { hotelId, message } = args;
-      
-      let url = `/tip-staff?hotelId=${hotelId}`;
-      if (message) {
-        url += `&message=${encodeURIComponent(message)}`;
+      const { hotelId } = args;
+      if (!hotelId) {
+        return createErrorResponse("INVALID_HOTEL_ID", "Hotel ID is required to initiate tipping");
       }
-      
-      return JSON.stringify({
-        action: "navigate_to_tipping",
-        message: "I'd be happy to help you tip our wonderful service team! Let me take you to our tipping system where you can show your appreciation to any of our team members.",
-        url: url
-      });
+      return createSuccessResponse({});
     } catch (err) {
       return JSON.stringify({
         error: "TIPPING_TOOL_ERROR",

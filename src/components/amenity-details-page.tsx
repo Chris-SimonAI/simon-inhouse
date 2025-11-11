@@ -12,9 +12,10 @@ import {
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "./ui/button";
-import React from "react";
 import ReactMarkdown from "react-markdown";
 import { markdownComponents } from "@/components/ui/markdown";
+import { useHotelSlug } from "@/hooks/use-hotel-slug";
+import { hotelPath } from "@/utils/hotel-path";
 
 
 interface AmenityDetailsPageProps {
@@ -23,9 +24,10 @@ interface AmenityDetailsPageProps {
 
 export function AmenityDetailsPage({ amenity }: AmenityDetailsPageProps) {
     const router = useRouter();
+    const slug = useHotelSlug();
 
     const handleBackToChat = () => {
-        router.push('/?l1=open', { scroll: false });
+        router.push(`${hotelPath(slug)}?l1=open`, { scroll: false });
     };
 
     return (

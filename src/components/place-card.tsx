@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { type PlaceResult } from "@/lib/places";
+import { useHotelSlug } from "@/hooks/use-hotel-slug";
+import { hotelPath } from "@/utils/hotel-path";
 
 interface PlaceCardProps {
   result: PlaceResult;
@@ -21,6 +23,15 @@ export function PlaceCard({
   type,
   id,
 }: PlaceCardProps) {
+  const slug = useHotelSlug();
+  const infoPath =
+    slug && type && id
+      ? hotelPath(
+          slug,
+          `/${type === "restaurant" ? "restaurants" : "attractions"}/${id}`,
+        )
+      : null;
+
   return (
     <div
       key={`${messageId}-${partIndex}-${index}`}
@@ -60,15 +71,18 @@ export function PlaceCard({
 {/* needs to be at bottom with top accounted for  dynamically */}
           <div className="flex items-end justify-between gap-3 mt-auto">
             <div className="flex gap-2">
-              {type && id ? (
+              {infoPath ? (
                 <Link
-                  href={`/${type === 'restaurant' ? 'restaurants' : 'attractions'}/${id}`}
+                  href={infoPath}
                   className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
                 >
                   More Info
                 </Link>
               ) : (
-                <button className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0">
+                <button
+                  className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
+                  disabled
+                >
                   More Info
                 </button>
               )}

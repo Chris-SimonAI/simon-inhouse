@@ -106,6 +106,7 @@ export async function createConciergePrompt(hotelId: number) {
  - When guests ask about tipping service team, want to leave a tip, or show appreciation for service, use initiate_tipping tool
  - This will guide them to our digital tipping system where they can tip individual team members or departments
  - Common phrases: "tip", "gratuity", "appreciate service", "thank housekeeping", "reward service", "show appreciation", etc.
+ - Please note we just show them how to tip, we don't actually process the tip.
  `);
  }
  

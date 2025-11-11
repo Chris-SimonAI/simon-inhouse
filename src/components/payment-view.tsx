@@ -5,7 +5,10 @@ import type { CartItem } from "./menu-view";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useHotelSlug } from "@/hooks/use-hotel-slug";
+import { hotelPath } from "@/utils/hotel-path";
 
 type PaymentViewProps = {
   restaurantGuid: string;
@@ -16,6 +19,7 @@ type TipOption = 18 | 20 | 25 | 0 | "custom";
 
 export function PaymentView({ restaurantGuid }: PaymentViewProps) {
   const router = useRouter();
+  const slug = useHotelSlug();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [selectedTip, setSelectedTip] = useState<TipOption>(0);
@@ -99,8 +103,15 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
     }
   };
 
+  const buildRestaurantPath = (suffix: string) => {
+    if (!slug) return null;
+    return hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}${suffix}`);
+  };
+
   const handleClose = () => {
-    router.push(`/dine-in/restaurant/${restaurantGuid}/checkout`);
+    const path = buildRestaurantPath("/checkout");
+    if (!path) return;
+    router.push(path);
   };
 
   const handlePayment = async () => {
@@ -134,7 +145,9 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
       localStorage.setItem(`payment-session-${restaurantGuid}`, sessionId);
       
       if (paymentMethod === "card") {
-        router.push(`/dine-in/restaurant/${restaurantGuid}/card-payment`);
+        const path = buildRestaurantPath("/card-payment");
+        if (!path) return;
+        router.push(path);
       } else {
         // TODO: Handle delivery payment
         console.log("Processing delivery payment...", {
@@ -178,7 +191,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
 
   if (cart.length === 0) {
     return (
-      <div className="flex flex-col min-h-screen bg-gray-50">
+      <div className="flex flex-col h-dvh bg-gray-50">
         {/* Header */}
         <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
           <div className="flex items-center justify-between px-4 py-3">
@@ -197,9 +210,11 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
           <div className="text-center">
             <p className="text-gray-500 text-lg mb-4">No items in your cart</p>
             <Button
-              onClick={() =>
-                router.push(`/dine-in/restaurant/${restaurantGuid}/menu`)
-              }
+              onClick={() => {
+                const path = buildRestaurantPath("/menu");
+                if (!path) return;
+                router.push(path);
+              }}
               className="bg-gray-900 text-white hover:bg-gray-800"
             >
               Go to Menu
@@ -211,7 +226,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col h-dvh bg-gray-50">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
@@ -411,9 +426,9 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
         <div className="mt-3 text-xs text-gray-500 text-center">
           Meet Simon&apos;s privacy policy & SMS policy regarding Internet
           information |{" "}
-          <a href="/privacy" className="text-blue-600 underline">
+          <Link href="/privacy" className="text-blue-600 underline">
             Your Privacy Choices
-          </a>
+          </Link>
         </div>
       </div>
     </div>

@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import {X, Trash2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useHotelSlug } from '@/hooks/use-hotel-slug';
+import { hotelPath } from '@/utils/hotel-path';
 
 type CheckoutViewProps = {
   restaurantGuid: string;
@@ -13,6 +15,7 @@ type CheckoutViewProps = {
 
 export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
   const router = useRouter();
+  const slug = useHotelSlug();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discountPercentage, setDiscountPercentage] = useState<number>(0);
 
@@ -122,7 +125,11 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
               Order Summary
             </h1>
             <Link
-              href={`/dine-in/restaurant/${restaurantGuid}/menu`}
+              href={
+                slug
+                  ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`)
+                  : '#'
+              }
               className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
@@ -156,7 +163,13 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
             <p className="text-gray-500 mb-6">
               Add items from the menu to get started
             </p>
-            <Link href={`/dine-in/restaurant/${restaurantGuid}/menu`}>
+            <Link
+              href={
+                slug
+                  ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`)
+                  : '#'
+              }
+            >
               <Button className="w-full bg-black text-white hover:bg-gray-800 rounded-full py-6 text-base font-semibold">
                 Browse Menu
               </Button>
@@ -176,7 +189,11 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
             Order Summary
           </h1>
           <Link
-            href={`/dine-in/restaurant/${restaurantGuid}/menu`}
+            href={
+              slug
+                ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`)
+                : '#'
+            }
             className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
@@ -265,7 +282,12 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
       {/* Sticky bottom checkout button */}
       <div className="sticky bottom-0 z-50 p-4">
         <Button
-          onClick={() => router.push(`/dine-in/restaurant/${restaurantGuid}/payment`)}
+          onClick={() => {
+            if (!slug) return;
+            router.push(
+              hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/payment`),
+            );
+          }}
           className="w-full bg-black text-white hover:bg-gray-800 rounded-full py-8 text-lg font-semibold flex items-center justify-between px-6"
           size="lg"
         >
