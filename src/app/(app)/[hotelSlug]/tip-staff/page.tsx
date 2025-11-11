@@ -12,6 +12,6 @@ export default async function TipStaffPage({ params }: PageProps) {
     redirectTo: `/${hotelSlug}/tip-staff`,
   });
 
-  return <TipStaffScreen onBack={() => window.history.back()} hotelId={hotel.id} hotelName={hotel.name} dynamicMessage="We appreciate your generosity in tipping the team. Our service team is critical to making your stay at our hotel the best it can be." />;
+  return <TipStaffScreen hotelId={hotel.id} hotelName={hotel.name} dynamicMessage="We appreciate your generosity in tipping the team. Our service team is critical to making your stay at our hotel the best it can be." />;
 }
 

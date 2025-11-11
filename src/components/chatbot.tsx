@@ -43,8 +43,8 @@ import { CardSkeletonGroup } from "@/components/card-skeleton";
 import { AttractionsViewSkeleton } from "@/components/attractions-view-skeleton";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { hotelPath } from "@/utils/hotel-path";
+import { TipStaffCard } from "@/components/tip-staff-card";
 
 type Props = {
   processChatMessageStream: RscServerAction
@@ -101,16 +101,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
   const voiceAgentRef = useRef<RealtimeVoiceAgentRef>(null);
 
 
-  const [processedTippingMessages, setProcessedTippingMessages] = useState<Set<string>>(new Set());
-  const [historicalMessageIds, setHistoricalMessageIds] = useState<Set<string>>(new Set());
-  const defaultTipMessage =
-    "Thank you for choosing to show your appreciation to our team. Your generosity is greatly appreciated!";
-  const staffTipHref = `${hotelPath(
-    hotel.slug,
-    "/tip-staff",
-  )}?hotelId=${hotel.id}&message=${encodeURIComponent(defaultTipMessage)}&return_to=${encodeURIComponent(
-    basePath,
-  )}`;
+
 
   // Check for L1 parameter to open chat screen
   useEffect(() => {
@@ -122,29 +113,6 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
     }
   }, [searchParams, router, basePath]);
 
-  // Clean up tipping return URL parameter
-  useEffect(() => {
-    const tippingReturn = searchParams.get('tipping_return');
-    if (tippingReturn === 'true') {
-      // Clean up the URL parameter
-      router.replace(basePath, { scroll: false });
-    }
-  }, [searchParams, router, basePath]);
-
-  // Track historical messages to prevent tipping detection on chat history load
-  useEffect(() => {
-    if (messages.length > 0) {
-      const _currentIds = new Set(messages.map(m => m.id));
-      const newHistoricalIds = new Set([...historicalMessageIds]);
-
-      // If we have messages but no historical IDs yet, these are loaded from history
-      if (historicalMessageIds.size === 0 && messages.length > 0) {
-        messages.forEach(m => newHistoricalIds.add(m.id));
-        setHistoricalMessageIds(newHistoricalIds);
-      }
-    }
-  }, [messages, historicalMessageIds]);
-
   // Handle sending text input (not voice-initiated)
   const handleTextSubmit = () => {
     if (input.trim()) {
@@ -154,7 +122,6 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
       setInput("");
     }
   };
-
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,14 +157,11 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
       handleInputChange={handleInputChange}
       handleVoiceToggle={handleVoiceToggle}
       scrollToBottom={scrollToBottom}
-      processedTippingMessages={processedTippingMessages}
-      setProcessedTippingMessages={setProcessedTippingMessages}
-      historicalMessageIds={historicalMessageIds}
       voiceAgentRef={voiceAgentRef}
       sendMessage={sendMessage}
       hotelContext={hotelContext}
       basePath={basePath}
-    />
+        />
   }
 
   return <ChatBotContentHome
@@ -214,7 +178,6 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
     hotel={hotel}
     voiceAgentRef={voiceAgentRef}
     hotelContext={hotelContext}
-    staffTipHref={staffTipHref}
   />
 }
 
@@ -228,16 +191,13 @@ type ChatBotContentProps = {
   handleInputChange: (e: ChangeEvent<HTMLTextAreaElement>) => void
   handleVoiceToggle: () => void
   scrollToBottom: boolean
-  processedTippingMessages: Set<string>
-  setProcessedTippingMessages: (messages: Set<string> | ((prev: Set<string>) => Set<string>)) => void
-  historicalMessageIds: Set<string>
   voiceAgentRef: React.RefObject<RealtimeVoiceAgentRef | null>
   sendMessage: (message: string, options: { inputType: 'text' | 'voice' }) => void
   hotelContext: string
   basePath: string
 }
 
-function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, processedTippingMessages, setProcessedTippingMessages, historicalMessageIds, voiceAgentRef, sendMessage, hotelContext, basePath }: ChatBotContentProps) {
+function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, voiceAgentRef, sendMessage, hotelContext, basePath }: ChatBotContentProps) {
   const conversationScrollContextRef = useRef<StickToBottomContext>(null);
   const latestMessage = messages[messages.length - 1];
   // we stop if the latest message is assistant, and the part of the message is in the SCROLL_STOP_TYPES
@@ -441,23 +401,24 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                               ))}
                             </div>
                           );
-                        case 'tool-initiate_tipping':
-                          const tippingData = JSON.parse(part.output as string);
-                          if (tippingData.action === 'navigate_to_tipping') {
-                            // Only navigate if message hasn't been processed and it's not a historical message
-                            const messageId = `${message.id}-${i}`;
-                            const isHistoricalMessage = historicalMessageIds.has(message.id);
-                            if (!processedTippingMessages.has(messageId) && !isHistoricalMessage) {
-                              setProcessedTippingMessages(prev => new Set(prev).add(messageId));
-                              setTimeout(() => {
-                                // Add return parameter to track when user comes back
-                                const url = new URL(tippingData.url, window.location.origin);
-                                url.searchParams.set('return_to', window.location.pathname + window.location.search);
-                                window.location.href = url.toString();
-                              }, 100);
+                        case 'tool-initiate_tipping': {
+                          try {
+                            const parsed = JSON.parse(part.output as string) as { error?: string };
+                            if (parsed?.error) {
+                              console.error("Tipping tool returned an error:", parsed.error);
+                              return null;
                             }
+                          } catch (error) {
+                            console.error("Failed to parse tipping tool response", error);
                           }
-                          return null;
+
+
+                          return (
+                            <div key={`${message.id}-${i}`} className="py-2">
+                              <TipStaffCard />
+                            </div>
+                          );
+                        }
                         default:
                           return null;
                       }
@@ -530,10 +491,9 @@ type ChatBotContentHomeProps = {
   hotel: Hotel
   voiceAgentRef: React.RefObject<RealtimeVoiceAgentRef | null>
   hotelContext: string
-  staffTipHref: string
 }
 
-function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, handleVoiceToggle, displayError, sendMessage, setInput, setScrollToBottom, hotel, voiceAgentRef, hotelContext, staffTipHref }: ChatBotContentHomeProps) {
+function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, handleVoiceToggle, displayError, sendMessage, setInput, setScrollToBottom, hotel, voiceAgentRef, hotelContext }: ChatBotContentHomeProps) {
   const introText = `Hi, I'm Simon—your 24/7 concierge at ${hotel.name}. I can help with hotel amenities, great places to eat, and things to do around the city. If you are hungry, I can also place food-delivery orders from a variety of our partner restaurants. ${hotel.name} encourages you to place food orders through me, so that I can coordinate with the front desk to ensure your meal comes straight to your room. How can I help today?`
   const displayText = "Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here."
 
@@ -676,45 +636,7 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
 
                 {/* Tip Staff Card */}
                 <CarouselItem className="basis-[80%]">
-                  <div className="bg-white border rounded-xl shadow-sm p-1 hover:shadow-md transition-shadow duration-200">
-                    <div className="flex gap-4 items-stretch">
-                    <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
-                        <Image
-                            src={"/staff-team.jpg"}
-                            alt={"Staff Team"}
-                            width={100}
-                            height={100}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                            }}
-                        />
-                    </div>
-
-                      <div className="flex-1 min-w-0 flex flex-col self-stretch">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-semibold text-gray-800 text-lg leading-tight flex-1 min-w-0 truncate text-left">
-                            <span className="mr-0.5">Tip Our Staff</span>
-                          </h3>
-                        </div>
-
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left">
-                          Show appreciation to our amazing team
-                        </p>
-
-                        <div className="flex items-end justify-between gap-3 mt-auto">
-                          <div className="flex gap-2">
-                            <Link
-                              href={staffTipHref}
-                              className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
-                            >
-                              Tip Staff
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <TipStaffCard />
                 </CarouselItem>
               </CarouselContent>
             </Carousel>

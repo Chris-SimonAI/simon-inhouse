@@ -5,6 +5,11 @@ import { type ClientConfig } from "pg";
 import fs from "fs";
 import { OpenAIEmbeddings } from "@langchain/openai";
 
+// Quote identifier to avoid SQL injection
+// Needed cause user is a reserved word
+// and we are trying to delete the user table
+const qi = (id: string) => `"${id.replace(/"/g, '""')}"`;
+
 /**
  * Normalizes a vector to unit length for consistent distance calculations
  */
@@ -427,7 +432,7 @@ const db = drizzle({
 });
 
 async function resetTable(tableName: string, idColumn: string) {
-  await db.execute(sql.raw(`DELETE FROM ${tableName}`));
+  await db.execute(sql.raw(`DELETE FROM ${qi(tableName)}`));
 
   // Fetch the sequence name for the given table + column
   const result = await db.execute(
@@ -460,6 +465,9 @@ async function resetAllTables() {
     "dine_in_restaurants", // Depends on hotels
     "amenities",          // Depends on hotels
     "session",            // Depends on hotels
+    "account",            // Depends on user
+    "verification",       // Depends on user
+    "user",              // Removed cause we are removing sessions table
     "hotels"              // No dependencies
   ];
 
