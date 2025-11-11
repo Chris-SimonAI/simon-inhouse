@@ -123,4 +123,3 @@ export async function generatePrefaceNode(state: { messages: Array<HumanMessage 
 export function routeAfterClassifier(state: { shouldEmitPreface?: boolean }) {
   return state.shouldEmitPreface ? "generate_preface" : "concierge";
 }
-
