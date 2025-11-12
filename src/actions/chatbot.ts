@@ -11,7 +11,6 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 import type { UIMessage } from 'ai';
-import { DEFAULT_HOTEL_ID } from '@/constants';
 
 export type ExtraData = {
   inputType?: 'voice' | 'text';
@@ -40,7 +39,7 @@ export async function processChatMessageStream(args: {
     try {
       const { message, threadId, extra = {} } = args;
       const inputType = extra.inputType || 'text';
-      const hotelId = extra.hotelId || DEFAULT_HOTEL_ID; 
+      const hotelId = extra.hotelId; 
 
       for await (const evt of streamAgent({
         message,
@@ -83,22 +82,23 @@ export async function getThreadMessages(threadId: string): Promise<UIMessage[]> 
     // Accumulate assistant parts across AI/TOOL until a human appears
     let accParts: UIMessage['parts'] = [];
     let accAgent: string | undefined;
+    let accMessageId: string | undefined;
 
     const flushAssistant = () => {
-      if (accParts.length === 0) return;
+      if (accParts.length === 0 || !accMessageId) return;
       messages.push({
-        id: `asst-${nowId()}`,
+        id: accMessageId,
         role: 'assistant',
         parts: accParts,
         metadata: { agent: accAgent || 'assistant' },
       });
       accParts = [];
       accAgent = undefined;
+      accMessageId = undefined;
     };
 
     for (let i = 0; i < langchainMessages.length; i++) {
       const msg = langchainMessages[i];
-      if (msg?.name === 'transfer_to_discovery') continue;
 
       const isAI =
         msg instanceof AIMessage ||
@@ -122,10 +122,11 @@ export async function getThreadMessages(threadId: string): Promise<UIMessage[]> 
       // HUMAN: boundary — flush assistant, push user if non-empty
       if (isHuman) {
         flushAssistant();
+        const id = msg.id as string;
         const text = String(msg.content ?? '');
         if (text.trim() !== '') {
           messages.push({
-            id: `user-${nowId()}`,
+            id,
             role: 'user',
             parts: [{ type: 'text', text }],
             metadata: { agent: 'user' },
@@ -167,6 +168,9 @@ export async function getThreadMessages(threadId: string): Promise<UIMessage[]> 
 
       // AI: accumulate non-empty text; skip empty/whitespace AI messages
       if (isAI) {
+        if (!accMessageId) {
+          accMessageId = msg.id as string;
+        }
         const text = String(msg.content ?? '');
         if (text.trim() !== '') {
           accParts.push({ type: 'text', text });

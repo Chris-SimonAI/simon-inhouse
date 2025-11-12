@@ -1,4 +1,4 @@
-import { HumanMessage, ToolMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, ToolMessage, BaseMessage } from "@langchain/core/messages";
 
 import { getApp } from "./instances";
 import { AGENTS, type AgentName, type ConciergeStreamEvent, isAgentName } from "./config";
@@ -46,6 +46,24 @@ export async function* streamAgent({
     ) {
       currentAgent = event.name;
       const out: ConciergeStreamEvent = { type: "current-agent", name: currentAgent };
+      yield out;
+    }
+
+    if (event.event === "on_chat_model_start") {
+      const humanMessage = event.data.input.messages[0].find((message: BaseMessage) => message instanceof HumanMessage )
+      const assistantMessage = event.data.input.messages[0].find((message: BaseMessage) => message instanceof AIMessage);
+      const hasBothMessages = humanMessage !== undefined && assistantMessage !== undefined;
+      if (!hasBothMessages) {
+        continue;
+      }
+      const humanMessageId = humanMessage.id;
+      const assistantMessageId = assistantMessage.id;
+      const hasBothMessageIds = humanMessageId !== undefined && assistantMessageId !== undefined;
+
+      if (!hasBothMessageIds) {
+        continue;
+      }
+      const out: ConciergeStreamEvent = { type: "new-chat-turn", humanMessageId, assistantMessageId };
       yield out;
     }
 
