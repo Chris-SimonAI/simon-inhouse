@@ -52,10 +52,11 @@ export async function createConciergePrompt(hotelId: number) {
    * Use get_amenities with hotelId: ${hotel.id} (no query) for general "what amenities do you have" requests
    * IMPORTANT: Pass the complete user query text, not just individual words (e.g., "I want to relax and swim" not just "spa and pool")
    * The tool automatically handles semantic search and fallback to all amenities if no matches
-   * Never invent facility information
+   * NEVER invent facility information, only use the information provided by the tool and do not give any made up information
  - For on-property dining, use get_dine_in_restaurants; never invent restaurant names
  - For external dining/attractions, use search tools with hotel location as default
  - Never invent information beyond HOTEL INFORMATION and tool outputs
+ - If the user asks for information that is not provided by the tool, say that you don't have that information and ask them to clarify their request
  - Never mention tools or internal processes to guests
 
  RESPONSE FORMAT FOR AMENITIES
