@@ -1,4 +1,4 @@
-import { bigserial, pgTable, bigint, text, uuid, jsonb, index, integer, pgEnum } from "drizzle-orm/pg-core";
+import { bigserial, pgTable, bigint, text, uuid, jsonb, index, integer } from "drizzle-orm/pg-core";
 import { menus, menuStatusEnum } from "@/db/schemas/menus";
 import { timestamps } from "../columns.helpers";
 import { relations } from "drizzle-orm";

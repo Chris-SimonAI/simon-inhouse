@@ -9,6 +9,7 @@ import {
   modifierOptions,
   dineInRestaurants 
 } from "@/db/schemas";
+import type { DineInRestaurant, Menu as MenuRow, MenuGroup as MenuGroupRow, MenuItem as MenuItemRow, ModifierGroup as ModifierGroupRow, ModifierOption as ModifierOptionRow } from "@/db/schemas";
 import { eq, desc, asc, and } from "drizzle-orm";
 import { cascadeStatusToChildren, handleMenuVersionApproval } from "@/lib/state-cascade";
 import { createSuccess, createError } from "@/lib/utils";
@@ -284,12 +285,49 @@ export async function getMenuItemDatabaseId(menuItemGuid: string): Promise<numbe
 export type EntityType = "restaurant" | "menu" | "menu_group" | "menu_item" | "modifier_group" | "modifier_option";
 export type EntityStatus = "pending" | "approved" | "archived";
 
+// Admin shapes
+export type AdminMenuData = MenuRow & {
+  groups: Array<
+    MenuGroupRow & {
+      items: Array<
+        MenuItemRow & {
+          modifierGroups: Array<
+            ModifierGroupRow & { options: ModifierOptionRow[] }
+          >;
+        }
+      >;
+    }
+  >;
+};
+
+export type AdminRestaurantData = {
+  restaurant: DineInRestaurant;
+  menus: AdminMenuData[];
+};
+
+type EntityUnion =
+  | DineInRestaurant
+  | MenuRow
+  | MenuGroupRow
+  | MenuItemRow
+  | ModifierGroupRow
+  | ModifierOptionRow;
+
+type EntityDataMap = {
+  restaurant: Partial<DineInRestaurant>;
+  menu: Partial<MenuRow>;
+  menu_group: Partial<MenuGroupRow>;
+  menu_item: Partial<MenuItemRow>;
+  modifier_group: Partial<ModifierGroupRow>;
+  modifier_option: Partial<ModifierOptionRow>;
+};
+
 /**
  * Get complete restaurant data for admin (includes all statuses)
  */
 export async function getRestaurantDataForAdmin(
   restaurantId: number
-): Promise<CreateSuccess<any> | CreateError<string[]>> {
+): Promise<CreateSuccess<AdminRestaurantData> | CreateError<string[]>> {
   try {
     const restaurant = await db
       .select()
@@ -379,7 +417,7 @@ export async function getRestaurantDataForAdmin(
 export async function getEntityData(
   entityType: EntityType,
   entityId: number
-): Promise<CreateSuccess<any> | CreateError<string[]>> {
+): Promise<CreateSuccess<EntityUnion> | CreateError<string[]>> {
   try {
     let entity;
     
@@ -424,9 +462,9 @@ export async function updateEntityStateAndData(
   entityType: EntityType,
   entityId: number,
   status?: EntityStatus,
-  data?: Record<string, any>,
+  data?: EntityDataMap[EntityType],
   skipCascade?: boolean
-): Promise<CreateSuccess<any> | CreateError<string[]>> {
+): Promise<CreateSuccess<EntityUnion> | CreateError<string[]>> {
   try {
     // Validate that data updates are only for pending entities
     if (data) {
@@ -489,33 +527,31 @@ export async function updateEntityStateAndData(
 
     // Update status if provided
     if (status) {
-      const updateData: any = { status };
-      if (status === "approved" && entityType === "menu") {
-        updateData.approvedAt = new Date();
-      }
-
       switch (entityType) {
         case "restaurant":
-          await db.update(dineInRestaurants).set(updateData).where(eq(dineInRestaurants.id, entityId));
+          await db.update(dineInRestaurants).set({ status }).where(eq(dineInRestaurants.id, entityId));
           break;
         case "menu":
           // Handle version management BEFORE updating status
           if (status === "approved") {
             await handleMenuVersionApproval(entityId);
           }
-          await db.update(menus).set(updateData).where(eq(menus.id, entityId));
+          await db
+            .update(menus)
+            .set(status === "approved" ? { status, approvedAt: new Date() } : { status })
+            .where(eq(menus.id, entityId));
           break;
         case "menu_group":
-          await db.update(menuGroups).set(updateData).where(eq(menuGroups.id, entityId));
+          await db.update(menuGroups).set({ status }).where(eq(menuGroups.id, entityId));
           break;
         case "menu_item":
-          await db.update(menuItems).set(updateData).where(eq(menuItems.id, entityId));
+          await db.update(menuItems).set({ status }).where(eq(menuItems.id, entityId));
           break;
         case "modifier_group":
-          await db.update(modifierGroups).set(updateData).where(eq(modifierGroups.id, entityId));
+          await db.update(modifierGroups).set({ status }).where(eq(modifierGroups.id, entityId));
           break;
         case "modifier_option":
-          await db.update(modifierOptions).set(updateData).where(eq(modifierOptions.id, entityId));
+          await db.update(modifierOptions).set({ status }).where(eq(modifierOptions.id, entityId));
           break;
       }
 
@@ -542,9 +578,9 @@ export async function bulkUpdateEntities(
     entityType: EntityType;
     entityId: number;
     status?: EntityStatus;
-    data?: Record<string, any>;
+    data?: EntityDataMap[EntityType];
   }>
-): Promise<CreateSuccess<any> | CreateError<string[]>> {
+): Promise<CreateSuccess<{ updated: EntityUnion[] }> | CreateError<string[]>> {
   try {
     const results = [];
     
@@ -573,9 +609,9 @@ export async function bulkUpdateEntities(
 /**
  * Helper to filter out system fields that shouldn't be updated
  */
-function filterUpdateableFields(obj: Record<string, any>): Record<string, any> {
+function filterUpdateableFields(obj: Record<string, unknown>): Record<string, unknown> {
   const systemFields = ['id', 'createdAt', 'created_at', 'updatedAt', 'updated_at', 'status', 'groups', 'items', 'modifierGroups', 'options', 'restaurantId', 'menuId', 'menuGroupId', 'menuItemId', 'modifierGroupId'];
-  const filtered: Record<string, any> = {};
+  const filtered: Record<string, unknown> = {};
   
   for (const [key, value] of Object.entries(obj)) {
     if (!systemFields.includes(key) && value !== undefined) {
@@ -593,34 +629,34 @@ function filterUpdateableFields(obj: Record<string, any>): Record<string, any> {
 export async function updateRestaurantDataInFormat(
   restaurantId: number,
   data: {
-    restaurant?: Partial<any>;
+    restaurant?: { status?: EntityStatus } & Record<string, unknown>;
     menus?: Array<{
       id: number;
       status?: EntityStatus;
-      [key: string]: any;
+      [key: string]: unknown;
       groups?: Array<{
         id: number;
         status?: EntityStatus;
-        [key: string]: any;
+        [key: string]: unknown;
         items?: Array<{
           id: number;
           status?: EntityStatus;
-          [key: string]: any;
+          [key: string]: unknown;
           modifierGroups?: Array<{
             id: number;
             status?: EntityStatus;
-            [key: string]: any;
+            [key: string]: unknown;
             options?: Array<{
               id: number;
               status?: EntityStatus;
-              [key: string]: any;
+              [key: string]: unknown;
             }>;
           }>;
         }>;
       }>;
     }>;
   }
-): Promise<CreateSuccess<any> | CreateError<string[]>> {
+): Promise<CreateSuccess<{ updated: Array<{ type: string; id: number }>; count: number }> | CreateError<string[]>> {
   try {
     const updated = [];
 

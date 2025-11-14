@@ -1,4 +1,4 @@
-import { bigserial, pgTable, bigint, text, uuid, integer, decimal, index, pgEnum } from "drizzle-orm/pg-core";
+import { bigserial, pgTable, bigint, text, uuid, integer, decimal, index } from "drizzle-orm/pg-core";
 import { jsonb } from "drizzle-orm/pg-core";
 import { timestamps } from "../columns.helpers";
 import { menuGroups } from "./menu-groups";

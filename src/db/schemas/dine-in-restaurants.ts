@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, bigint, jsonb, decimal, bigserial, index, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, bigint, jsonb, decimal, bigserial, index } from "drizzle-orm/pg-core";
 import { timestamps } from "../columns.helpers";
 import { hotels } from "./hotels";
 import { menuStatusEnum } from "./menus";

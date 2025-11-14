@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { menus, menuGroups, menuItems, modifierGroups, modifierOptions, dineInRestaurants } from "@/db/schemas";
+import { menus, menuGroups, menuItems, modifierGroups, modifierOptions } from "@/db/schemas";
 import { eq, and, ne } from "drizzle-orm";
 import type { EntityType, EntityStatus } from "@/actions/menu";
 
