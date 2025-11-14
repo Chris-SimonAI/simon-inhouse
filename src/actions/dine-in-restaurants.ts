@@ -2,14 +2,22 @@
 
 import { DineInRestaurant, dineInRestaurants } from "@/db/schemas"; 
 import { db } from "@/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { createError, createSuccess } from "@/lib/utils";
 import { CreateError, CreateSuccess } from "@/types/response";
 
 
 export async function getDineInRestaurantsByHotelId(hotelId: number): Promise<CreateSuccess<DineInRestaurant[]> | CreateError<string[]>> {
   try {
-    const restaurantsList = await db.select().from(dineInRestaurants).where(eq(dineInRestaurants.hotelId, hotelId));
+    const restaurantsList = await db
+      .select()
+      .from(dineInRestaurants)
+      .where(
+        and(
+          eq(dineInRestaurants.hotelId, hotelId),
+          eq(dineInRestaurants.status, "approved")
+        )
+      );
     return createSuccess(restaurantsList);
   } catch (error) {
     console.error("Error in getDineInRestaurantsByHotelId:", error);
