@@ -1,3 +1,5 @@
+// todo: Need to delete the file because of security issue
+
 import { requireHotelSession } from "@/utils/require-hotel-session";
 import { getDineInOrdersForHotel } from "@/actions/dine-in-orders";
 import OrdersFilter from "./orders-filter";

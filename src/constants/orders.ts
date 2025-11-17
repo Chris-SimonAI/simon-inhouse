@@ -1,3 +1,5 @@
+// todo: Need to delete the file because of security issue
+
 export const ORDER_STATUSES = [
   "pending",
   "confirmed",
