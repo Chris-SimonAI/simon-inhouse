@@ -9,7 +9,10 @@ import { env } from '@/env';
 interface BotCallbackPayload {
   orderId: number;
   success: boolean;
-  data?: unknown;
+  data?: {
+    trackingUrl?: string;
+    checkpoint?: string;
+  };
   error?: string;
   reason?: string;
 }
@@ -27,9 +30,9 @@ export async function POST(request: NextRequest) {
 
     // Parse bot result
     const payload: BotCallbackPayload = await request.json();
-    const { orderId, success, error, reason } = payload;
+    const { orderId, success, error, reason, data } = payload;
 
-    console.log('Received bot callback:', { orderId, success, error, reason });
+    console.log('Received bot callback:', { orderId, success, error, reason, data });
 
     // Get order and payment details
     const [order] = await db.select().from(dineInOrders).where(eq(dineInOrders.id, orderId)).limit(1);
@@ -49,6 +52,17 @@ export async function POST(request: NextRequest) {
       try {
         await stripe.paymentIntents.capture(payment.stripePaymentIntentId);
 
+        await db.update(dineInOrders)
+          .set({
+            metadata: {
+              ...(order.metadata as Record<string, unknown> || {}),
+              botStatus: 'success',
+              trackingUrl: data?.trackingUrl as string,
+              botCompletedAt: new Date().toISOString(),
+            } as Record<string, unknown>,
+          })
+          .where(eq(dineInOrders.id, orderId));
+
       } catch (captureError) {
         console.error('Failed to capture payment:', captureError);
         
@@ -60,6 +74,7 @@ export async function POST(request: NextRequest) {
               ...(order.metadata as Record<string, unknown> || {}),
               botStatus: 'capture_failed',
               botError: 'Payment capture failed',
+              errorReason: 'Payment capture failed',
               botCompletedAt: new Date().toISOString(),
             } as Record<string, unknown>,
           })
@@ -71,6 +86,17 @@ export async function POST(request: NextRequest) {
       // Bot failed - cancel/void payment
       try {
         await stripe.paymentIntents.cancel(payment.stripePaymentIntentId);
+        await db.update(dineInOrders)
+          .set({
+            metadata: {
+              ...(order.metadata as Record<string, unknown> || {}),
+              botStatus: error,
+              botError: 'Order failed to process',
+              errorReason: reason,
+              botCompletedAt: new Date().toISOString(),
+            } as Record<string, unknown>,
+          })
+          .where(eq(dineInOrders.id, orderId));
       } catch (cancelError) {
         console.error('Failed to cancel payment:', cancelError);
         
@@ -81,7 +107,7 @@ export async function POST(request: NextRequest) {
               ...(order.metadata as Record<string, unknown> || {}),
               botStatus: 'cancel_failed',
               botError: 'Payment cancellation failed',
-              botReason: reason,
+              errorReason: reason,
               botCompletedAt: new Date().toISOString(),
             } as Record<string, unknown>,
           })
