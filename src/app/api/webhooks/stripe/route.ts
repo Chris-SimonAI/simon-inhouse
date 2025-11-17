@@ -349,7 +349,13 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
       await db.update(dineInOrders)
         .set({ 
           orderStatus: 'toast_ok_capture_failed', 
-          updatedAt: new Date() 
+          metadata: {
+            ...(order.metadata as Record<string, unknown> || {}),
+            botStatus: 'capture_failed',
+            botError: 'Payment capture failed',
+            errorReason: 'Failed to capture payment after ordering',
+            botCompletedAt: new Date().toISOString(),
+          } as Record<string, unknown>,
         })
         .where(eq(dineInOrders.id, orderIdNum));
     } else {
@@ -357,7 +363,13 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
       await db.update(dineInOrders)
         .set({ 
           orderStatus: 'failed', 
-          updatedAt: new Date() 
+          metadata: {
+            ...(order.metadata as Record<string, unknown> || {}),
+            botStatus: 'capture_failed',
+            botError: 'Payment capture failed',
+            errorReason: 'Payment capture failed',
+            botCompletedAt: new Date().toISOString(),
+          } as Record<string, unknown>,
         })
         .where(eq(dineInOrders.id, orderIdNum));
     }
@@ -368,6 +380,7 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   }
 }
 
+// We are marking the order as failed because we are cancelling the payment intent when the bot fails to process the order
 async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) {
   try {
     console.log('Processing payment_intent.canceled:', paymentIntent.id);
@@ -418,8 +431,7 @@ async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) 
     // Update order status to cancelled
     await db.update(dineInOrders)
       .set({ 
-        orderStatus: 'cancelled', 
-        updatedAt: new Date() 
+        orderStatus: 'failed', 
       })
       .where(eq(dineInOrders.id, orderIdNum));
 

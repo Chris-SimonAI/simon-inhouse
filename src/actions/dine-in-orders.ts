@@ -18,6 +18,9 @@ import {
 import { createSuccess, createError } from '@/lib/utils';
 import { z } from 'zod';
 import { revalidateTag } from 'next/cache';
+import { getHotelBySlug } from '@/actions/hotels';
+import { dineInRestaurants } from '@/db/schemas';
+import { and, inArray } from 'drizzle-orm';
 
 export async function createDineInOrder(input: unknown) {
   try {
@@ -204,5 +207,137 @@ export async function updatePaymentStatus(input: unknown) {
       return createError('Validation failed', error.errors);
     }
     return createError('Failed to update payment status');
+  }
+}
+
+export async function getDineInOrdersForHotel(
+  hotelSlug: string,
+  status?: typeof dineInOrders.$inferSelect['orderStatus'],
+) {
+  try {
+    const hotelResult = await getHotelBySlug(hotelSlug);
+    if (!hotelResult.ok || !hotelResult.data) {
+      return createError('Hotel not found');
+    }
+
+    const hotelId = hotelResult.data.id;
+
+    // Fetch orders joined with restaurant name
+    const whereClause = status
+      ? and(eq(dineInOrders.hotelId, hotelId), eq(dineInOrders.orderStatus, status))
+      : eq(dineInOrders.hotelId, hotelId);
+
+    const orders = await db
+      .select({
+        id: dineInOrders.id,
+        createdAt: dineInOrders.createdAt,
+        orderStatus: dineInOrders.orderStatus,
+        roomNumber: dineInOrders.roomNumber,
+        totalAmount: dineInOrders.totalAmount,
+        metadata: dineInOrders.metadata,
+        restaurantName: dineInRestaurants.name,
+      })
+      .from(dineInOrders)
+      .leftJoin(dineInRestaurants, eq(dineInOrders.restaurantId, dineInRestaurants.id))
+      .where(whereClause)
+      .orderBy(desc(dineInOrders.createdAt));
+
+    if (orders.length === 0) {
+      return createSuccess([] as Array<{
+        id: number;
+        createdAt: Date;
+        orderStatus: typeof dineInOrders.$inferSelect['orderStatus'];
+        roomNumber: string;
+        totalAmount: string;
+        restaurantName: string | null;
+        contactEmail?: string | null;
+        contactPhone?: string | null;
+        paymentStatus?: typeof dineInPayments.$inferSelect['paymentStatus'];
+        errorReason?: string | null;
+      }>);
+    }
+
+    // Collect order IDs to fetch latest payment per order
+    const orderIds = orders.map((o) => o.id);
+
+    // Fetch all payments for these orders, newest first, then pick latest per order in-memory
+    const payments = await db
+      .select({
+        id: dineInPayments.id,
+        orderId: dineInPayments.orderId,
+        paymentStatus: dineInPayments.paymentStatus,
+        stripeMetadata: dineInPayments.stripeMetadata,
+        createdAt: dineInPayments.createdAt,
+      })
+      .from(dineInPayments)
+      .where(inArray(dineInPayments.orderId, orderIds))
+      .orderBy(desc(dineInPayments.createdAt), desc(dineInPayments.id));
+
+    const latestPaymentByOrderId = new Map<number, {
+      paymentStatus: typeof dineInPayments.$inferSelect['paymentStatus'];
+      stripeMetadata: unknown;
+    }>();
+    for (const p of payments) {
+      if (!latestPaymentByOrderId.has(p.orderId)) {
+        latestPaymentByOrderId.set(p.orderId, {
+          paymentStatus: p.paymentStatus,
+          stripeMetadata: p.stripeMetadata as unknown,
+        });
+      }
+    }
+
+    // Fetch items for these orders and group in-memory
+    const rawItems = await db
+      .select({
+        orderId: dineInOrderItems.orderId,
+        itemName: dineInOrderItems.itemName,
+        quantity: dineInOrderItems.quantity,
+        unitPrice: dineInOrderItems.unitPrice,
+        totalPrice: dineInOrderItems.totalPrice,
+      })
+      .from(dineInOrderItems)
+      .where(inArray(dineInOrderItems.orderId, orderIds));
+
+    const itemsByOrderId = new Map<number, Array<{
+      itemName: string;
+      quantity: number;
+      unitPrice: string;
+      totalPrice: string;
+    }>>();
+    for (const it of rawItems) {
+      const arr = itemsByOrderId.get(it.orderId) ?? [];
+      arr.push({
+        itemName: it.itemName,
+        quantity: it.quantity,
+        unitPrice: String(it.unitPrice),
+        totalPrice: String(it.totalPrice),
+      });
+      itemsByOrderId.set(it.orderId, arr);
+    }
+
+    const data = orders.map((o) => {
+      const orderMetadata = (o.metadata as Record<string, unknown> | null) ?? null;
+      const latest = latestPaymentByOrderId.get(o.id);
+
+      return {
+        id: o.id,
+        createdAt: o.createdAt,
+        orderStatus: o.orderStatus,
+        roomNumber: o.roomNumber,
+        totalAmount: o.totalAmount,
+        trackingUrl: (orderMetadata?.['trackingUrl'] as string | undefined) ?? null,
+        restaurantName: o.restaurantName ?? null,
+        contactEmail: (orderMetadata?.['email'] as string | undefined) ?? null,
+        contactPhone: (orderMetadata?.['phoneNumber'] as string | undefined) ?? null,
+        paymentStatus: latest?.paymentStatus,
+        errorReason: (orderMetadata?.['errorReason'] as string | undefined) ?? null,
+        items: itemsByOrderId.get(o.id) ?? [],
+      };
+    });
+
+    return createSuccess(data);
+  } catch (error) {
+    console.error('Get dine-in orders for hotel error:', error);
+    return createError('Failed to get orders');
   }
 }
