@@ -6,8 +6,8 @@ import type {
   UIMessage,
   CreateUIMessage,
 } from 'ai';
-import { type ConciergeStreamEvent } from '@/lib/agent';
-import { type RscServerAction, type ChatRequestOptions } from '@/actions/chatbot';
+import type { ConciergeStreamEvent } from '@/lib/agent';
+import type { RscServerAction, ChatRequestOptions } from '@/actions/chatbot';
 import { generateId } from '@/lib/utils';
 
 /** Options mirror `useChat` but adapted for RSC. */
@@ -52,6 +52,7 @@ export type UseRscChatReturn<M extends UIMessage = UIMessage & { metadata: Recor
   messages: M[];
   status: 'submitted' | 'streaming' | 'ready' | 'error';
   error: Error | undefined;
+  initialLoading: boolean;
   sendMessage: (message: CreateUIMessage<M> | string, options?: ChatRequestOptions) => void;
   regenerate: (options?: { messageId?: string }) => void;
   stop: () => void;
@@ -103,6 +104,28 @@ function appendTextPart(
   };
 }
 
+const TEMP_MESSAGE_ID_PREFIX = 'temp-msg';
+const TEMP_MESSAGE_METADATA_KEY = '__temporaryMessageId';
+
+function createTemporaryMessageId(role: 'user' | 'assistant'): string {
+  return generateId(`${TEMP_MESSAGE_ID_PREFIX}-${role}`);
+}
+
+function markTemporaryMetadata(metadata?: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...(metadata ?? {}),
+    [TEMP_MESSAGE_METADATA_KEY]: true,
+  };
+}
+
+function stripTemporaryMetadata(
+  metadata?: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  if (!metadata) return metadata;
+  const { [TEMP_MESSAGE_METADATA_KEY]: _marker, ...rest } = metadata;
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}
+
 /** Main hook */
 export function useRscChat<M extends UIMessage = UIMessage>(
   {
@@ -127,6 +150,9 @@ export function useRscChat<M extends UIMessage = UIMessage>(
   );
   const [status, setStatus] = useState<'submitted' | 'streaming' | 'ready' | 'error'>('ready');
   const [error, setError] = useState<Error | undefined>(undefined);
+  const [initialLoading, setInitialLoading] = useState(
+    () => initialMessages.length === 0 && !!getThreadMessages,
+  );
 
   const [handle, setHandle] = useState<StreamableValue<ConciergeStreamEvent> | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -135,6 +161,9 @@ export function useRscChat<M extends UIMessage = UIMessage>(
   const streamingMsgId = useRef<string | null>(null);
   const lastHandleRef = useRef<StreamableValue<ConciergeStreamEvent> | null>(null);
   const stoppedRef = useRef(false);
+  const pendingTemporaryIdsRef = useRef<
+    Array<{ userId: string; assistantId: string }>
+  >([]);
 
   useEffect(() => {
     if (!handle || stoppedRef.current) return;
@@ -147,6 +176,46 @@ export function useRscChat<M extends UIMessage = UIMessage>(
 
         for await (const event of readStreamableValue(handle)) {
           if (isCancelled || stoppedRef.current) break;
+
+          if (event?.type === 'new-chat-turn') {
+            setStatus('streaming');
+            const pendingPair = pendingTemporaryIdsRef.current.shift();
+            if (!pendingPair) {
+              onData?.(undefined);
+              continue;
+            }
+
+            setMessages((prev) => {
+              let didUpdate = false;
+              const next = prev.map((message) => {
+                if (message.id === pendingPair.userId) {
+                  didUpdate = true;
+                  return {
+                    ...message,
+                    id: event.humanMessageId,
+                    metadata: stripTemporaryMetadata(message.metadata as Record<string, unknown>),
+                  } as M;
+                }
+                if (message.id === pendingPair.assistantId) {
+                  didUpdate = true;
+                  return {
+                    ...message,
+                    id: event.assistantMessageId,
+                    metadata: stripTemporaryMetadata(message.metadata as Record<string, unknown>),
+                  } as M;
+                }
+                return message;
+              });
+              return didUpdate ? (next as M[]) : prev;
+            });
+
+            if (streamingMsgId.current === pendingPair.assistantId) {
+              streamingMsgId.current = event.assistantMessageId;
+            }
+
+            onData?.(undefined);
+            continue;
+          }
 
           if (!streamingMsgId.current) continue;
 
@@ -165,13 +234,14 @@ export function useRscChat<M extends UIMessage = UIMessage>(
                     ...m,
                     parts: [...m.parts, { type: `tool-${event.name}-loading` as const }] as UIMessage['parts'],
                   } as M;
-                case 'tool':
+                case 'tool': {
                   const updatedParts = m.parts.filter((p: UIMessage['parts'][number]) => p.type !== `tool-${event.name}-loading`);
                   return {
                     ...m,
                     parts: [...updatedParts, { type: `tool-${event.name}`, output: event.data }] as UIMessage['parts'],
                     metadata: { ...(m.metadata || {}), ...(event.metadata || {}) },
                   } as M;
+                }
                 case 'current-agent':
                   metadata.current = { ...metadata.current, currentAgent: event.name };
                   return m;
@@ -239,15 +309,38 @@ export function useRscChat<M extends UIMessage = UIMessage>(
 
   // Load initial messages from database when component mounts
   useEffect(() => {
+    let isCancelled = false;
+
     if (initialMessages.length === 0 && threadId && getThreadMessages) {
-      getThreadMessages(threadId).then((fetchedMessages) => {
-        if (fetchedMessages.length > 0) {
-          setMessages(fetchedMessages as M[]);
+      setInitialLoading(true);
+
+      (async () => {
+        try {
+          const fetchedMessages = await getThreadMessages(threadId);
+          if (!isCancelled && fetchedMessages.length > 0) {
+            setMessages(fetchedMessages as M[]);
+          }
+        } catch (error) {
+          if (!isCancelled) {
+            console.error('Failed to load thread messages:', error);
+          }
+        } finally {
+          if (!isCancelled) {
+            setInitialLoading(false);
+          }
         }
-      }).catch((error) => {
-        console.error('Failed to load thread messages:', error);
-      });
+      })();
+
+      return () => {
+        isCancelled = true;
+      };
     }
+
+    setInitialLoading(false);
+
+    return () => {
+      isCancelled = true;
+    };
   }, [threadId, initialMessages.length, getThreadMessages]);
 
 
@@ -284,18 +377,28 @@ export function useRscChat<M extends UIMessage = UIMessage>(
         return;
       }
 
-      const userMsg: M = { 
-        ...userTextMessage(nextUserText), 
-        id: generateId(),
-        metadata: { inputType: request?.inputType || 'text' }
+      const userMsg: M = {
+        ...userTextMessage(nextUserText),
+        id: createTemporaryMessageId('user'),
+        metadata: markTemporaryMetadata({
+          inputType: request?.inputType || 'text',
+        }),
       } as M;
-      const assistantMsg: M = assistantEmptyMessage() as M;
+      const assistantMsg: M = {
+        ...assistantEmptyMessage(),
+        id: createTemporaryMessageId('assistant'),
+        metadata: markTemporaryMetadata(),
+      } as M;
 
       setMessages((prev) => [...prev, userMsg, assistantMsg] as M[]);
       setStatus('submitted');
       setError(undefined);
       streamingMsgId.current = assistantMsg.id;
       stoppedRef.current = false;
+      pendingTemporaryIdsRef.current.push({
+        userId: userMsg.id,
+        assistantId: assistantMsg.id,
+      });
 
       try {
         const { stream } = await action({
@@ -311,16 +414,23 @@ export function useRscChat<M extends UIMessage = UIMessage>(
         setHandle(s);
       } catch (e: unknown) {
         streamingMsgId.current = null;
+        pendingTemporaryIdsRef.current = pendingTemporaryIdsRef.current.filter(
+          (pair) => pair.assistantId !== assistantMsg.id && pair.userId !== userMsg.id,
+        );
         const err = e instanceof Error ? e : new Error(String(e));
         setError(err);
         setStatus('error');
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsg.id
-              ? appendTextPart(m, 'Sorry, something went wrong.') as M
-              : m,
-          ) as M[],
-        );
+        setMessages((prev) => {
+          const next = prev.map((message) => {
+            if (message.id !== assistantMsg.id) return message;
+            const updated = appendTextPart(message, 'Sorry, something went wrong.');
+            return {
+              ...updated,
+              metadata: stripTemporaryMetadata(updated.metadata as Record<string, unknown>),
+            } as M;
+          });
+          return next as M[];
+        });
         onError?.(err);
       }
     },
@@ -382,6 +492,7 @@ export function useRscChat<M extends UIMessage = UIMessage>(
     messages,
     status,
     error,
+    initialLoading,
     sendMessage,
     regenerate,
     stop,

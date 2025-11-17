@@ -12,10 +12,39 @@ import { shouldEmitPrefaceNode, generatePrefaceNode, routeAfterClassifier } from
 // there could be 4 messages per chat turn
 // including tool calls and tool results
 const MAX_MESSAGES = 20 * 4;
+
 function appendCap<T>(n: number) {
   return (prev: T[] = [], next: T[] = []) => {
-    const out = (prev ?? []).concat(next ?? []);
-    return out.length > n ? out.slice(out.length - n) : out;
+    const previous = prev ?? [];
+    const incoming = next ?? [];
+
+    const combined = previous.concat(incoming);
+    const deduped: T[] = [];
+    const seen = new Map<string, number>();
+
+    combined.forEach((message) => {
+      const id =
+        (message as { id?: string })?.id ??
+        (message as { kwargs?: { id?: string } })?.kwargs?.id ??
+        (message as { additional_kwargs?: { id?: string } })?.additional_kwargs?.id ??
+        null;
+
+      if (id && seen.has(id)) {
+        const existingIndex = seen.get(id);
+        if (existingIndex !== undefined) {
+          deduped[existingIndex] = message;
+        }
+      } else if (id) {
+        seen.set(id, deduped.length);
+        deduped.push(message);
+      } else {
+        deduped.push(message);
+      }
+    });
+
+    const trimmed = deduped.length > n ? deduped.slice(deduped.length - n) : deduped;
+
+    return trimmed;
   };
 }
 
