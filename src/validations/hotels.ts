@@ -5,6 +5,12 @@ import { hotels } from "@/db/schemas/hotels";
 const nameValidation = (schema: z.ZodString) =>
   schema.min(1, "Hotel name is required").max(255, "Hotel name too long");
 
+const slugValidation = (schema: z.ZodString) =>
+  schema
+    .min(1, "Hotel slug is required")
+    .max(64, "Hotel slug too long")
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Hotel slug must be lowercase alphanumeric and hyphenated");
+
 const latitudeValidation = (schema: z.ZodString) =>
   schema
     .refine((val) => !isNaN(Number(val)), "Latitude must be a number")
@@ -23,12 +29,14 @@ const longitudeValidation = (schema: z.ZodString) =>
 
 export const insertHotelSchema = createInsertSchema(hotels, {
   name: nameValidation,
+  slug: slugValidation,
   latitude: latitudeValidation,
   longitude: longitudeValidation,
 });
 
 export const updateHotelSchema = createUpdateSchema(hotels, {
   name: (schema) => nameValidation(schema),
+  slug: (schema) => slugValidation(schema).optional(),
   latitude: (schema) => latitudeValidation(schema).optional(),
   longitude: (schema) => longitudeValidation(schema).optional(),
 });

@@ -3,6 +3,7 @@ export const UI_TOOLS = {
     SEARCH_ATTRACTIONS: "tool-search_attractions",
     SEARCH_RESTAURANTS: "tool-search_restaurants",
     GET_DINE_IN_RESTAURANTS: "tool-get_dine_in_restaurants",
+    GENERATION_STOPPED: "tool-generation_stopped",
 } as const;
 
 export type UiTool = (typeof UI_TOOLS)[keyof typeof UI_TOOLS];

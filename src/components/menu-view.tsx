@@ -9,6 +9,8 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { useRouter } from 'next/navigation';
+import { useHotelSlug } from '@/hooks/use-hotel-slug';
+import { hotelPath } from '@/utils/hotel-path';
 
 type MenuViewProps = {
   menuData: MenuData;
@@ -30,6 +32,7 @@ export function MenuView({ menuData, restaurantGuid }: MenuViewProps) {
   const [activeTab, setActiveTab] = useState<string>(menuData.groups[0]?.id || '');
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
   const scrollYRef = useRef(0);
+  const slug = useHotelSlug();
 
   useLayoutEffect(() => {
     if (!selectedItem) {
@@ -141,7 +144,7 @@ export function MenuView({ menuData, restaurantGuid }: MenuViewProps) {
     if (selectedItem) {
       setSelectedItem(null);
     } else {
-      router.push("/?l1=open", { scroll: false });
+      router.push(`${hotelPath(slug)}?l1=open`, { scroll: false });
     }
   };
 

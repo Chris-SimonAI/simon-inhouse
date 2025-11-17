@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { type Hotel } from "@/db/schemas/hotels";
+import { useHotelSlug } from "@/hooks/use-hotel-slug";
 
 type WelcomeClientProps = {
   hotel: Hotel;
@@ -12,9 +13,11 @@ type WelcomeClientProps = {
 export default function WelcomeClient({ hotel }: WelcomeClientProps) {
   const router = useRouter();
 
+  const slug = useHotelSlug();
+
   const meetSimon = useCallback(() => {
-    router.push("/?voice=true");
-  }, [router]);
+    router.push(`/${slug}?voice=true`);
+  }, [router, slug]);
 
 //   const skipIntro = useCallback(() => {
 //     // Set cookie for 1 day and return to home

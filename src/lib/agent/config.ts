@@ -17,7 +17,8 @@ export type ConciergeStreamEvent =
   | { type: "token"; value: string; metadata: Record<string, unknown> }
   | { type: "tool-start"; name: string; metadata: Record<string, unknown> }
   | { type: "tool"; name: string; data: unknown; metadata: Record<string, unknown> }
-  | { type: "current-agent"; name: string };
+  | { type: "current-agent"; name: string }
+  | { type: "new-chat-turn"; humanMessageId: string; assistantMessageId: string };
 
 export const model = new ChatOpenAI({
   apiKey: env.OPENAI_API_KEY,

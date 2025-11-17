@@ -8,9 +8,10 @@ import { cn } from "@/lib/utils";
 import { createTip } from "@/actions/tips";
 import { DEFAULT_HOTEL_ID } from "@/constants";
 import Image from "next/image";
+import { useHotelSlug } from "@/hooks/use-hotel-slug";
+import { hotelPath } from "@/utils/hotel-path";
 
 interface TipStaffScreenProps {
-  onBack: () => void;
   initialAmount?: number;
   dynamicMessage?: string;
   hotelName?: string;
@@ -19,13 +20,13 @@ interface TipStaffScreenProps {
 
 const tipAmounts = [5, 10, 15, 20, 25];
 
-export function TipStaffScreen({ onBack, initialAmount, dynamicMessage, hotelName, hotelId }: TipStaffScreenProps) {
+export function TipStaffScreen({ initialAmount, dynamicMessage, hotelName, hotelId }: TipStaffScreenProps) {
   const router = useRouter();
+  const slug = useHotelSlug();
   const [selectedAmount, setSelectedAmount] = useState<number>(initialAmount || 0);
   const [customAmount, setCustomAmount] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
-
 
   const handleAmountSelect = (amount: number) => {
     setSelectedAmount(amount);
@@ -99,7 +100,7 @@ export function TipStaffScreen({ onBack, initialAmount, dynamicMessage, hotelNam
       
       if (result.ok && result.data) {
         // Navigate to payment processing screen
-        router.push(`/tip-staff/payment/${result.data.id}`);
+        router.push(`${hotelPath(slug, `/tip-staff/payment/${result.data.id}`)}`);
       } else {
         console.error("Failed to create tip:", !result.ok ? result.message : "Unknown error");
       }
@@ -135,7 +136,7 @@ export function TipStaffScreen({ onBack, initialAmount, dynamicMessage, hotelNam
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white">
         <button
-          onClick={onBack}
+          onClick={() => router.push(`/${slug}`)}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />

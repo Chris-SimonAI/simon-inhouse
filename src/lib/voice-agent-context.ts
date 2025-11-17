@@ -28,7 +28,7 @@ export async function getVoiceAgentHotelContext(hotelId: number): Promise<string
       return 'Amenities information not available.';
     }
     const amenitiesData = amenities.data;
-    const availableAmenities = amenitiesData.map((amenity) => `${amenity.name}: ${amenity.description}`).join(", ");
+    const availableAmenities = amenitiesData.map((amenity) => `${amenity.name}: ${amenity.description}: ${amenity.longDescription}`).join(", ");
     
     const formattedData = formatHotelData(result.data, availableAmenities);
     return formattedData;

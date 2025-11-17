@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Star, MapPin, Phone, Globe, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useHotelSlug } from "@/hooks/use-hotel-slug";
+import { hotelPath } from "@/utils/hotel-path";
 
 interface PlaceDetailsPageProps {
   placeDetails: PlaceDetails;
@@ -21,7 +23,7 @@ interface PlaceDetailsPageProps {
 
 export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) {
   const router = useRouter();
-
+  const slug = useHotelSlug();
   const handleDirections = () => {
     if (placeDetails.location) {
       const { latitude, longitude } = placeDetails.location;
@@ -31,7 +33,7 @@ export function PlaceDetailsPage({ placeDetails, type }: PlaceDetailsPageProps) 
   };
 
   const handleBackToChat = () => {
-    router.push('/?l1=open', { scroll: false });
+    router.push(`${hotelPath(slug)}?l1=open`, { scroll: false });
   };
 
   return (

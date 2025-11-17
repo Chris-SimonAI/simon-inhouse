@@ -4,6 +4,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 import Image from 'next/image';
 import { MenuGroup } from '@/actions/menu';
+import { useHotelSlug } from '@/hooks/use-hotel-slug';
+import { hotelPath } from '@/utils/hotel-path';
 
 type MenuGroupCardProps = {
   group: MenuGroup;
@@ -11,8 +13,13 @@ type MenuGroupCardProps = {
 };
 
 export function MenuGroupCard({ group, restaurantGuid }: MenuGroupCardProps) {
+  const slug = useHotelSlug();
+  const href = slug
+    ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu?section=${group.id}`)
+    : '#';
+
   return (
-    <Link href={`/dine-in/restaurant/${restaurantGuid}/menu?section=${group.id}`}>
+    <Link href={href}>
       <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200">
         <CardContent className="p-0">
           {group.imageUrl && (

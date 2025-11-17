@@ -23,10 +23,10 @@ interface EmbeddingsAmenityResult {
 export async function getAmenityById(id: number): Promise<CreateSuccess<Amenity> | CreateError<string[]>> {  
   try {
     const sessionResult = await getHotelSession();
-    if (!sessionResult.ok || !sessionResult.data) {
+    if (!sessionResult.ok || !sessionResult.data.hotelId) {
       return createError("Failed to get hotel session");
     }
-    const hotelId = parseInt(sessionResult.data.qrData.hotelId) 
+    const hotelId = sessionResult.data.hotelId
 
     const [amenity] = await db.select().from(amenities).where(and(eq(amenities.id, id), eq(amenities.hotelId, hotelId)));
     
@@ -59,15 +59,11 @@ export async function getAmenitiesByEmbedding(
 ): Promise<CreateSuccess<(EmbeddingsAmenityResult | Amenity)[]> | CreateError<string[]>> {
   try {
     const hotelSessionResult = await getHotelSession();
-    if (!hotelSessionResult.ok || !hotelSessionResult.data) {
+    if (!hotelSessionResult.ok || !hotelSessionResult.data.hotelId) {
       return createError("Failed to get hotel session");
     }
 
-    const hotelId = parseInt(hotelSessionResult.data.qrData.hotelId);
-    if (isNaN(hotelId)) {
-      return createError("Invalid hotel ID");
-    }
-
+    const hotelId = hotelSessionResult.data.hotelId
     const embeddingVector = `[${embedding.join(",")}]`;
     const topK = 5; 
     const semanticResults = await db

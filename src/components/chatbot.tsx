@@ -24,6 +24,7 @@ import { PlaceCard } from "@/components/place-card";
 import { AmenityCard } from "@/components/amenity-card";
 import { AttractionsView } from "@/components/attractions-view";
 import { DineInRestaurantCard } from "@/components/dine-in-restaurant-card";
+import { useChatScrollAnchor } from "@/hooks/use-chat-scroll-anchor";
 import { type PlaceResult } from "@/lib/places";
 import { type Amenity } from "@/db/schemas/amenities";
 import { type Hotel } from "@/db/schemas/hotels";
@@ -33,7 +34,6 @@ import type { UIMessage } from "ai";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { StickToBottomContext } from "use-stick-to-bottom";
-import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { SCROLL_STOP_TYPES, UI_TOOLS, UiTool, AssistantTextType } from "@/constants/ui-tools";
 import { ArrowLeft, Mic } from "lucide-react";
 import { MarkdownResponse } from "./ai-elements/markdown-response";
@@ -43,7 +43,8 @@ import { CardSkeletonGroup } from "@/components/card-skeleton";
 import { AttractionsViewSkeleton } from "@/components/attractions-view-skeleton";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { hotelPath } from "@/utils/hotel-path";
+import { TipStaffCard } from "@/components/tip-staff-card";
 
 type Props = {
   processChatMessageStream: RscServerAction
@@ -72,7 +73,7 @@ const suggestions = [
   {
     icon: <AmenitiesLogo className="w-7 h-7" />,
     label: "What hotel amenities do you offer?",
-    action: "What hotel amenities do you offer?"
+    action: "I'd like to know about the hotel's amenities."
   },
   {
     icon: <HistoryLogo className="w-7 h-7" />,
@@ -82,7 +83,7 @@ const suggestions = [
 ] as const;
 
 export default function Chatbot({ processChatMessageStream, getThreadMessages, threadId, hotel, hotelContext }: Props) {
-  const { messages, sendMessage, status, error } = useRscChat({
+  const { messages, sendMessage, status, error, initialLoading } = useRscChat({
     action: processChatMessageStream,
     threadId: threadId,
     hotelId: hotel.id,
@@ -91,6 +92,7 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
 
   const searchParams = useSearchParams();
   const router = useRouter();
+  const basePath = hotelPath(hotel.slug);
   const [openL1, setOpenL1] = useState(false);
   const [scrollToBottom, setScrollToBottom] = useState(false);
   const [input, setInput] = useState("");
@@ -98,42 +100,15 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
   // Voice agent ref
   const voiceAgentRef = useRef<RealtimeVoiceAgentRef>(null);
 
-
-  const [processedTippingMessages, setProcessedTippingMessages] = useState<Set<string>>(new Set());
-  const [historicalMessageIds, setHistoricalMessageIds] = useState<Set<string>>(new Set());
-
   // Check for L1 parameter to open chat screen
   useEffect(() => {
     const l1Param = searchParams.get('l1');
     if (l1Param === 'open') {
       setOpenL1(true);
       // Clean up the URL parameter
-      router.replace('/', { scroll: false });
+      router.replace(basePath, { scroll: false });
     }
-  }, [searchParams, router]);
-
-  // Clean up tipping return URL parameter
-  useEffect(() => {
-    const tippingReturn = searchParams.get('tipping_return');
-    if (tippingReturn === 'true') {
-      // Clean up the URL parameter
-      router.replace('/', { scroll: false });
-    }
-  }, [searchParams, router]);
-
-  // Track historical messages to prevent tipping detection on chat history load
-  useEffect(() => {
-    if (messages.length > 0) {
-      const _currentIds = new Set(messages.map(m => m.id));
-      const newHistoricalIds = new Set([...historicalMessageIds]);
-
-      // If we have messages but no historical IDs yet, these are loaded from history
-      if (historicalMessageIds.size === 0 && messages.length > 0) {
-        messages.forEach(m => newHistoricalIds.add(m.id));
-        setHistoricalMessageIds(newHistoricalIds);
-      }
-    }
-  }, [messages, historicalMessageIds]);
+  }, [searchParams, router, basePath]);
 
   // Handle sending text input (not voice-initiated)
   const handleTextSubmit = () => {
@@ -144,7 +119,6 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
       setInput("");
     }
   };
-
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,7 +143,13 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
 
   const displayError = error ? (error.message || String(error)) : null;
 
-  if (openL1) {
+  if(openL1 && initialLoading) {
+    return <div className="flex items-center justify-center h-full">
+      <Loader />
+    </div>
+  }
+
+  if (openL1 && !initialLoading) {
     return <ChatBotContent
       openL1={openL1}
       input={input}
@@ -180,13 +160,12 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
       handleInputChange={handleInputChange}
       handleVoiceToggle={handleVoiceToggle}
       scrollToBottom={scrollToBottom}
-      processedTippingMessages={processedTippingMessages}
-      setProcessedTippingMessages={setProcessedTippingMessages}
-      historicalMessageIds={historicalMessageIds}
       voiceAgentRef={voiceAgentRef}
       sendMessage={sendMessage}
       hotelContext={hotelContext}
-    />
+      basePath={basePath}
+      threadId={threadId}
+        />
   }
 
   return <ChatBotContentHome
@@ -216,15 +195,14 @@ type ChatBotContentProps = {
   handleInputChange: (e: ChangeEvent<HTMLTextAreaElement>) => void
   handleVoiceToggle: () => void
   scrollToBottom: boolean
-  processedTippingMessages: Set<string>
-  setProcessedTippingMessages: (messages: Set<string> | ((prev: Set<string>) => Set<string>)) => void
-  historicalMessageIds: Set<string>
   voiceAgentRef: React.RefObject<RealtimeVoiceAgentRef | null>
   sendMessage: (message: string, options: { inputType: 'text' | 'voice' }) => void
   hotelContext: string
+  basePath: string
+  threadId: string
 }
 
-function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, processedTippingMessages, setProcessedTippingMessages, historicalMessageIds, voiceAgentRef, sendMessage, hotelContext }: ChatBotContentProps) {
+function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubmit, handleInputChange, handleVoiceToggle, scrollToBottom, voiceAgentRef, sendMessage, hotelContext, basePath, threadId }: ChatBotContentProps) {
   const conversationScrollContextRef = useRef<StickToBottomContext>(null);
   const latestMessage = messages[messages.length - 1];
   // we stop if the latest message is assistant, and the part of the message is in the SCROLL_STOP_TYPES
@@ -234,11 +212,13 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
       latestMessage?.parts?.[latestMessage.parts.length - 1]?.type as UiTool | AssistantTextType
     );
 
-  const { ref: attachScrollEl } = useScrollRestoration(
-    "conversationScroll",
-    { debounceTime: 200, persist: "localStorage" }
-  );
   const pathname = usePathname();
+  const isActive = pathname === basePath;
+  const { attachScrollEl, restoreScroll } = useChatScrollAnchor({
+    threadId,
+    messages,
+    isActive,
+  });
 
   useEffect(() => {
     if (shouldStopScroll) {
@@ -247,45 +227,55 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
   }, [shouldStopScroll]);
 
   useLayoutEffect(() => {
-    const ctx = conversationScrollContextRef.current;
-    const el =
-      ctx?.scrollRef?.current ??
-      null;
-
-    if (!el) return;
+    const el = conversationScrollContextRef.current?.scrollRef.current ?? null;
 
     attachScrollEl(el);
-
-    if (scrollToBottom) {
-      el.scrollTo({
-        top: el.scrollHeight,
-        behavior: "instant"
-      });
-    }
 
     return () => {
       attachScrollEl(null);
     };
-  }, [attachScrollEl, conversationScrollContextRef, messages.length, scrollToBottom]);
+  }, [attachScrollEl]);
 
+  useLayoutEffect(() => {
+    if (!scrollToBottom) {
+      return;
+    }
+
+    if (!messages.length) {
+      return;
+    }
+
+    const el = conversationScrollContextRef.current?.scrollRef.current;
+
+    if (!el) {
+      return;
+    }
+
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: "instant",
+    });
+  }, [messages.length, scrollToBottom]);
 
   // this hook is to restore the scroll position when the user navigates back to the chatbot
   useLayoutEffect(() => {
-    if (pathname !== "/") return;
-    const el = conversationScrollContextRef.current?.scrollRef?.current;
-    if (!el) return;
-
-    const raw = localStorage.getItem("scrollRestoration-conversationScroll");
-    if (!raw) return;
-
-    const saved = JSON.parse(raw) as { scrollTop?: number; };
-
-    if (!scrollToBottom) {
-      el.scrollTop = saved.scrollTop ?? 0;
+    if (scrollToBottom || !isActive) {
+      return;
     }
 
+    if (!messages.length) {
+      return;
+    }
 
-  }, [pathname, conversationScrollContextRef, messages.length, scrollToBottom]);
+    const el = conversationScrollContextRef.current?.scrollRef.current;
+
+    if (!el) {
+      return;
+    }
+
+    restoreScroll();
+  }, [isActive, messages.length, restoreScroll, scrollToBottom]);
+
 
   return (
     <div className={cn(
@@ -301,6 +291,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
       <div className="flex flex-col h-dvh w-full overflow-x-hidden bg-white">
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white">
           <button
+            type="button"
             onClick={() => setOpenL1(false)}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
           >
@@ -315,7 +306,12 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
           <ConversationContent>
 
             {messages.map((message) => (
-              <Message from={message.role} key={message.id} className={cn(
+              <Message
+                data-message-id={message.id}
+                data-message-role={message.role}
+                from={message.role}
+                key={message.id}
+                className={cn(
                 "flex gap-3",
                 message.role === 'assistant' ? 'items-start' : 'justify-end py-0'
               )}>
@@ -367,7 +363,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                             </MarkdownResponse>
                           );
                         case UI_TOOLS.SEARCH_RESTAURANTS:
-                        case UI_TOOLS.SEARCH_ATTRACTIONS:
+                        case UI_TOOLS.SEARCH_ATTRACTIONS: {
                           const results = JSON.parse(part.output as string).data as PlaceResult[] || [];
 
                           if (part.type === UI_TOOLS.SEARCH_ATTRACTIONS) {
@@ -380,24 +376,25 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                                 />
                               </div>
                             );
-                          } else {
-                            return (
-                              <div key={`${message.id}-${i}`} className="space-y-2 py-2">
-                                {results.map((result: PlaceResult, index: number) => (
-                                  <PlaceCard
-                                    key={`${message.id}-${i}-${index}`}
-                                    result={result}
-                                    index={index}
-                                    messageId={message.id}
-                                    partIndex={i}
-                                    type="restaurant"
-                                    id={result.id}
-                                  />
-                                ))}
-                              </div>
-                            );
                           }
-                        case UI_TOOLS.GET_AMENITIES:
+
+                          return (
+                            <div key={`${message.id}-${i}`} className="space-y-2 py-2">
+                              {results.map((result: PlaceResult, index: number) => (
+                                <PlaceCard
+                                  key={`${message.id}-${i}-${index}`}
+                                  result={result}
+                                  index={index}
+                                  messageId={message.id}
+                                  partIndex={i}
+                                  type="restaurant"
+                                  id={result.id}
+                                />
+                              ))}
+                            </div>
+                          );
+                        }
+                        case UI_TOOLS.GET_AMENITIES: {
                           const parsedAmenity = JSON.parse(part.output as string);
                           const amenityResults = Array.isArray(parsedAmenity.data) ? parsedAmenity.data : [];
                           return (
@@ -413,13 +410,14 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                               ))}
                             </div>
                           );
-                        case UI_TOOLS.GET_DINE_IN_RESTAURANTS:
+                        }
+                        case UI_TOOLS.GET_DINE_IN_RESTAURANTS: {
                           const parsed = JSON.parse(part.output as string);
                           const restaurantResults = Array.isArray(parsed.data) ? parsed.data : [];
 
                           return (
                             <div key={`${message.id}-${i}`} className="space-y-2 py-2">
-                              <h4 className="font-semibold">Deliver to your room</h4>
+                              <h4 className="font-semibold">Delivered to your room</h4>
                               {restaurantResults.map((restaurant: DineInRestaurant) => (
                                 <DineInRestaurantCard
                                   key={restaurant.restaurantGuid}
@@ -428,23 +426,32 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                               ))}
                             </div>
                           );
-                        case 'tool-initiate_tipping':
-                          const tippingData = JSON.parse(part.output as string);
-                          if (tippingData.action === 'navigate_to_tipping') {
-                            // Only navigate if message hasn't been processed and it's not a historical message
-                            const messageId = `${message.id}-${i}`;
-                            const isHistoricalMessage = historicalMessageIds.has(message.id);
-                            if (!processedTippingMessages.has(messageId) && !isHistoricalMessage) {
-                              setProcessedTippingMessages(prev => new Set(prev).add(messageId));
-                              setTimeout(() => {
-                                // Add return parameter to track when user comes back
-                                const url = new URL(tippingData.url, window.location.origin);
-                                url.searchParams.set('return_to', window.location.pathname + window.location.search);
-                                window.location.href = url.toString();
-                              }, 100);
+                        }
+                        case UI_TOOLS.GENERATION_STOPPED: {
+                          return (
+                            <div key={`${message.id}-${i}`}>
+                              <p className="bg-gray-200 text-gray-700 p-3 rounded-md">Generation stopped before completion...</p>
+                            </div>
+                          );
+                        }
+                        case 'tool-initiate_tipping': {
+                          try {
+                            const parsed = JSON.parse(part.output as string) as { error?: string };
+                            if (parsed?.error) {
+                              console.error("Tipping tool returned an error:", parsed.error);
+                              return null;
                             }
+                          } catch (error) {
+                            console.error("Failed to parse tipping tool response", error);
                           }
-                          return null;
+
+
+                          return (
+                            <div key={`${message.id}-${i}`} className="py-2">
+                              <TipStaffCard />
+                            </div>
+                          );
+                        }
                         default:
                           return null;
                       }
@@ -480,7 +487,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
               onChange={handleInputChange}
               value={input}
               placeholder="Ask Simon anything"
-              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] rounded-full pl-4 pr-16 pt-4"
+              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] min-h-[50px] pt-3 rounded-full pl-4 pr-16 pt-4"
             />
             <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
               <PromptInputTools>
@@ -662,45 +669,7 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
 
                 {/* Tip Staff Card */}
                 <CarouselItem className="basis-[80%]">
-                  <div className="bg-white border rounded-xl shadow-sm p-1 hover:shadow-md transition-shadow duration-200">
-                    <div className="flex gap-4 items-stretch">
-                    <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
-                        <Image
-                            src={"/staff-team.jpg"}
-                            alt={"Staff Team"}
-                            width={100}
-                            height={100}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                            }}
-                        />
-                    </div>
-
-                      <div className="flex-1 min-w-0 flex flex-col self-stretch">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-semibold text-gray-800 text-lg leading-tight flex-1 min-w-0 truncate text-left">
-                            <span className="mr-0.5">Tip Our Staff</span>
-                          </h3>
-                        </div>
-
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left">
-                          Show appreciation to our amazing team
-                        </p>
-
-                        <div className="flex items-end justify-between gap-3 mt-auto">
-                          <div className="flex gap-2">
-                            <Link
-                              href="/tip-staff?hotelId=1&message=Thank+you+for+choosing+to+show+your+appreciation+to+our+team.+Your+generosity+is+greatly+appreciated%21&return_to=%2F"
-                              className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
-                            >
-                              Tip Staff
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <TipStaffCard />
                 </CarouselItem>
               </CarouselContent>
             </Carousel>
@@ -723,7 +692,7 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
               onChange={(e) => setInput(e.target.value)}
               value={input}
               placeholder="Ask Simon anything"
-              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] rounded-full pl-4 pr-16 pt-4"
+              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] min-h-[50px] pt-3 rounded-full pl-4 pr-16 pt-4"
             />
             <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
               <PromptInputTools>

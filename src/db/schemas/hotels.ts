@@ -4,6 +4,7 @@ import { timestamps } from "../columns.helpers";
 export const hotels = pgTable("hotels", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 64 }).notNull(),
   address: text("address"),
   latitude: decimal("latitude", { precision: 15, scale: 8 }).notNull(),
   longitude: decimal("longitude", { precision: 15, scale: 8 }).notNull(),

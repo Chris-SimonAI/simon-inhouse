@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/carousel";
 import { MapPin, MapPinOff } from "lucide-react";
 import { useEffect, useMemo } from "react";
-import { APIProvider, Map, Marker, useMap } from "@vis.gl/react-google-maps";
+import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
+import { MapPinMarker } from "@/svgs";
 
 interface AttractionsViewProps {
   attractions: PlaceResult[];
@@ -96,6 +97,7 @@ export function AttractionsView({
           <APIProvider apiKey={apiKey}>
             <div className="w-full h-96 rounded-lg shadow overflow-hidden">
               <Map
+                mapId="attractions-map"
                 defaultCenter={defaultCenter}
                 defaultZoom={12}
                 gestureHandling="cooperative"
@@ -106,15 +108,16 @@ export function AttractionsView({
                 zoomControl={false}
               >
                 {validAttractions.map((attraction, idx) => (
-                  <Marker
+                  <AdvancedMarker
                     key={`${attraction.id}-${idx}`}
                     position={{
                       lat: attraction.latitude as number,
                       lng: attraction.longitude as number,
                     }}
-                    label={{ text: `${idx + 1}`, color: "#FFFFFF" }}
                     title={attraction.name}
-                  />
+                  >
+                    <MapPinMarker number={idx + 1} />
+                  </AdvancedMarker>
                 ))}
                 <FitBounds
                   points={validAttractions.map((a) => ({

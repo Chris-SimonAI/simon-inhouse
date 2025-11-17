@@ -11,5 +11,4 @@ export * from "@/db/schemas/menu-groups";
 export * from "@/db/schemas/menu-items";
 export * from "@/db/schemas/modifier-groups";
 export * from "@/db/schemas/modifier-options"; 
-export * from "@/db/schemas/qr-codes";
 export * from "@/db/schemas/auth";

@@ -2,6 +2,8 @@
 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useHotelSlug } from '@/hooks/use-hotel-slug';
+import { hotelPath } from '@/utils/hotel-path';
 
 type CartButtonProps = {
   itemCount: number;
@@ -10,9 +12,14 @@ type CartButtonProps = {
 };
 
 export function CartButton({ itemCount, totalPrice, restaurantGuid }: CartButtonProps) {
+  const slug = useHotelSlug();
+  const href = slug
+    ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/checkout`)
+    : '#';
+
   return (
       <div className="container mx-auto">
-        <Link href={`/dine-in/restaurant/${restaurantGuid}/checkout`}>
+        <Link href={href}>
           <Button 
             size="lg" 
             className="w-full bg-black hover:bg-black text-white rounded-full py-8"

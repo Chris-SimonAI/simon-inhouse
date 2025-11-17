@@ -38,8 +38,6 @@ export default function TipStaffClient({ hotel }: TipStaffClientProps) {
     }
   }, [hotelId, hotel.id, hotel.name]);
 
-  const handleBack = () => window.history.back();
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -52,7 +50,6 @@ export default function TipStaffClient({ hotel }: TipStaffClientProps) {
   return (
     <div className="min-h-screen bg-gray-50 relative overflow-hidden">
       <TipStaffScreen
-        onBack={handleBack}
         dynamicMessage={dynamicMessage || undefined}
         hotelName={hotelName}
         hotelId={hotelId}

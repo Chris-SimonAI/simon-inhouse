@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { type Amenity } from "@/db/schemas/amenities";
 import Link from "next/link";
+import { useHotelSlug } from "@/hooks/use-hotel-slug";
+import { hotelPath } from "@/utils/hotel-path";
 
 interface AmenityCardProps {
     amenity: Amenity;
@@ -18,6 +20,8 @@ export function AmenityCard({
     partIndex,
 }: AmenityCardProps) {
     const primaryImage = amenity.imageUrls?.[0];
+    const slug = useHotelSlug();
+    const href = slug ? hotelPath(slug, `/amenities/${amenity.id}`) : "#";
 
     return (
         <div
@@ -56,8 +60,9 @@ export function AmenityCard({
                     <div className="flex items-end justify-between gap-3 mt-auto">
                         <div className="flex gap-2">
                             <Link
-                                href={`/amenities/${amenity.id}`}
+                                href={href}
                                 className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
+                                aria-disabled={!slug}
                             >
                                 More Info
                             </Link>
