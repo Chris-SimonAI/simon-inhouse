@@ -122,7 +122,8 @@ export async function getThreadMessages(threadId: string): Promise<UIMessage[]> 
       // HUMAN: boundary — flush assistant, push user if non-empty
       if (isHuman) {
         flushAssistant();
-        const id = msg.id as string;
+        const id = msg.id || `user_${nowId()}`;
+   
         const text = String(msg.content ?? '');
         if (text.trim() !== '') {
           messages.push({
@@ -189,6 +190,23 @@ export async function getThreadMessages(threadId: string): Promise<UIMessage[]> 
 
     // flush any trailing assistant parts
     flushAssistant();
+
+    // for each message check that a user message is not followed by another user message
+    // then add a tool message saying generation was stopped
+    if (messages[messages.length - 1]?.role === 'user') {
+      messages.push({
+        id: `assistant_${nowId()}`,
+        role: 'assistant',
+        parts: [{
+          type: 'tool-generation_stopped',
+          toolCallId: `tool_${nowId()}`,
+          state: 'output-available' as const,
+          input: {},
+          output: 'Generation stopped',
+        }],
+        metadata: { agent: 'Concierge' },
+      });
+    }
 
     return messages;
   } catch (error) {

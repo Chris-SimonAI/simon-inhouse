@@ -73,7 +73,7 @@ const suggestions = [
   {
     icon: <AmenitiesLogo className="w-7 h-7" />,
     label: "What hotel amenities do you offer?",
-    action: "What hotel amenities do you offer?"
+    action: "I'd like to know about the hotel's amenities."
   },
   {
     icon: <HistoryLogo className="w-7 h-7" />,
@@ -424,6 +424,13 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                                   {...restaurant}
                                 />
                               ))}
+                            </div>
+                          );
+                        }
+                        case UI_TOOLS.GENERATION_STOPPED: {
+                          return (
+                            <div key={`${message.id}-${i}`}>
+                              <p className="bg-gray-200 text-gray-700 p-3 rounded-md">Generation stopped before completion...</p>
                             </div>
                           );
                         }

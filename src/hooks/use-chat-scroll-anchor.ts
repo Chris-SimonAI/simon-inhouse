@@ -161,13 +161,13 @@ export function useChatScrollAnchor({
     const container = scrollElementRef.current;
 
     if (!container) {
-            return null;
+      return null;
     }
 
     const messageEls = container.querySelectorAll<HTMLElement>("[data-message-id]");
 
     if (!messageEls.length) {
-            return null;
+      return null;
     }
 
     const containerRect = container.getBoundingClientRect();
@@ -186,13 +186,13 @@ export function useChatScrollAnchor({
     }
 
     if (!anchorEl) {
-            return null;
+      return null;
     }
 
     const anchorId = anchorEl.dataset.messageId;
 
     if (!anchorId) {
-            return null;
+      return null;
     }
 
     const anchorRect = anchorEl.getBoundingClientRect();
@@ -211,54 +211,54 @@ export function useChatScrollAnchor({
       index,
     };
 
-        return anchor;
+    return anchor;
   }, []);
 
   const saveAnchor = useCallback(() => {
     if (pendingRestoreRef.current) {
-            return;
+      return;
     }
 
     const anchor = computeAnchor();
 
     if (!anchor) {
-            return;
+      return;
     }
 
     anchorDataRef.current = anchor;
 
     if (!hasRestoredRef.current) {
-            return;
+      return;
     }
 
     writeStoredAnchor(storageKey, anchor);
-      }, [computeAnchor, storageKey]);
+  }, [computeAnchor, storageKey]);
 
   const attemptRestore = useCallback(() => {
     if (!isActive) {
-            return false;
+      return false;
     }
 
     const container = scrollElementRef.current;
 
     if (!container) {
-            return false;
+      return false;
     }
 
     if (anchorDataRef.current === null) {
       anchorDataRef.current = readStoredAnchor(storageKey);
-          }
+    }
 
     const stored = anchorDataRef.current;
 
     if (!stored) {
-            return true;
+      return true;
     }
 
     const list = messagesRef.current;
 
     if (!list.length) {
-            return false;
+      return false;
     }
 
     const candidateIds: string[] = [];
@@ -303,7 +303,7 @@ export function useChatScrollAnchor({
     }
 
     if (!anchorEl || !resolvedId) {
-            return false;
+      return false;
     }
 
     const containerRect = container.getBoundingClientRect();
@@ -324,7 +324,7 @@ export function useChatScrollAnchor({
 
     if (Math.abs(delta) > 0.5) {
       container.scrollTop = targetScrollTop;
-          }
+    }
 
     const afterRect = anchorEl.getBoundingClientRect();
     const updatedAnchorOffset = afterRect.top - containerRect.top + container.scrollTop;
@@ -350,7 +350,7 @@ export function useChatScrollAnchor({
       };
     }
 
-        return withinTolerance;
+    return withinTolerance;
   }, [isActive, storageKey]);
 
   const runRestore = useCallback(() => {
@@ -358,34 +358,34 @@ export function useChatScrollAnchor({
 
     if (!pendingRestoreRef.current) {
       if (hasRestoredRef.current) {
-                return;
+        return;
       }
 
-            pendingRestoreRef.current = true;
+      pendingRestoreRef.current = true;
       restoreAttemptsRef.current = 0;
     }
 
-        const success = attemptRestore();
+    const success = attemptRestore();
 
     if (success) {
       pendingRestoreRef.current = false;
       hasRestoredRef.current = true;
       saveAnchor();
-            return;
+      return;
     }
 
     restoreAttemptsRef.current += 1;
 
     if (restoreAttemptsRef.current >= MAX_RESTORE_ATTEMPTS) {
       pendingRestoreRef.current = false;
-            return;
+      return;
     }
 
     restoreRafRef.current = window.requestAnimationFrame(runRestore);
-      }, [attemptRestore, saveAnchor]);
+  }, [attemptRestore, saveAnchor]);
 
   const restoreScroll = useCallback(() => {
-        pendingRestoreRef.current = true;
+    pendingRestoreRef.current = true;
     restoreAttemptsRef.current = 0;
     hasRestoredRef.current = false;
 
@@ -395,28 +395,28 @@ export function useChatScrollAnchor({
     }
 
     if (!scrollElementRef.current) {
-            return;
+      return;
     }
 
     restoreRafRef.current = window.requestAnimationFrame(runRestore);
-      }, [runRestore]);
+  }, [runRestore]);
 
   const handleScroll = useCallback(() => {
     hasRestoredRef.current = true;
 
     if (scrollRafRef.current !== null) {
-            return;
+      return;
     }
 
     scrollRafRef.current = window.requestAnimationFrame(() => {
       scrollRafRef.current = null;
       saveAnchor();
-          });
+    });
   }, [saveAnchor]);
 
   const attachScrollEl = useCallback(
     (el: HTMLElement | null) => {
-            if (scrollElementRef.current && scrollElementRef.current !== el) {
+      if (scrollElementRef.current && scrollElementRef.current !== el) {
         saveAnchor();
       }
 
@@ -426,7 +426,7 @@ export function useChatScrollAnchor({
       scrollElementRef.current = el;
 
       if (!el) {
-                return;
+        return;
       }
 
       const onScroll = () => {
@@ -442,7 +442,7 @@ export function useChatScrollAnchor({
           if (!pendingRestoreRef.current) {
             saveAnchor();
           }
-                  });
+        });
         resizeObserver.observe(el);
       }
 
@@ -452,11 +452,11 @@ export function useChatScrollAnchor({
         }
 
         el.removeEventListener("scroll", onScroll);
-              };
+      };
 
       if (!isActive) {
         hasRestoredRef.current = false;
-                return;
+        return;
       }
 
       if (pendingRestoreRef.current) {
@@ -464,29 +464,29 @@ export function useChatScrollAnchor({
           cancelAnimationFrame(restoreRafRef.current);
         }
         restoreRafRef.current = window.requestAnimationFrame(runRestore);
-              } else if (!hasRestoredRef.current && anchorDataRef.current !== null) {
+      } else if (!hasRestoredRef.current && anchorDataRef.current !== null) {
         pendingRestoreRef.current = true;
         restoreAttemptsRef.current = 0;
         if (restoreRafRef.current !== null) {
           cancelAnimationFrame(restoreRafRef.current);
         }
         restoreRafRef.current = window.requestAnimationFrame(runRestore);
-              }
+      }
     },
     [handleScroll, isActive, runRestore, saveAnchor]
   );
 
   useLayoutEffect(() => {
     if (!scrollElementRef.current || pendingRestoreRef.current) {
-            return;
+      return;
     }
 
     if (!messages.length) {
-            return;
+      return;
     }
 
     saveAnchor();
-      }, [messages, saveAnchor]);
+  }, [messages, saveAnchor]);
 
   return { attachScrollEl, restoreScroll };
 }
