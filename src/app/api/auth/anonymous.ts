@@ -46,9 +46,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/hotel-not-found", url));
   }
 
-  const redirectResponse = NextResponse.redirect(
-    new URL(redirectTo, url.origin),
-  );
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL as string;
+  
+  const redirectUrl = new URL(redirectTo, baseUrl);
+
+  // TODO: Remove this
+  console.log("baseUrl from api/auth/anonymous", baseUrl);
+  console.log("redirectUrl from api/auth/anonymous", redirectUrl);
+
+  const redirectResponse = NextResponse.redirect(redirectUrl);
 
   const setCookies = authResponse.headers.getSetCookie?.() ?? [];
   for (const cookie of setCookies) {
