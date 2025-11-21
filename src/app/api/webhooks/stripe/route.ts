@@ -4,7 +4,7 @@ import 'server-only';
 export const runtime = 'nodejs';
 
 import { db } from '@/db';
-import { dineInOrderItems, dineInOrders, dineInPayments, dineInRestaurants, hotels } from '@/db/schemas';
+import { dineInOrderItems, dineInOrders, dineInPayments, dineInRestaurants, hotels, tips } from '@/db/schemas';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { createError } from '@/lib/utils';
@@ -224,7 +224,30 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   try {
     console.log('Processing payment_intent.succeeded (captured):', paymentIntent.id);
-    
+    const metaType = (paymentIntent.metadata as Record<string, string> | undefined)?.type;
+    if (metaType === 'tip') {
+      const tipIdMeta = (paymentIntent.metadata as Record<string, string> | undefined)?.tipId;
+      if (tipIdMeta) {
+        const tipIdNum = parseInt(tipIdMeta, 10);
+        if (!Number.isNaN(tipIdNum)) {
+          await db.update(tips)
+            .set({
+              paymentStatus: 'completed',
+              transactionId: paymentIntent.id,
+              updatedAt: new Date(),
+              metadata: {
+                ...(paymentIntent.metadata || {}),
+                chargeId: paymentIntent.latest_charge,
+                stripeStatus: paymentIntent.status,
+              } as unknown as Record<string, unknown>,
+            })
+            .where(eq(tips.id, tipIdNum));
+          console.log('Tip marked as completed:', tipIdNum);
+        }
+      }
+      return;
+    }
+
     const orderId = paymentIntent.metadata.orderId;
     if (!orderId) {
       console.error('No orderId in payment intent metadata');
@@ -299,7 +322,30 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
     console.log('Processing payment_intent.payment_failed:', paymentIntent.id);
-    
+    const metaType = (paymentIntent.metadata as Record<string, string> | undefined)?.type;
+    if (metaType === 'tip') {
+      const tipIdMeta = (paymentIntent.metadata as Record<string, string> | undefined)?.tipId;
+      if (tipIdMeta) {
+        const tipIdNum = parseInt(tipIdMeta, 10);
+        if (!Number.isNaN(tipIdNum)) {
+          await db.update(tips)
+            .set({
+              paymentStatus: 'failed',
+              transactionId: paymentIntent.id,
+              updatedAt: new Date(),
+              metadata: {
+                ...(paymentIntent.metadata || {}),
+                last_payment_error: paymentIntent.last_payment_error,
+                stripeStatus: paymentIntent.status,
+              } as unknown as Record<string, unknown>,
+            })
+            .where(eq(tips.id, tipIdNum));
+          console.log('Tip marked as failed:', tipIdNum);
+        }
+      }
+      return;
+    }
+
     const orderId = paymentIntent.metadata.orderId;
     if (!orderId) {
       console.error('No orderId in payment intent metadata');

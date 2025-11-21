@@ -13,6 +13,8 @@ import {
 import { type Tip } from '@/db/schemas/tips';
 import { CreateSuccess, CreateError } from '@/types/response';
 import { createSuccess, createError } from '@/lib/utils';
+import { z } from 'zod';
+import { stripe as stripeServer } from '@/lib/stripe';
 
 // Create a new tip
 export async function createTip(
@@ -42,6 +44,80 @@ export async function createTip(
     return createError(
       error instanceof Error ? error.message : 'Failed to create tip'
     );
+  }
+}
+
+// --- Stripe Tip Payments ---
+
+const CreateTipPaymentIntentSchema = z.object({
+  tipId: z.number().int().positive(),
+});
+
+export async function createTipPaymentIntent(
+  input: unknown
+): Promise<CreateSuccess<{ clientSecret: string | null; paymentIntentId: string }> | CreateError> {
+  try {
+    const { tipId } = CreateTipPaymentIntentSchema.parse(input);
+
+    const tipResult = await getTipById(tipId);
+    if (!tipResult.ok || !tipResult.data) {
+      return createError('Tip not found');
+    }
+
+    const tip = tipResult.data;
+    if (tip.paymentStatus !== 'pending') {
+      return createError('Tip is not in a pending state');
+    }
+
+    const amountNumber = Number.parseFloat(String(tip.amount));
+    if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+      return createError('Invalid tip amount');
+    }
+
+    const pi = await stripeServer.paymentIntents.create({
+      amount: Math.round(amountNumber * 100),
+      currency: (tip.currency || 'usd').toLowerCase(),
+      automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+      capture_method: 'automatic',
+      metadata: {
+        tipId: String(tip.id),
+        hotelId: String(tip.hotelId),
+        type: 'tip',
+      },
+    });
+
+    return createSuccess({
+      clientSecret: pi.client_secret,
+      paymentIntentId: pi.id,
+    });
+  } catch (error) {
+    console.error('Error creating tip payment intent:', error);
+    return createError('Failed to create tip payment intent');
+  }
+}
+
+const ConfirmTipPaymentSchema = z.object({
+  paymentIntentId: z.string().min(1),
+  paymentMethodId: z.string().min(1),
+});
+
+export async function confirmTipPayment(
+  input: unknown
+): Promise<CreateSuccess<{ paymentIntentId: string; status: string }> | CreateError> {
+  try {
+    const { paymentIntentId, paymentMethodId } = ConfirmTipPaymentSchema.parse(input);
+
+    const confirmed = await stripeServer.paymentIntents.confirm(paymentIntentId, {
+      payment_method: paymentMethodId,
+    });
+
+    return createSuccess({
+      paymentIntentId: confirmed.id,
+      status: confirmed.status,
+    });
+  } catch (error) {
+    console.error('Error confirming tip payment:', error);
+    return createError('Failed to confirm tip payment');
   }
 }
 
