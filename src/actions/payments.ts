@@ -104,12 +104,12 @@ export async function createOrderAndPaymentIntent(input: unknown) {
               fullName: validatedInput.fullName,
               email: validatedInput.email,
               phoneNumber: validatedInput.phoneNumber,
-              subtotal: validatedInput.subtotal.toFixed(2),
-              discount: validatedInput.discount.toFixed(2),
-              discountPercentage: validatedInput.discountPercentage.toString(),
-              tax: validatedInput.tax.toFixed(2),
-              tip: validatedInput.tip.toFixed(2),
-              total: validatedInput.total.toFixed(2),
+              subtotal: validatedInput.subtotal,
+              discount: validatedInput.discount,
+              discountPercentage: validatedInput.discountPercentage,
+              tax: validatedInput.tax,
+              tip: validatedInput.tip,
+              total: validatedInput.total,
             },
           });
     console.log('Stripe payment intent created:', {
