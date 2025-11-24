@@ -261,12 +261,12 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         email: email,
         phoneNumber: phoneNumber,
         items: orderItems,
-        subtotal: paymentDetails.subtotal || 0,
-        discount: paymentDetails.discount || 0,
-        discountPercentage: paymentDetails.discountPercentage || 0,
-        tax: paymentDetails.tax || 0,
-        tip: paymentDetails.tip || 0,
-        total: paymentDetails.total || 0,
+        subtotal: paymentDetails.subtotal,
+        discount: paymentDetails.discount,
+        discountPercentage: paymentDetails.discountPercentage,
+        tax: paymentDetails.tax,
+        tip: paymentDetails.tip,
+        total: paymentDetails.total,
       });
 
       if (!orderResult.ok) {
