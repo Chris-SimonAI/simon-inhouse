@@ -28,7 +28,7 @@ export async function createOrderAndPaymentIntent(input: unknown) {
       })
     );
 
-    const totalAmount = itemsWithDatabaseIds.reduce((sum, item) => sum + parseFloat(item.unitPrice) * item.quantity, 0);
+    const totalAmount = validatedInput.total;
 
     const orderResult = await db.insert(dineInOrders).values({
       hotelId: validatedInput.hotelId,
@@ -42,6 +42,14 @@ export async function createOrderAndPaymentIntent(input: unknown) {
         fullName: validatedInput.fullName,
         email: validatedInput.email,
         phoneNumber: validatedInput.phoneNumber,
+        paymentBreakdown: {
+          subtotal: validatedInput.subtotal,
+          discount: validatedInput.discount,
+          discountPercentage: validatedInput.discountPercentage,
+          tax: validatedInput.tax,
+          tip: validatedInput.tip,
+          total: validatedInput.total,
+        },
       } as Record<string, unknown>,
     }).returning();
 
@@ -96,6 +104,12 @@ export async function createOrderAndPaymentIntent(input: unknown) {
               fullName: validatedInput.fullName,
               email: validatedInput.email,
               phoneNumber: validatedInput.phoneNumber,
+              subtotal: validatedInput.subtotal.toFixed(2),
+              discount: validatedInput.discount.toFixed(2),
+              discountPercentage: validatedInput.discountPercentage.toString(),
+              tax: validatedInput.tax.toFixed(2),
+              tip: validatedInput.tip.toFixed(2),
+              total: validatedInput.total.toFixed(2),
             },
           });
     console.log('Stripe payment intent created:', {

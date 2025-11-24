@@ -260,7 +260,13 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         specialInstructions: "Please deliver to room",
         email: email,
         phoneNumber: phoneNumber,
-        items: orderItems
+        items: orderItems,
+        subtotal: paymentDetails.subtotal || 0,
+        discount: paymentDetails.discount || 0,
+        discountPercentage: paymentDetails.discountPercentage || 0,
+        tax: paymentDetails.tax || 0,
+        tip: paymentDetails.tip || 0,
+        total: paymentDetails.total || 0,
       });
 
       if (!orderResult.ok) {
@@ -313,8 +319,10 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       paymentDetails.phoneNumber = phoneNumber;
       localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
       
-      // Clear cart
+      // Clear cart and tip selection on successful payment
       localStorage.removeItem(`cart-${restaurantGuid}`);
+      localStorage.removeItem(`tip-selection-${restaurantGuid}`);
+      localStorage.removeItem(`payment-session-${restaurantGuid}`);
       
       // Note: Order is still 'pending' until webhook confirms payment
       const successPath = slug

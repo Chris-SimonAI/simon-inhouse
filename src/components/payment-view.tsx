@@ -53,6 +53,19 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
         setDiscountPercentage(discountValue);
       }
     }
+
+    // Restore saved tip selection
+    const savedTipSelection = localStorage.getItem(`tip-selection-${restaurantGuid}`);
+    if (savedTipSelection) {
+      try {
+        const tipData = JSON.parse(savedTipSelection);
+        if (tipData.selectedTip !== undefined) {
+          setSelectedTip(tipData.selectedTip);
+        }
+      } catch (error) {
+        console.error('Error loading tip selection:', error);
+      }
+    }
   }, [restaurantGuid]);
 
   const getSubtotal = () => {
@@ -101,6 +114,11 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
       setShowCustomTipInput(false);
       setCustomTipAmount("");
     }
+
+    // Save tip selection to localStorage for persistence (excluding custom tip amount)
+    localStorage.setItem(`tip-selection-${restaurantGuid}`, JSON.stringify({
+      selectedTip: tip,
+    }));
   };
 
   const buildRestaurantPath = (suffix: string) => {

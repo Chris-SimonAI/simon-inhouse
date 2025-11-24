@@ -42,6 +42,12 @@ export const CreateOrderRequestSchema = z.object({
   email: z.string().email({ message: 'Valid email is required' }),
   phoneNumber: z.string().min(7, { message: 'Phone number is required' }).max(20),
   items: z.array(orderItemSchema).min(1, 'At least one item is required'),
+  subtotal: z.number().nonnegative(),
+  discount: z.number().nonnegative().default(0),
+  discountPercentage: z.number().int().min(0).max(100).default(0),
+  tax: z.number().nonnegative(),
+  tip: z.number().nonnegative().default(0),
+  total: z.number().positive(),
 });
 
 // Update order status request schema
