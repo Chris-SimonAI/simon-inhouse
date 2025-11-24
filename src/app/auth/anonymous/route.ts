@@ -45,10 +45,15 @@ export async function GET(request: NextRequest) {
   if (!initialiseResult.ok || !initialiseResult.data) {
     return NextResponse.redirect(new URL("/hotel-not-found", url));
   }
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL as string;
 
-  const redirectResponse = NextResponse.redirect(
-    new URL(redirectTo, url.origin),
-  );
+  const redirectUrl = new URL(redirectTo, baseUrl);
+
+  // TODO: Remove this
+  console.log("redirectUrl from auth/anonymous/route", redirectUrl);
+  console.log("baseUrl from auth/anonymous/route", baseUrl);
+
+  const redirectResponse = NextResponse.redirect(redirectUrl);
 
   const setCookies = authResponse.headers.getSetCookie?.() ?? [];
   for (const cookie of setCookies) {
