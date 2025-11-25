@@ -1,1 +1,0 @@
-export const DEFAULT_HOTEL_ID = 1;
