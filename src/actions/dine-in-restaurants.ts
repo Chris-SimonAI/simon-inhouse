@@ -1,6 +1,6 @@
 'use server';
 
-import { DineInRestaurant, dineInRestaurants } from "@/db/schemas"; 
+import { type DineInRestaurant, dineInRestaurants } from "@/db/schemas"; 
 import { db } from "@/db";
 import { eq, and } from "drizzle-orm";
 import { createError, createSuccess } from "@/lib/utils";
@@ -49,4 +49,41 @@ export async function getDineInRestaurantByGuid(guid: string): Promise<CreateSuc
     console.error("Error in getDineInRestaurantByGuid:", error); 
     return createError("Failed to find restaurant by guid");
   }
-}   
+}
+
+/**
+ * Restaurant fees response type
+ */
+export type RestaurantFees = {
+  deliveryFee: number;
+  serviceFeePercent: number;
+};
+
+/**
+ * Get restaurant fees (delivery fee and service fee percent) for display purposes
+ * These are used by the UI to show fee line items in checkout
+ */
+export async function getRestaurantFees(restaurantGuid: string): Promise<CreateSuccess<RestaurantFees> | CreateError<string[]>> {
+  try {
+    const result = await db
+      .select({
+        deliveryFee: dineInRestaurants.deliveryFee,
+        serviceFeePercent: dineInRestaurants.serviceFeePercent,
+      })
+      .from(dineInRestaurants)
+      .where(eq(dineInRestaurants.restaurantGuid, restaurantGuid))
+      .limit(1);
+
+    if (result.length === 0) {
+      return createError("Restaurant not found");
+    }
+
+    return createSuccess({
+      deliveryFee: parseFloat(result[0].deliveryFee),
+      serviceFeePercent: parseFloat(result[0].serviceFeePercent),
+    });
+  } catch (error) {
+    console.error("Error in getRestaurantFees:", error);
+    return createError("Failed to get restaurant fees");
+  }
+}

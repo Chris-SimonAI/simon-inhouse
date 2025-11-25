@@ -1,6 +1,6 @@
 {
-  "id": "730ea6f5-68e7-4411-8c20-64b4bb4d61b4",
-  "prevId": "38398782-6082-46d9-9d28-99249fa8d157",
+  "id": "14babcb7-5843-4456-a39b-1ed2bb4f9f39",
+  "prevId": "d88e1c37-996f-4656-af20-c2400b798dec",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -896,6 +896,20 @@
           "notNull": true,
           "default": "'pending'"
         },
+        "delivery_fee": {
+          "name": "delivery_fee",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'5.00'"
+        },
+        "service_fee_percent": {
+          "name": "service_fee_percent",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'20.00'"
+        },
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
@@ -985,6 +999,95 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.hotel_dining_discounts": {
+      "name": "hotel_dining_discounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "hotel_id": {
+          "name": "hotel_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "discount_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'requested'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "hotel_user_discount_idx": {
+          "name": "hotel_user_discount_idx",
+          "columns": [
+            {
+              "expression": "hotel_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "hotel_dining_discounts_hotel_id_hotels_id_fk": {
+          "name": "hotel_dining_discounts_hotel_id_hotels_id_fk",
+          "tableFrom": "hotel_dining_discounts",
+          "tableTo": "hotels",
+          "columnsFrom": [
+            "hotel_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.hotels": {
       "name": "hotels",
       "schema": "",
@@ -1030,6 +1133,13 @@
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
+        },
+        "restaurant_discount": {
+          "name": "restaurant_discount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 20
         },
         "metadata": {
           "name": "metadata",
@@ -1097,7 +1207,8 @@
         },
         "payment_status": {
           "name": "payment_status",
-          "type": "varchar(20)",
+          "type": "tip_payment_status",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
@@ -2024,6 +2135,23 @@
         "succeeded",
         "failed",
         "cancelled"
+      ]
+    },
+    "public.discount_status": {
+      "name": "discount_status",
+      "schema": "public",
+      "values": [
+        "requested",
+        "redeemed"
+      ]
+    },
+    "public.tip_payment_status": {
+      "name": "tip_payment_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "completed",
+        "failed"
       ]
     },
     "public.menu_status": {

@@ -24,6 +24,8 @@ export const dineInRestaurants = pgTable("dine_in_restaurants", {
   country: text("country"),
   phoneNumber: text("phone_number"),
   status: menuStatusEnum("status").default("pending").notNull(),
+  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).notNull().default("5.00"),
+  serviceFeePercent: decimal("service_fee_percent", { precision: 5, scale: 2 }).notNull().default("20.00"),
   metadata: jsonb("metadata"),
   ...timestamps,
 }, (table) => [
