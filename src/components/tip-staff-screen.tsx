@@ -6,7 +6,6 @@ import { ArrowLeft, CreditCard, Delete, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createTip } from "@/actions/tips";
-import { DEFAULT_HOTEL_ID } from "@/constants";
 import Image from "next/image";
 import { useHotelSlug } from "@/hooks/use-hotel-slug";
 import { hotelPath } from "@/utils/hotel-path";
@@ -83,13 +82,13 @@ export function TipStaffScreen({ initialAmount, dynamicMessage, hotelName, hotel
   };
 
   const handlePayment = async () => {
-    if (isProcessing || selectedAmount <= 0) return;
+    if (isProcessing || selectedAmount <= 0 || !hotelId) return;
     
     setIsProcessing(true);
     
     try {
       const tipData = {
-        hotelId: hotelId || DEFAULT_HOTEL_ID,
+        hotelId: hotelId,
         amount: selectedAmount.toString(),
         currency: "USD",
         paymentMethod: "credit_card" as const,
