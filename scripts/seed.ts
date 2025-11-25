@@ -68,6 +68,7 @@ export const DEMO_HOTEL = {
   address: "2210 Broadway, Santa Monica CA 90404, USA",
   latitude: "34.029117",
   longitude: "-118.476193",
+  restaurantDiscount: 20.0,
   metadata: {
     rooms_total: 122,
     pet_friendly: true,
@@ -679,8 +680,8 @@ async function main() {
 
   // Insert hotel using direct SQL
   const insertedHotel = await db.execute(sql`
-    INSERT INTO hotels (name, slug, address, latitude, longitude, metadata, created_at, updated_at)
-    VALUES (${DEMO_HOTEL.name}, ${DEMO_HOTEL.slug}, ${DEMO_HOTEL.address}, ${DEMO_HOTEL.latitude}, ${DEMO_HOTEL.longitude}, ${JSON.stringify(DEMO_HOTEL.metadata)}, NOW(), NOW())
+    INSERT INTO hotels (name, slug, address, latitude, longitude, restaurant_discount, metadata, created_at, updated_at)
+    VALUES (${DEMO_HOTEL.name}, ${DEMO_HOTEL.slug}, ${DEMO_HOTEL.address}, ${DEMO_HOTEL.latitude}, ${DEMO_HOTEL.longitude}, ${DEMO_HOTEL.restaurantDiscount}, ${JSON.stringify(DEMO_HOTEL.metadata)}, NOW(), NOW())
     RETURNING id
   `);
   const hotelId = insertedHotel.rows[0].id;

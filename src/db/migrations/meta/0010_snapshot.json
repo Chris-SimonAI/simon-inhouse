@@ -1,5 +1,5 @@
 {
-  "id": "730ea6f5-68e7-4411-8c20-64b4bb4d61b4",
+  "id": "73aa35ae-b7f1-4b85-bb22-dc5fc0c84695",
   "prevId": "38398782-6082-46d9-9d28-99249fa8d157",
   "version": "7",
   "dialect": "postgresql",
@@ -888,14 +888,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "status": {
-          "name": "status",
-          "type": "menu_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
@@ -947,21 +939,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "dine_in_restaurants_status_index": {
-          "name": "dine_in_restaurants_status_index",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -976,6 +953,95 @@
             "id"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.hotel_dining_discounts": {
+      "name": "hotel_dining_discounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "hotel_id": {
+          "name": "hotel_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "discount_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'requested'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "hotel_user_discount_idx": {
+          "name": "hotel_user_discount_idx",
+          "columns": [
+            {
+              "expression": "hotel_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "hotel_dining_discounts_hotel_id_hotels_id_fk": {
+          "name": "hotel_dining_discounts_hotel_id_hotels_id_fk",
+          "tableFrom": "hotel_dining_discounts",
+          "tableTo": "hotels",
+          "columnsFrom": [
+            "hotel_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -1030,6 +1096,13 @@
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
+        },
+        "restaurant_discount": {
+          "name": "restaurant_discount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 20
         },
         "metadata": {
           "name": "metadata",
@@ -1222,21 +1295,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "status": {
-          "name": "status",
-          "type": "menu_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
@@ -1285,52 +1343,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "menus_status_index": {
-          "name": "menus_status_index",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "menus_version_index": {
-          "name": "menus_version_index",
-          "columns": [
-            {
-              "expression": "version",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "menus_one_approved_per_restaurant": {
-          "name": "menus_one_approved_per_restaurant",
-          "columns": [
-            {
-              "expression": "restaurant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"menus\".\"status\" = 'approved'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1405,14 +1417,6 @@
           "notNull": false,
           "default": 0
         },
-        "status": {
-          "name": "status",
-          "type": "menu_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
@@ -1455,21 +1459,6 @@
           "columns": [
             {
               "expression": "menu_group_guid",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "menu_groups_status_index": {
-          "name": "menu_groups_status_index",
-          "columns": [
-            {
-              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1542,12 +1531,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "original_price": {
-          "name": "original_price",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
         "calories": {
           "name": "calories",
           "type": "integer",
@@ -1578,14 +1561,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "menu_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
         },
         "metadata": {
           "name": "metadata",
@@ -1629,21 +1604,6 @@
           "columns": [
             {
               "expression": "menu_item_guid",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "menu_items_status_index": {
-          "name": "menu_items_status_index",
-          "columns": [
-            {
-              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1740,14 +1700,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "status": {
-          "name": "status",
-          "type": "menu_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
@@ -1790,21 +1742,6 @@
           "columns": [
             {
               "expression": "modifier_group_guid",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "modifier_groups_status_index": {
-          "name": "modifier_groups_status_index",
-          "columns": [
-            {
-              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1877,12 +1814,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "original_price": {
-          "name": "original_price",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
         "calories": {
           "name": "calories",
           "type": "integer",
@@ -1900,14 +1831,6 @@
           "type": "integer[]",
           "primaryKey": false,
           "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "menu_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
         },
         "metadata": {
           "name": "metadata",
@@ -1951,21 +1874,6 @@
           "columns": [
             {
               "expression": "modifier_option_guid",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "modifier_options_status_index": {
-          "name": "modifier_options_status_index",
-          "columns": [
-            {
-              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2026,13 +1934,12 @@
         "cancelled"
       ]
     },
-    "public.menu_status": {
-      "name": "menu_status",
+    "public.discount_status": {
+      "name": "discount_status",
       "schema": "public",
       "values": [
-        "pending",
-        "approved",
-        "archived"
+        "requested",
+        "redeemed"
       ]
     }
   },

@@ -12,12 +12,13 @@ import { hotelPath } from "@/utils/hotel-path";
 
 type PaymentViewProps = {
   restaurantGuid: string;
+  initialDiscountPercentage: number;
 };
 
 type PaymentMethod = "card" | "delivery";
 type TipOption = 18 | 20 | 25 | 0 | "custom";
 
-export function PaymentView({ restaurantGuid }: PaymentViewProps) {
+export function PaymentView({ restaurantGuid, initialDiscountPercentage }: PaymentViewProps) {
   const router = useRouter();
   const slug = useHotelSlug();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -26,7 +27,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
   const [customTipAmount, setCustomTipAmount] = useState<string>("");
   const [showCustomTipInput, setShowCustomTipInput] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [discountPercentage, setDiscountPercentage] = useState<number>(0);
+  const discountPercentage = initialDiscountPercentage;
 
   useEffect(() => {
     const savedCart = localStorage.getItem(`cart-${restaurantGuid}`);
@@ -38,19 +39,6 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
         console.error('Error parsing cart:', error);
         localStorage.removeItem(`cart-${restaurantGuid}`);
         setCart([]);
-      }
-    }
-
-    // Check for dining discount cookie
-    const cookies = document.cookie.split(';');
-    const discountCookie = cookies.find(cookie => 
-      cookie.trim().startsWith('dining_discount=')
-    );
-    
-    if (discountCookie) {
-      const discountValue = parseInt(discountCookie.split('=')[1]);
-      if (!Number.isNaN(discountValue) && discountValue > 0) {
-        setDiscountPercentage(discountValue);
       }
     }
 
@@ -154,7 +142,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
         cart: cart,
         timestamp: Date.now(),
         status: 'pending', // pending, processing, completed, failed
-        attempts: 0
+        attempts: 0,
       };
       
       localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentData));

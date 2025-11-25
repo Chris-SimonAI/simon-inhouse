@@ -11,31 +11,19 @@ import { hotelPath } from '@/utils/hotel-path';
 
 type CheckoutViewProps = {
   restaurantGuid: string;
+  initialDiscountPercentage: number;
 };
 
-export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
+export function CheckoutView({ restaurantGuid, initialDiscountPercentage }: CheckoutViewProps) {
   const router = useRouter();
   const slug = useHotelSlug();
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [discountPercentage, setDiscountPercentage] = useState<number>(0);
+  const discountPercentage = initialDiscountPercentage;
 
   useEffect(() => {
     const savedCart = localStorage.getItem(`cart-${restaurantGuid}`);
     if (savedCart) {
       setCart(JSON.parse(savedCart));
-    }
-
-    // Check for dining discount cookie
-    const cookies = document.cookie.split(';');
-    const discountCookie = cookies.find(cookie => 
-      cookie.trim().startsWith('dining_discount=')
-    );
-    
-    if (discountCookie) {
-      const discountValue = parseInt(discountCookie.split('=')[1]);
-      if (!Number.isNaN(discountValue) && discountValue > 0) {
-        setDiscountPercentage(discountValue);
-      }
     }
   }, [restaurantGuid]);
 

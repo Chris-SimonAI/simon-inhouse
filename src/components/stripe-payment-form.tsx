@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { createOrderAndPaymentIntent, confirmPayment } from '@/actions/payments';
 import { getDineInRestaurantByGuid } from '@/actions/dine-in-restaurants';
+import { redeemDiscount } from '@/actions/dining-discounts';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { stripePublishableKey } from '@/lib/stripe-client';
@@ -319,7 +320,12 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       paymentDetails.phoneNumber = phoneNumber;
       localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
       
-      // Clear cart and tip selection on successful payment
+      // 5. Redeem discount if one was applied (uses session internally)
+      if (paymentDetails.discountPercentage > 0) {
+        await redeemDiscount();
+      }
+      
+      // Clear cart
       localStorage.removeItem(`cart-${restaurantGuid}`);
       localStorage.removeItem(`tip-selection-${restaurantGuid}`);
       localStorage.removeItem(`payment-session-${restaurantGuid}`);
