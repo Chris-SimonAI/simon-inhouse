@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bulkUpdateEntities, type EntityType } from "@/actions/menu";
 import { createError } from "@/lib/utils";
+import { validateApiKey } from "@/utils/api-key-validation";
 
 type RouteParams = {
   params: Promise<{
@@ -13,6 +14,11 @@ export async function POST(
   { params }: RouteParams
 ) {
   try {
+    // API key guard
+    if (!validateApiKey(request.headers.get("x-api-key") || "")) {
+      return NextResponse.json(createError("UNAUTHORIZED"), { status: 401 });
+    }
+
     const { restaurantId } = await params;
     const restaurantIdNum = parseInt(restaurantId, 10);
 

@@ -5,10 +5,16 @@ import { db } from "@/db";
 import { eq, and } from "drizzle-orm";
 import { createError, createSuccess } from "@/lib/utils";
 import { CreateError, CreateSuccess } from "@/types/response";
+import { getHotelSession } from "@/actions/sessions";
 
 
-export async function getDineInRestaurantsByHotelId(hotelId: number): Promise<CreateSuccess<DineInRestaurant[]> | CreateError<string[]>> {
+export async function getDineInRestaurantsByHotelId(): Promise<CreateSuccess<DineInRestaurant[]> | CreateError<string[]>> {
   try {
+    const sessionResult = await getHotelSession();
+    if (!sessionResult.ok || !sessionResult.data) {
+      return createError("No active hotel session");
+    }
+    const hotelId = sessionResult.data.hotelId;
     const restaurantsList = await db
       .select()
       .from(dineInRestaurants)

@@ -1,5 +1,5 @@
 {
-  "id": "1c392481-8df6-403d-8e38-bb0eed8ff778",
+  "id": "730ea6f5-68e7-4411-8c20-64b4bb4d61b4",
   "prevId": "38398782-6082-46d9-9d28-99249fa8d157",
   "version": "7",
   "dialect": "postgresql",
@@ -1237,12 +1237,6 @@
           "notNull": true,
           "default": 1
         },
-        "approved_at": {
-          "name": "approved_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
@@ -1321,6 +1315,22 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "menus_one_approved_per_restaurant": {
+          "name": "menus_one_approved_per_restaurant",
+          "columns": [
+            {
+              "expression": "restaurant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"menus\".\"status\" = 'approved'",
           "concurrently": false,
           "method": "btree",
           "with": {}

@@ -486,8 +486,8 @@ async function insertedMenu(
   modifierOptions: typeof DEMO_MODIFIER_OPTIONS
 ) {
   const insertedMenu = await db.execute(sql`
-    INSERT INTO menus (restaurant_id, menu_guid, name, description, metadata, status, version, approved_at, created_at, updated_at)
-    VALUES (${restaurantId}, ${menuData.menuGuid}, ${menuData.name}, ${menuData.description}, ${JSON.stringify(menuData.metadata)}, 'approved', 1, NOW(), NOW(), NOW())
+    INSERT INTO menus (restaurant_id, menu_guid, name, description, metadata, status, version, created_at, updated_at)
+    VALUES (${restaurantId}, ${menuData.menuGuid}, ${menuData.name}, ${menuData.description}, ${JSON.stringify(menuData.metadata)}, 'approved', 1, NOW(), NOW())
     RETURNING id
   `);
   const menuId = insertedMenu.rows[0].id;

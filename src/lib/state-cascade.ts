@@ -1,22 +1,16 @@
 import { db } from "@/db";
 import { menus, menuGroups, menuItems, modifierGroups, modifierOptions } from "@/db/schemas";
 import { eq, and, ne } from "drizzle-orm";
-import type { EntityType, EntityStatus } from "@/actions/menu";
+import type { EntityType } from "@/actions/menu";
 
 /**
- * Cascades status changes to child entities
- * Only cascades when status is 'approved' - 'archived' does not cascade
+ * Cascades child entities to 'approved'.
+ * Caller should invoke only when transitioning the parent to 'approved'.
  */
 export async function cascadeStatusToChildren(
   entityType: EntityType,
   entityId: number,
-  status: EntityStatus
 ): Promise<void> {
-  // Only cascade for 'approved' status
-  if (status !== "approved") {
-    return;
-  }
-
   switch (entityType) {
     case "menu": {
       // Cascade to menu groups
@@ -37,7 +31,7 @@ export async function cascadeStatusToChildren(
         .where(eq(menuGroups.menuId, entityId));
       
       for (const group of menuGroupsResult) {
-        await cascadeStatusToChildren("menu_group", group.id, status);
+        await cascadeStatusToChildren("menu_group", group.id);
       }
       break;
     }
@@ -61,7 +55,7 @@ export async function cascadeStatusToChildren(
         .where(eq(menuItems.menuGroupId, entityId));
       
       for (const item of menuItemsResult) {
-        await cascadeStatusToChildren("menu_item", item.id, status);
+        await cascadeStatusToChildren("menu_item", item.id);
       }
       break;
     }
@@ -85,7 +79,7 @@ export async function cascadeStatusToChildren(
         .where(eq(modifierGroups.menuItemId, entityId));
       
       for (const group of modifierGroupsResult) {
-        await cascadeStatusToChildren("modifier_group", group.id, status);
+        await cascadeStatusToChildren("modifier_group", group.id);
       }
       break;
     }
@@ -127,7 +121,7 @@ export async function cascadeStatusToChildren(
         .where(eq(menus.restaurantId, entityId));
       
       for (const menu of menusResult) {
-        await cascadeStatusToChildren("menu", menu.id, status);
+        await cascadeStatusToChildren("menu", menu.id);
       }
       break;
   }

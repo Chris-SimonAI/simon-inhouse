@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEntityData, updateEntityStateAndData, type EntityType } from "@/actions/menu";
 import { createError } from "@/lib/utils";
+import { validateApiKey } from "@/utils/api-key-validation";
 
 export async function GET(request: NextRequest) {
   try {
+    // API key guard
+    if (!validateApiKey(request.headers.get("x-api-key") || "")) {
+      return NextResponse.json(createError("UNAUTHORIZED"), { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const entityType = searchParams.get("entityType") as EntityType;
     const entityId = searchParams.get("entityId");
@@ -57,6 +63,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // API key guard
+    if (!validateApiKey(request.headers.get("x-api-key") || "")) {
+      return NextResponse.json(createError("UNAUTHORIZED"), { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const entityType = searchParams.get("entityType") as EntityType;
     const entityId = searchParams.get("entityId");

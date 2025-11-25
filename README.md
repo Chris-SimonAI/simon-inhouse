@@ -43,6 +43,12 @@ docker-compose up --build --watch
 # Start development server WITHOUT hot reloading
 docker-compose -f docker-compose.prod.yml up --build
 
+# Seed the dabase with default values
+docker-compose exec app npm run db:seed
+
+# Stop all services
+docker-compose -f docker-compose.prod.yml down
+
 # Run the application at http://localhost:300
 ```
 ## Available Commands

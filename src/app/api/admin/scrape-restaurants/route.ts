@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createError, createSuccess } from "@/lib/utils";
 import { sendScraperJob, type ScraperJobPayload } from "@/lib/sqs";
+import { validateApiKey } from "@/utils/api-key-validation";
 
 export async function POST(request: NextRequest) {
   try {
+    // API key guard
+    if (!validateApiKey(request.headers.get("x-api-key") || "")) {
+      return NextResponse.json(createError("UNAUTHORIZED"), { status: 401 });
+    }
+
     const body = await request.json();
 
     // Validate required fields

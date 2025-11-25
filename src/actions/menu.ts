@@ -127,6 +127,8 @@ export async function getCompleteMenuByRestaurant(
         modifierOptionIsDefault: modifierOptions.isDefault,
       })
       .from(dineInRestaurants)
+      // Safe to join on the approved menu directly:
+      // a partial unique index guarantees at most one approved menu per restaurant. This prevents duplicate rows from the join.
       .leftJoin(menus, and(
         eq(menus.restaurantId, dineInRestaurants.id),
         eq(menus.status, "approved")
@@ -339,71 +341,76 @@ export async function getRestaurantDataForAdmin(
       return createError("Restaurant not found");
     }
 
-    // Get all menus (all statuses)
-    const allMenus = await db
+    // Get only the latest version of the menu for this restaurant
+    const latestMenuRow = await db
       .select()
       .from(menus)
-      .where(eq(menus.restaurantId, restaurantId));
+      .where(eq(menus.restaurantId, restaurantId))
+      .orderBy(desc(menus.version))
+      .limit(1);
 
-    const menuData = [];
-    for (const menu of allMenus) {
-      // Get menu groups
-      const menuGroupsData = await db
+    if (latestMenuRow.length === 0) {
+      return createError("No menu found for this restaurant");
+    }
+
+    const latestMenu = latestMenuRow[0];
+
+    // Get menu groups for the latest menu
+    const menuGroupsData = await db
+      .select()
+      .from(menuGroups)
+      .where(eq(menuGroups.menuId, latestMenu.id));
+
+    const groupsData = [];
+    for (const group of menuGroupsData) {
+      // Get menu items
+      const menuItemsData = await db
         .select()
-        .from(menuGroups)
-        .where(eq(menuGroups.menuId, menu.id));
+        .from(menuItems)
+        .where(eq(menuItems.menuGroupId, group.id));
 
-      const groupsData = [];
-      for (const group of menuGroupsData) {
-        // Get menu items
-        const menuItemsData = await db
+      const itemsData = [];
+      for (const item of menuItemsData) {
+        // Get modifier groups
+        const modifierGroupsData = await db
           .select()
-          .from(menuItems)
-          .where(eq(menuItems.menuGroupId, group.id));
+          .from(modifierGroups)
+          .where(eq(modifierGroups.menuItemId, item.id));
 
-        const itemsData = [];
-        for (const item of menuItemsData) {
-          // Get modifier groups
-          const modifierGroupsData = await db
+        const modifierGroupsDataWithOptions = [];
+        for (const modifierGroup of modifierGroupsData) {
+          // Get modifier options
+          const modifierOptionsData = await db
             .select()
-            .from(modifierGroups)
-            .where(eq(modifierGroups.menuItemId, item.id));
+            .from(modifierOptions)
+            .where(eq(modifierOptions.modifierGroupId, modifierGroup.id));
 
-          const modifierGroupsDataWithOptions = [];
-          for (const modifierGroup of modifierGroupsData) {
-            // Get modifier options
-            const modifierOptionsData = await db
-              .select()
-              .from(modifierOptions)
-              .where(eq(modifierOptions.modifierGroupId, modifierGroup.id));
-
-            modifierGroupsDataWithOptions.push({
-              ...modifierGroup,
-              options: modifierOptionsData,
-            });
-          }
-
-          itemsData.push({
-            ...item,
-            modifierGroups: modifierGroupsDataWithOptions,
+          modifierGroupsDataWithOptions.push({
+            ...modifierGroup,
+            options: modifierOptionsData,
           });
         }
 
-        groupsData.push({
-          ...group,
-          items: itemsData,
+        itemsData.push({
+          ...item,
+          modifierGroups: modifierGroupsDataWithOptions,
         });
       }
 
-      menuData.push({
-        ...menu,
-        groups: groupsData,
+      groupsData.push({
+        ...group,
+        items: itemsData,
       });
     }
 
     return createSuccess({
       restaurant: restaurant[0],
-      menus: menuData,
+      menus: [
+        {
+          ...latestMenu,
+          groups: groupsData,
+        },
+      ],
     });
   } catch (error) {
     console.error("Error in getRestaurantDataForAdmin:", error);
@@ -538,7 +545,7 @@ export async function updateEntityStateAndData(
           }
           await db
             .update(menus)
-            .set(status === "approved" ? { status, approvedAt: new Date() } : { status })
+            .set({ status })
             .where(eq(menus.id, entityId));
           break;
         case "menu_group":
@@ -557,7 +564,7 @@ export async function updateEntityStateAndData(
 
       // Cascade status to children if approved (unless skipCascade is true)
       if (status === "approved" && !skipCascade) {
-        await cascadeStatusToChildren(entityType, entityId, status);
+        await cascadeStatusToChildren(entityType, entityId);
       }
     }
 
