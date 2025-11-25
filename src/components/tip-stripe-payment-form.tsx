@@ -22,6 +22,7 @@ import {
   getTipById,
   updateTipStatus,
 } from "@/actions/tips";
+import { TIP_PAYMENT_STATUS } from "@/constants/payments";
 import { cn } from "@/lib/utils";
 import {
   validateFullName,
@@ -144,13 +145,13 @@ function TipStripePaymentInner({ tipId }: TipStripePaymentInnerProps) {
     } catch (err) {
       // Mark tip as failed immediately and route to failure page
       try {
-        await updateTipStatus({ tipId, status: "failed" });
+        await updateTipStatus({ tipId, status: TIP_PAYMENT_STATUS.failed });
       } catch {
         // ignore
       }
       const failurePath = hotelPath(
         slug,
-        `?tipping_failed=true&tipId=${tipId}`,
+        `?tipping_success=false&tipId=${tipId}`,
       );
       router.replace(failurePath);
       setError(err instanceof Error ? err.message : "Payment failed");

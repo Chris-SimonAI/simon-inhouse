@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createSelectSchema, createInsertSchema } from "drizzle-zod";
 import { tips } from "@/db/schemas";
+import { TIP_PAYMENT_STATUS } from "@/constants/payments";
 
 // Tips validation schemas
 export const TipSelectSchema = createSelectSchema(tips);
@@ -21,7 +22,11 @@ export const CreateTipRequestSchema = z.object({
 
 export const UpdateTipStatusSchema = z.object({
   tipId: z.number(),
-  status: z.enum(['pending', 'completed', 'failed']),
+  status: z.enum([
+    TIP_PAYMENT_STATUS.pending,
+    TIP_PAYMENT_STATUS.completed,
+    TIP_PAYMENT_STATUS.failed,
+  ] as const),
   transactionId: z.string().optional(),
 });
 

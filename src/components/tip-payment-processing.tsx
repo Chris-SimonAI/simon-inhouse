@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getTipById } from "@/actions/tips";
+import { TIP_PAYMENT_STATUS, type TipPaymentStatus } from "@/constants/payments";
 import { Loader2 } from "lucide-react";
 
 type TipPaymentProcessingProps = {
@@ -21,9 +22,7 @@ export function TipPaymentProcessing({
   timeoutMs = 120000,
 }: TipPaymentProcessingProps) {
   const router = useRouter();
-  const [status, setStatus] = useState<"processing" | "completed" | "failed">(
-    "processing",
-  );
+  const [status, setStatus] = useState<TipPaymentStatus>(TIP_PAYMENT_STATUS.pending);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,14 +38,14 @@ export function TipPaymentProcessing({
           setError("Unable to fetch tip status");
           return;
         }
-        const s = res.data.paymentStatus as "pending" | "completed" | "failed";
-        if (s === "completed") {
-          setStatus("completed");
+        const s = res.data.paymentStatus as TipPaymentStatus;
+        if (s === TIP_PAYMENT_STATUS.completed) {
+          setStatus(TIP_PAYMENT_STATUS.completed);
           if (timer) clearInterval(timer);
           if (timeout) clearTimeout(timeout);
           router.replace(onSuccessPath);
-        } else if (s === "failed") {
-          setStatus("failed");
+        } else if (s === TIP_PAYMENT_STATUS.failed) {
+          setStatus(TIP_PAYMENT_STATUS.failed);
           if (timer) clearInterval(timer);
           if (timeout) clearTimeout(timeout);
           router.replace(onFailurePath);
@@ -80,35 +79,35 @@ export function TipPaymentProcessing({
         </div>
 
         <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-          {status === "failed"
+          {status === TIP_PAYMENT_STATUS.failed
             ? "Payment Failed"
-            : status === "completed"
+            : status === TIP_PAYMENT_STATUS.completed
               ? "Payment Confirmed"
               : "Processing Payment"}
         </h1>
         <p className="text-gray-600 text-center mb-8">
-          {status === "failed"
+          {status === TIP_PAYMENT_STATUS.failed
             ? "We could not process your tip. Please try again."
-            : status === "completed"
+            : status === TIP_PAYMENT_STATUS.completed
               ? "Your tip has been processed successfully."
               : "Please wait while we process your tip payment. This may take a few moments."}
         </p>
 
         <div className="w-full max-w-xs">
           <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
-            <span>{status === "failed" ? "Status" : "Processing"}</span>
+            <span>{status === TIP_PAYMENT_STATUS.failed ? "Status" : "Processing"}</span>
             <span>
-              {status === "failed"
+              {status === TIP_PAYMENT_STATUS.failed
                 ? "Failed"
-                : status === "completed"
+                : status === TIP_PAYMENT_STATUS.completed
                   ? "Done"
                   : "Please wait..."}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
-              className={`h-2 rounded-full ${status === "failed" ? "bg-red-600" : status === "completed" ? "bg-green-600" : "bg-blue-600"} ${status === "processing" ? "animate-pulse" : ""}`}
-              style={{ width: status === "processing" ? "60%" : "100%" }}
+              className={`h-2 rounded-full ${status === TIP_PAYMENT_STATUS.failed ? "bg-red-600" : status === TIP_PAYMENT_STATUS.completed ? "bg-green-600" : "bg-blue-600"} ${status === TIP_PAYMENT_STATUS.pending ? "animate-pulse" : ""}`}
+              style={{ width: status === TIP_PAYMENT_STATUS.pending ? "50%" : "100%" }}
             ></div>
           </div>
           {error && (

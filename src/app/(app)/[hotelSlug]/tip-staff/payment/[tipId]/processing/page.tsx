@@ -16,11 +16,11 @@ export default async function TipProcessingPage({ params }: PageProps) {
   const tipIdNumber = parseInt(tipId, 10);
 
   const successPath = hotelPath(hotelSlug, `?tipping_success=true&tipId=${tipIdNumber}`);
-  const failurePath = hotelPath(hotelSlug, `?tipping_failed=true&tipId=${tipIdNumber}`);
+  const failurePath = hotelPath(hotelSlug, `?tipping_success=false&tipId=${tipIdNumber}`);
 
   return (
 	<TipPaymentProcessing
-      tipId={tipIdNumber}
+    tipId={tipIdNumber}
 	  onSuccessPath={successPath}
 	  onFailurePath={failurePath}
 	/>

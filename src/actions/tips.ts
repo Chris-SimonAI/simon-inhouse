@@ -15,6 +15,7 @@ import { CreateSuccess, CreateError } from '@/types/response';
 import { createSuccess, createError } from '@/lib/utils';
 import { z } from 'zod';
 import { stripe as stripeServer } from '@/lib/stripe';
+import { TIP_PAYMENT_STATUS } from '@/constants/payments';
 
 // Create a new tip
 export async function createTip(
@@ -30,7 +31,7 @@ export async function createTip(
         amount: validatedInput.amount,
         currency: validatedInput.currency,
         paymentMethod: validatedInput.paymentMethod,
-        paymentStatus: 'pending',
+        paymentStatus: TIP_PAYMENT_STATUS.pending,
         guestName: validatedInput.guestName,
         guestEmail: validatedInput.guestEmail,
         roomNumber: validatedInput.roomNumber,
@@ -65,7 +66,7 @@ export async function createTipPaymentIntent(
     }
 
     const tip = tipResult.data;
-    if (tip.paymentStatus !== 'pending') {
+    if (tip.paymentStatus !== TIP_PAYMENT_STATUS.pending) {
       return createError('Tip is not in a pending state');
     }
 
