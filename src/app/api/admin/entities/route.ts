@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEntityData, updateEntityStateAndData, type EntityType } from "@/actions/menu";
+import { getEntityData, updateEntityStateAndData, type EntityType } from "@/lib/admin/menu";
 import { createError } from "@/lib/utils";
 import { validateApiKey } from "@/utils/api-key-validation";
 

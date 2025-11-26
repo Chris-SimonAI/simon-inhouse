@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRestaurantDataForAdmin, updateRestaurantDataInFormat } from "@/actions/menu";
+import { getRestaurantDataForAdmin, updateRestaurantDataInFormat } from "@/lib/admin/menu";
 import { createError } from "@/lib/utils";
 import { validateApiKey } from "@/utils/api-key-validation";
 

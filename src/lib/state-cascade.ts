@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { menus, menuGroups, menuItems, modifierGroups, modifierOptions } from "@/db/schemas";
 import { eq, and, ne } from "drizzle-orm";
-import type { EntityType } from "@/actions/menu";
+import type { EntityType } from "@/lib/admin/menu";
 
 /**
  * Cascades child entities to 'approved'.

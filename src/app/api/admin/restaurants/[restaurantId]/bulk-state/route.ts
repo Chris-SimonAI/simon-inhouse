@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { bulkUpdateEntities, type EntityType } from "@/actions/menu";
+import { bulkUpdateEntities, type EntityType } from "@/lib/admin/menu";
 import { createError } from "@/lib/utils";
 import { validateApiKey } from "@/utils/api-key-validation";
 
