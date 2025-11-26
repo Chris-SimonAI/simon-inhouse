@@ -16,6 +16,10 @@
 * **MCP:** Use **context7**. Add use context7 to prompts where needed. Example: Create a Next.js middleware that checks for a valid JWT in cookies and redirects unauthenticated users to `/login`. use context7
 * **Runtime:** Any DB-touching Route Handler or file must export `export const runtime = "nodejs"`.
 * **Errors:** Never leak secrets; return typed result envelopes `{ ok: boolean; data?; message? }`.
+* **Validation & Defaults (No Silent Fallbacks):**
+  - Avoid using operators like `||` or `??` to implicitly default required values at call sites. Required fields must be enforced through Zod schemas and Drizzle column defaults.
+  - If a required value is missing after validation, surface an error—do not coerce or auto-default it.
+  - Perform casing or formatting transforms explicitly, relying on validation to ensure the value exists and is already in the expected shape.
 
 ## Project Structure
 

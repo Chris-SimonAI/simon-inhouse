@@ -74,14 +74,16 @@ export async function POST(req: NextRequest) {
 async function updateTipFromPaymentIntent(
   paymentIntent: Stripe.PaymentIntent,
   status: TipPaymentStatus
-): Promise<boolean> {
+): Promise<void> {
   const tipIdMeta = (paymentIntent.metadata as Record<string, string> | undefined)?.tipId;
   if (!tipIdMeta) {
-    return false;
+    console.error('No tipId in payment intent metadata');
+    return;
   }
   const tipIdNum = parseInt(tipIdMeta, 10);
   if (Number.isNaN(tipIdNum)) {
-    return false;
+    console.error('Invalid tipId in payment intent metadata:', tipIdMeta);
+    return;
   }
 
   const mergedMetadata: Record<string, unknown> = {
@@ -106,7 +108,7 @@ async function updateTipFromPaymentIntent(
     .where(eq(tips.id, tipIdNum));
 
   console.log(`Tip marked as ${status}:`, tipIdNum);
-  return true;
+  return;
 }
 
 async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent) {

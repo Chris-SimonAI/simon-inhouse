@@ -77,7 +77,7 @@ export async function createTipPaymentIntent(
 
     const pi = await stripeServer.paymentIntents.create({
       amount: Math.round(amountNumber * 100),
-      currency: (tip.currency || 'usd').toLowerCase(),
+      currency: tip.currency.toLowerCase(),
       automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
       capture_method: 'automatic',
       metadata: {
