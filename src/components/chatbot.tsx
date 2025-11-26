@@ -530,6 +530,8 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
   const introText = `Hi, I'm Simon—your 24/7 concierge at ${hotel.name}. I can help with hotel amenities, great places to eat, and things to do around the city. If you are hungry, I can also place food-delivery orders from a variety of our partner restaurants. ${hotel.name} encourages you to place food orders through me, so that I can coordinate with the front desk to ensure your meal comes straight to your room. How can I help today?`
   const displayText = "Hello. I am Simon, your personal AI concierge for the finest local recommendations, curated experiences, and exclusive hotel services while you enjoy your stay here."
 
+  // Track discount request loading state
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
 
   return (
     <div className={cn(
@@ -636,29 +638,74 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
                         <div className="flex items-end justify-between gap-3 mt-auto">
                           <div className="flex gap-2">
                             <Button
-                              onClick={() => {
-                                // Set cookie for 20% discount
+                              onClick={async () => {
+                                /**
+                                 * ================================================================
+                                 * IMPORTANT: Why we use fetch() instead of a server action here
+                                 * ================================================================
+                                 *
+                                 * We intentionally use fetch() to call an API route instead of
+                                 * the server action `requestDiningDiscount()` because of a
+                                 * critical bug/interaction issue:
+                                 *
+                                 * When a server action is called from this onClick handler,
+                                 * it interferes with the `sendMessage` function from useRscChat.
+                                 * The exact cause is unclear but likely related to how server
+                                 * actions use React's internal state transition mechanisms,
+                                 * which conflicts with useRscChat's own async state management.
+                                 *
+                                 * Multiple approaches were tried and failed:
+                                 * - async/await vs fire-and-forget
+                                 * - .then()/.catch() patterns
+                                 * - setTimeout(..., 0) to defer
+                                 * - Different ordering of calls
+                                 *
+                                 * Using fetch() completely decouples the discount request from
+                                 * React's rendering cycle, allowing everything to work correctly.
+                                 *
+                                 * See: /src/app/api/dining-discount/route.ts for full details.
+                                 * ================================================================
+                                 */
+
+                                setIsApplyingDiscount(true);
+
                                 try {
-                                  const expires = new Date();
-                                  expires.setTime(expires.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 days
-                                  document.cookie = `dining_discount=20; expires=${expires.toUTCString()}; path=/; SameSite=Strict`;
+                                  // Request discount via API route (avoids server action conflict)
+                                  const res = await fetch("/api/dining-discount", { method: "POST" });
+                                  const result = (await res.json()) as {
+                                    ok: boolean;
+                                    message?: string;
+                                    data?: { discountPercent: number };
+                                  };
+
+                                  if (!result.ok) {
+                                    toast.error("Discount Unavailable", {
+                                      description: result.message || "Could not apply discount",
+                                    });
+                                  } else {
+                                    const discountPercent = result.data?.discountPercent ?? 20;
+                                    toast.success("Discount Applied!", {
+                                      description: `${discountPercent}% dining discount has been applied and will be reflected at checkout.`,
+                                    });
+                                  }
                                 } catch (error) {
-                                  console.warn('Failed to set discount cookie:', error);
+                                  console.error("Error requesting discount:", error);
+                                  toast.error("Error", {
+                                    description: "Failed to apply discount. Please try again.",
+                                  });
+                                } finally {
+                                  setIsApplyingDiscount(false);
                                 }
 
-                                // Show toast notification
-                                toast.success("Discount Applied!", {
-                                  description: "20% dining discount has been applied and will be reflected at checkout.",
-                                });
-
-                                // Trigger the dining options action
+                                // Navigate to dining options after discount request completes
                                 setOpenL1(true);
                                 setScrollToBottom(true);
                                 sendMessage("I'd like to know about in-room dining options.", { inputType: 'text' });
                               }}
-                              className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md h-auto"
+                              disabled={isApplyingDiscount}
+                              className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md h-auto disabled:opacity-70"
                             >
-                              Order Now
+                              {isApplyingDiscount ? "Applying Discount..." : "Order Now"}
                             </Button>
                           </div>
                         </div>

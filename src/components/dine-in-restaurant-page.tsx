@@ -62,12 +62,12 @@ export function DineInRestaurantPage({
             <CarouselContent>
               {imageUrls?.map((imageUrl: string, index: number) => (
                 <CarouselItem key={index}>
-                  <div className="relative aspect-video w-full overflow-hidden rounded-xl">
+                 <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
                     <Image
                       src={imageUrl}
                       alt={`${name} - Photo ${index + 1}`}
                       fill
-                      className="object-cover"
+                      className="object-contain"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       priority={index === 0}
                     />

@@ -6,6 +6,7 @@ import ChatbotClient from "@/components/chatbot";
 import WelcomeClient from "@/components/welcome-client";
 import VoiceIntroClient from "@/components/voice-intro-client";
 import OrderSuccessToast from "@/components/order-success-toast";
+import { TipNotification } from "@/components/tip-notification";
 import {
   processChatMessageStream,
   getThreadMessages,
@@ -49,6 +50,7 @@ export default async function HotelHomePage({
   return (
     <main className="h-dvh w-full bg-gray-50">
       <OrderSuccessToast />
+      <TipNotification />
       <div className="h-dvh w-full flex justify-center">
         <div className="h-dvh w-full max-w-md">
           <ChatbotClient
@@ -63,4 +65,3 @@ export default async function HotelHomePage({
     </main>
   );
 }
-

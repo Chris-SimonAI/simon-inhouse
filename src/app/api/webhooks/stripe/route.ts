@@ -4,12 +4,12 @@ import 'server-only';
 export const runtime = 'nodejs';
 
 import { db } from '@/db';
-import { dineInOrderItems, dineInOrders, dineInPayments, dineInRestaurants, hotels } from '@/db/schemas';
+import { dineInOrderItems, dineInOrders, dineInPayments, dineInRestaurants, hotels, tips } from '@/db/schemas';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { createError } from '@/lib/utils';
 import { prepareBotPayload, sendOrderToBot } from '@/lib/sqs';
-
+import { TIP_PAYMENT_STATUS, type TipPaymentStatus } from '@/constants/payments';
 
 export async function POST(req: NextRequest) {
   try {
@@ -69,6 +69,46 @@ export async function POST(req: NextRequest) {
     console.error('Webhook error:', error);
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
+}
+
+async function updateTipFromPaymentIntent(
+  paymentIntent: Stripe.PaymentIntent,
+  status: TipPaymentStatus
+): Promise<void> {
+  const tipIdMeta = (paymentIntent.metadata as Record<string, string> | undefined)?.tipId;
+  if (!tipIdMeta) {
+    console.error('No tipId in payment intent metadata');
+    return;
+  }
+  const tipIdNum = parseInt(tipIdMeta, 10);
+  if (Number.isNaN(tipIdNum)) {
+    console.error('Invalid tipId in payment intent metadata:', tipIdMeta);
+    return;
+  }
+
+  const mergedMetadata: Record<string, unknown> = {
+    ...(paymentIntent.metadata || {}),
+    stripeStatus: paymentIntent.status,
+  };
+
+  if (status === TIP_PAYMENT_STATUS.completed) {
+    mergedMetadata.chargeId = paymentIntent.latest_charge;
+  } else {
+    mergedMetadata.last_payment_error = paymentIntent.last_payment_error;
+  }
+
+  await db
+    .update(tips)
+    .set({
+      paymentStatus: status,
+      transactionId: paymentIntent.id,
+      updatedAt: new Date(),
+      metadata: mergedMetadata as Record<string, unknown>,
+    })
+    .where(eq(tips.id, tipIdNum));
+
+  console.log(`Tip marked as ${status}:`, tipIdNum);
+  return;
 }
 
 async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent) {
@@ -224,7 +264,12 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   try {
     console.log('Processing payment_intent.succeeded (captured):', paymentIntent.id);
-    
+    const metaType = (paymentIntent.metadata as Record<string, string> | undefined)?.type;
+    if (metaType === 'tip') {
+      await updateTipFromPaymentIntent(paymentIntent, TIP_PAYMENT_STATUS.completed);
+      return;
+    }
+
     const orderId = paymentIntent.metadata.orderId;
     if (!orderId) {
       console.error('No orderId in payment intent metadata');
@@ -299,7 +344,12 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
     console.log('Processing payment_intent.payment_failed:', paymentIntent.id);
-    
+    const metaType = (paymentIntent.metadata as Record<string, string> | undefined)?.type;
+    if (metaType === 'tip') {
+      await updateTipFromPaymentIntent(paymentIntent, TIP_PAYMENT_STATUS.failed);
+      return;
+    }
+
     const orderId = paymentIntent.metadata.orderId;
     if (!orderId) {
       console.error('No orderId in payment intent metadata');

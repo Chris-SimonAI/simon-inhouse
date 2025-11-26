@@ -13,7 +13,6 @@ export function CardPaymentView({ restaurantGuid }: CardPaymentViewProps) {
   const slug = useHotelSlug();
   const [paymentDetails, setPaymentDetails] = useState({
     subtotal: 0,
-    tax: 0,
     tip: 0,
     total: 0,
   });
@@ -71,7 +70,6 @@ export function CardPaymentView({ restaurantGuid }: CardPaymentViewProps) {
         console.error('Error parsing payment details:', error);
         setPaymentDetails({
           subtotal: 0,
-          tax: 0,
           tip: 0,
           total: 0,
         });

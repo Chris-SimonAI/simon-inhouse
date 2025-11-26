@@ -12,21 +12,29 @@ import { hotelPath } from "@/utils/hotel-path";
 
 type PaymentViewProps = {
   restaurantGuid: string;
+  initialDiscountPercentage: number;
+  deliveryFee: number;
+  serviceFeePercent: number;
 };
 
 type PaymentMethod = "card" | "delivery";
-type TipOption = 18 | 20 | 25 | 0 | "custom";
+type TipSelection = 18 | 20 | 25 | 0 | "custom";
 
-export function PaymentView({ restaurantGuid }: PaymentViewProps) {
+export function PaymentView({ 
+  restaurantGuid, 
+  initialDiscountPercentage,
+  deliveryFee,
+  serviceFeePercent,
+}: PaymentViewProps) {
   const router = useRouter();
   const slug = useHotelSlug();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
-  const [selectedTip, setSelectedTip] = useState<TipOption>(0);
+  const [selectedTip, setSelectedTip] = useState<TipSelection>(0);
   const [customTipAmount, setCustomTipAmount] = useState<string>("");
   const [showCustomTipInput, setShowCustomTipInput] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [discountPercentage, setDiscountPercentage] = useState<number>(0);
+  const discountPercentage = initialDiscountPercentage;
 
   useEffect(() => {
     const savedCart = localStorage.getItem(`cart-${restaurantGuid}`);
@@ -41,16 +49,16 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
       }
     }
 
-    // Check for dining discount cookie
-    const cookies = document.cookie.split(';');
-    const discountCookie = cookies.find(cookie => 
-      cookie.trim().startsWith('dining_discount=')
-    );
-    
-    if (discountCookie) {
-      const discountValue = parseInt(discountCookie.split('=')[1]);
-      if (!Number.isNaN(discountValue) && discountValue > 0) {
-        setDiscountPercentage(discountValue);
+    // Restore saved tip selection
+    const savedTipSelection = localStorage.getItem(`tip-selection-${restaurantGuid}`);
+    if (savedTipSelection) {
+      try {
+        const tipData = JSON.parse(savedTipSelection);
+        if (tipData.selectedTip !== undefined) {
+          setSelectedTip(tipData.selectedTip);
+        }
+      } catch (error) {
+        console.error('Error loading tip selection:', error);
       }
     }
   }, [restaurantGuid]);
@@ -68,14 +76,13 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
     return getSubtotal() - getDiscountAmount();
   };
 
-  const getTaxRate = () => {
-    // Assuming 9.75% tax rate (adjust as needed)
-    return 0.0975;
+  const getServiceFee = () => {
+    // Service fee is calculated on original subtotal (before discount)
+    return (getSubtotal() * serviceFeePercent) / 100;
   };
 
-  const getTaxAmount = () => {
-    // Tax is calculated on the discounted subtotal
-    return getSubtotalAfterDiscount() * getTaxRate();
+  const getDeliveryFee = () => {
+    return deliveryFee;
   };
 
   const getTipAmount = () => {
@@ -85,15 +92,17 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
     if (selectedTip === 0) {
       return 0;
     }
-    // Tip is calculated on the original subtotal (before discount)
+    // Tip is calculated on the original subtotal (before discount, before fees)
     return getSubtotal() * (selectedTip / 100);
   };
 
   const getTotal = () => {
-    return getSubtotalAfterDiscount() + getTaxAmount() + getTipAmount();
+    // Total = subtotal - discount + service fee + delivery fee + tip
+    // Note: This is for display only. Actual total is calculated server-side.
+    return getSubtotalAfterDiscount() + getServiceFee() + getDeliveryFee() + getTipAmount();
   };
 
-  const handleTipSelection = (tip: TipOption) => {
+  const handleTipSelection = (tip: TipSelection) => {
     setSelectedTip(tip);
     if (tip === "custom") {
       setShowCustomTipInput(true);
@@ -101,6 +110,11 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
       setShowCustomTipInput(false);
       setCustomTipAmount("");
     }
+
+    // Save tip selection to localStorage for persistence (excluding custom tip amount)
+    localStorage.setItem(`tip-selection-${restaurantGuid}`, JSON.stringify({
+      selectedTip: tip,
+    }));
   };
 
   const buildRestaurantPath = (suffix: string) => {
@@ -123,20 +137,28 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
       // Generate a unique session ID for this payment attempt
       const sessionId = `payment-${restaurantGuid}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
+      // Build tipOption for secure payment flow
+      const tipOption = selectedTip === "custom" 
+        ? { type: 'fixed' as const, value: parseFloat(customTipAmount) || 0 }
+        : { type: 'percentage' as const, value: selectedTip };
+      
       // Store payment details in localStorage with session tracking
+      // Note: These display values are for reference only. Actual prices are calculated server-side.
       const paymentData = {
         sessionId,
         subtotal: getSubtotal(),
+        serviceFee: getServiceFee(),
+        deliveryFee: getDeliveryFee(),
         discount: getDiscountAmount(),
         discountPercentage: discountPercentage,
         subtotalAfterDiscount: getSubtotalAfterDiscount(),
-        tax: getTaxAmount(),
         tip: getTipAmount(),
+        tipOption, // Include tipOption for secure payment flow
         total: getTotal(),
         cart: cart,
         timestamp: Date.now(),
         status: 'pending', // pending, processing, completed, failed
-        attempts: 0
+        attempts: 0,
       };
       
       localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentData));
@@ -153,7 +175,6 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
         console.log("Processing delivery payment...", {
           paymentMethod,
           subtotal: getSubtotal(),
-          tax: getTaxAmount(),
           tip: getTipAmount(),
           total: getTotal(),
         });
@@ -335,7 +356,7 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
               <button
                 key={tip}
                 type="button"
-                onClick={() => handleTipSelection(tip as TipOption)}
+                onClick={() => handleTipSelection(tip as TipSelection)}
                 className={cn(
                   "py-2 px-2 rounded-lg border-2 text-base font-medium transition-colors",
                   selectedTip === tip
@@ -387,6 +408,26 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
           )}
 
           <div className="mt-4 space-y-2">
+            {/* Service Fee */}
+            {serviceFeePercent > 0 && (
+              <div className="flex justify-between items-center text-base">
+                <span className="text-gray-600">Service Fee ({serviceFeePercent}%)</span>
+                <span className="text-gray-900">
+                  {getServiceFee().toFixed(2)} USD
+                </span>
+              </div>
+            )}
+            
+            {/* Delivery Fee */}
+            {deliveryFee > 0 && (
+              <div className="flex justify-between items-center text-base">
+                <span className="text-gray-600">Delivery Fee</span>
+                <span className="text-gray-900">
+                  {getDeliveryFee().toFixed(2)} USD
+                </span>
+              </div>
+            )}
+            
             {getTipAmount() > 0 && (
               <div className="flex justify-between items-center text-base">
                 <span className="text-gray-900">Tip</span>
@@ -395,14 +436,8 @@ export function PaymentView({ restaurantGuid }: PaymentViewProps) {
                 </span>
               </div>
             )}
-            <div className="flex justify-between items-center text-base">
-              <span className="text-gray-900">Tax</span>
-              <span className="text-gray-900">
-                {getTaxAmount().toFixed(2)} USD
-              </span>
-            </div>
             <div className="flex justify-between items-center text-lg font-bold pt-2 border-t border-gray-200">
-              <span className="text-gray-900">Total</span>
+              <span className="text-gray-900">Estimated Total</span>
               <span className="text-gray-900">{getTotal().toFixed(2)} USD</span>
             </div>
           </div>
