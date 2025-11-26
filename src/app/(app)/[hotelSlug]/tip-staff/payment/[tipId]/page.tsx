@@ -1,5 +1,5 @@
 import { requireHotelSession } from "@/utils/require-hotel-session";
-import { PaymentProcessingScreen } from "@/components/payment-processing-screen";
+import { TipStripePaymentForm } from "@/components/tip-stripe-payment-form";
 
 interface PageProps {
   params: Promise<{ hotelSlug: string; tipId: string }>;
@@ -14,6 +14,6 @@ export default async function PaymentProcessingPage({ params }: PageProps) {
 
   const tipIdNumber = parseInt(tipId, 10);
 
-  return <PaymentProcessingScreen tipId={tipIdNumber} />;
+  return <TipStripePaymentForm tipId={tipIdNumber} />;
 }
 

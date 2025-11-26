@@ -93,6 +93,7 @@ export async function createOrderAndPaymentIntent(input: unknown) {
               allow_redirects: 'never'
             },
             metadata: {
+              type: 'dine_in',
               orderId: order.id.toString(),
               hotelId: order.hotelId.toString(),
               restaurantId: order.restaurantId.toString(),

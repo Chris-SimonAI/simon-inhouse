@@ -1,86 +1,64 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
-import { CheckCircle, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef } from "react";
+import { toast } from "sonner";
+import { getTipById } from "@/actions/tips";
 
-interface TipNotificationProps {
-  isVisible: boolean;
-  amount: string;
-  onClose: () => void;
-  autoCloseDelay?: number;
-}
+export function TipNotification() {
+	const shownRef = useRef(false);
 
-export function TipNotification({ 
-  isVisible, 
-  amount, 
-  onClose, 
-  autoCloseDelay = 8000 
-}: TipNotificationProps) {
-  const [isAnimating, setIsAnimating] = useState(false);
+	useEffect(() => {
+		if (shownRef.current) return;
 
-  const handleClose = useCallback(() => {
-    setIsAnimating(false);
-    // Wait for fade-out animation to complete before calling onClose
-    setTimeout(() => {
-      onClose();
-    }, 300);
-  }, [onClose]);
+		const url = new URL(window.location.href);
+		const tippingSuccessParam = url.searchParams.get("tipping_success");
+		const tippingSuccess = tippingSuccessParam === null ? null : tippingSuccessParam === "true";
+		const tipId = url.searchParams.get("tipId");
 
-  useEffect(() => {
-    if (isVisible) {
-      setIsAnimating(true);
-      
-      // Auto-close after specified delay
-      const timer = setTimeout(() => {
-        handleClose();
-      }, autoCloseDelay);
+		// Success path: fetch amount by tipId and show it in the toast
+		if (tippingSuccess === true && tipId) {
+			shownRef.current = true;
+			const tipIdNum = parseInt(tipId, 10);
+			void (async () => {
+				try {
+					let amountText = "your amount";
+					if (!Number.isNaN(tipIdNum)) {
+						const res = await getTipById(tipIdNum);
+						if (res.ok && res.data) {
+							const amt = Number.parseFloat(String(res.data.amount));
+							if (Number.isFinite(amt)) {
+								amountText = `$${amt.toFixed(2)}`;
+							}
+						}
+					}
+					toast.success("Tip Sent", {
+						description: `Your tip for ${amountText} was sent.`,
+						duration: 4000,
+					});
+				} finally {
+					url.searchParams.delete("tipping_success");
+					url.searchParams.delete("tipId");
+					window.history.replaceState({}, "", url.toString());
+				}
+			})();
+			return;
+		}
 
-      return () => clearTimeout(timer);
-    }
-  }, [isVisible, autoCloseDelay, handleClose]);
+		// Failure path
+		if (tippingSuccess === false) {
+			shownRef.current = true;
+			toast.error("Tip Failed", {
+				description: "We could not process your tip. Please try again.",
+				duration: 4000,
+			});
+			url.searchParams.delete("tipping_success");
+			if (tipId) {
+			  url.searchParams.delete("tipId");
+			}
+			window.history.replaceState({}, "", url.toString());
+			return;
+		}
+	}, []);
 
-  if (!isVisible) return null;
-
-  return (
-    <div className="w-full">
-      <div
-        className={cn(
-          "bg-white rounded-lg shadow-sm border border-gray-200 p-4 w-full",
-          "transition-all duration-300 ease-in-out",
-          isAnimating 
-            ? "opacity-100 translate-y-0 scale-100" 
-            : "opacity-0 translate-y-2 scale-95"
-        )}
-      >
-        <div className="flex items-start gap-3">
-          {/* Success Icon */}
-          <div className="flex-shrink-0">
-            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-            </div>
-          </div>
-          
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-900">
-                Tip Sent
-              </h3>
-              <button
-                onClick={handleClose}
-                className="flex-shrink-0 ml-2 p-1 rounded-full hover:bg-gray-100 transition-colors"
-                aria-label="Close notification"
-              >
-                <X className="w-4 h-4 text-gray-400" />
-              </button>
-            </div>
-            <p className="text-sm text-gray-600 mt-1">
-              Your tip for ${amount} was sent.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+	return null;
 }
