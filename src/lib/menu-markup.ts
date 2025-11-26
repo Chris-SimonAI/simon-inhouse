@@ -1,5 +1,3 @@
-'use server';
-
 import { db } from '@/db';
 import { menuGroups, menuItems, menus, modifierGroups, modifierOptions } from '@/db/schemas';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
@@ -18,7 +16,7 @@ export async function applyMenuMarkup(input: MenuMarkupInput): Promise<CreateSuc
   try {
     const { restaurantId, markupPercent } = input;
 
-    // Find latest menu by version desc, createdAt desc
+    // Find latest menu by version desc
     const [latestMenu] = await db
       .select()
       .from(menus)
@@ -46,58 +44,60 @@ export async function applyMenuMarkup(input: MenuMarkupInput): Promise<CreateSuc
         .where(eq(menuGroups.menuId, menuId));
       const groupIds = groupRows.map((g) => g.id);
 
-      let updatedItems = 0;
-      let updatedOptions = 0;
-
-      if (groupIds.length > 0) {
-        // Update menu items with non-null originalPrice
-        const updatedMenuItems = await tx
-          .update(menuItems)
-          .set({
-            price: sql`ROUND(${menuItems.originalPrice} * ${factor}, 2)`,
-          })
-          .where(
-            and(
-              inArray(menuItems.menuGroupId, groupIds),
-              sql`${menuItems.originalPrice} IS NOT NULL`
-            )
-          )
-          .returning({ id: menuItems.id });
-        updatedItems = updatedMenuItems.length;
-
-        // Find items to reach modifier groups
-        const itemRows = await tx
-          .select({ id: menuItems.id })
-          .from(menuItems)
-          .where(inArray(menuItems.menuGroupId, groupIds));
-        const itemIds = itemRows.map((i) => i.id);
-
-        if (itemIds.length > 0) {
-          // Find modifier groups for these items
-          const modGroupRows = await tx
-            .select({ id: modifierGroups.id })
-            .from(modifierGroups)
-            .where(inArray(modifierGroups.menuItemId, itemIds));
-          const modGroupIds = modGroupRows.map((g) => g.id);
-
-          if (modGroupIds.length > 0) {
-            // Update modifier options with non-null originalPrice
-            const updatedModOptions = await tx
-              .update(modifierOptions)
-              .set({
-                price: sql`ROUND(${modifierOptions.originalPrice} * ${factor}, 2)`,
-              })
-              .where(
-                and(
-                  inArray(modifierOptions.modifierGroupId, modGroupIds),
-                  sql`${modifierOptions.originalPrice} IS NOT NULL`
-                )
-              )
-              .returning({ id: modifierOptions.id });
-            updatedOptions = updatedModOptions.length;
-          }
-        }
+      // no groups, nothing to update
+      if (groupIds.length === 0) {
+        return { updatedItems: 0, updatedOptions: 0 };
       }
+
+      // Update menu items with non-null originalPrice
+      const updatedMenuItems = await tx
+        .update(menuItems)
+        .set({
+          price: sql`ROUND(${menuItems.originalPrice} * ${factor}, 2)`,
+        })
+        .where(
+          and(
+            inArray(menuItems.menuGroupId, groupIds),
+            sql`${menuItems.originalPrice} IS NOT NULL`
+          )
+        )
+        .returning({ id: menuItems.id });
+      const updatedItems = updatedMenuItems.length;
+
+      // Use updated item ids to reach modifier groups
+      const itemIds = updatedMenuItems.map((i) => i.id);
+
+      // no items, only items were updated
+      if (itemIds.length === 0) {
+        return { updatedItems, updatedOptions: 0 };
+      }
+
+      // Find modifier groups for these items
+      const modGroupRows = await tx
+        .select({ id: modifierGroups.id })
+        .from(modifierGroups)
+        .where(inArray(modifierGroups.menuItemId, itemIds));
+      const modGroupIds = modGroupRows.map((g) => g.id);
+
+      //  no modifier groups, nothing to update for options
+      if (modGroupIds.length === 0) {
+        return { updatedItems, updatedOptions: 0 };
+      }
+
+      // Update modifier options with non-null originalPrice
+      const updatedModOptions = await tx
+        .update(modifierOptions)
+        .set({
+          price: sql`ROUND(${modifierOptions.originalPrice} * ${factor}, 2)`,
+        })
+        .where(
+          and(
+            inArray(modifierOptions.modifierGroupId, modGroupIds),
+            sql`${modifierOptions.originalPrice} IS NOT NULL`
+          )
+        )
+        .returning({ id: modifierOptions.id });
+      const updatedOptions = updatedModOptions.length;
 
       return { updatedItems, updatedOptions };
     });
