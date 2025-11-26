@@ -68,6 +68,7 @@ export const DEMO_HOTEL = {
   address: "2210 Broadway, Santa Monica CA 90404, USA",
   latitude: "34.029117",
   longitude: "-118.476193",
+  restaurantDiscount: 20.0,
   metadata: {
     rooms_total: 122,
     pet_friendly: true,
@@ -200,6 +201,8 @@ export const DEMO_RESTAURANTS = [
     description: "Fire up your appetite with our bold and smoky BBQ favorites! From tender, slow-cooked ribs to juicy grilled meats and savory sides, every bite is packed with flavor and backyard-style goodness. Get ready to dig in — the ultimate BBQ feast is just a click away!",
     phoneNumber: "3103102775",
     rating: 4.5,
+    deliveryFee: 5.00,
+    serviceFeePercent: 20.0,
     imageUrls: ["https://d2s742iet3d3t1.cloudfront.net/restaurants/restaurant-156527000000000000/banner_1716317865.jpg?size=medium"], 
     metadata: {
       sourceUrl: "https://www.toasttab.com/local/order/bludsos-bbq-santamonica",
@@ -222,6 +225,8 @@ export const DEMO_RESTAURANTS = [
     description: "Savor the flavors of Italy with our mouth-watering selection of pizzas and classic Italian favorites! From crispy, cheesy slices straight from the oven to rich pastas and hearty sauces, every bite is crafted for comfort and joy. Buon appetito — your Italian feast is just a click away!",
     phoneNumber: "3103103462",
     rating: 4.3,
+    deliveryFee: 5.00,
+    serviceFeePercent: 20.0,
     imageUrls: ["https://d2s742iet3d3t1.cloudfront.net/restaurant_service/restaurants/e2bb67bf-956f-4f35-99ff-7ccc42a20525/Restaurant/dcd0e0ed-e85c-4928-bcad-f2132753f53d.jpg?size=medium"],
     metadata: {
       sourceUrl: "https://www.toasttab.com/local/order/pizza-fling-3032-wilshire-boulevard",
@@ -679,8 +684,8 @@ async function main() {
 
   // Insert hotel using direct SQL
   const insertedHotel = await db.execute(sql`
-    INSERT INTO hotels (name, slug, address, latitude, longitude, metadata, created_at, updated_at)
-    VALUES (${DEMO_HOTEL.name}, ${DEMO_HOTEL.slug}, ${DEMO_HOTEL.address}, ${DEMO_HOTEL.latitude}, ${DEMO_HOTEL.longitude}, ${JSON.stringify(DEMO_HOTEL.metadata)}, NOW(), NOW())
+    INSERT INTO hotels (name, slug, address, latitude, longitude, restaurant_discount, metadata, created_at, updated_at)
+    VALUES (${DEMO_HOTEL.name}, ${DEMO_HOTEL.slug}, ${DEMO_HOTEL.address}, ${DEMO_HOTEL.latitude}, ${DEMO_HOTEL.longitude}, ${DEMO_HOTEL.restaurantDiscount}, ${JSON.stringify(DEMO_HOTEL.metadata)}, NOW(), NOW())
     RETURNING id
   `);
   const hotelId = insertedHotel.rows[0].id;
@@ -711,7 +716,9 @@ async function main() {
       INSERT INTO dine_in_restaurants (
         hotel_id, restaurant_guid, name, description, cuisine,
         image_urls, rating, address_line1, address_line2,
-        city, state, zip_code, country, phone_number, status, metadata, created_at, updated_at
+        city, state, zip_code, country, phone_number, status,
+        delivery_fee, service_fee_percent,
+        metadata, created_at, updated_at
       )
       VALUES (
         ${hotelId}, ${restaurant.restaurantGuid}, ${restaurant.name},
@@ -721,6 +728,7 @@ async function main() {
         ${restaurant.addressLine1}, '', ${restaurant.city}, ${restaurant.state},
         ${restaurant.zipCode}, ${restaurant.country}, ${restaurant.phoneNumber},
         'approved',
+        ${restaurant.deliveryFee}, ${restaurant.serviceFeePercent},
         ${JSON.stringify(restaurant.metadata)}::jsonb,
         NOW(), NOW()
       )

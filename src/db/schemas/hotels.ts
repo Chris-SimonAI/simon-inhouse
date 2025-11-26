@@ -1,4 +1,4 @@
-import { pgTable, bigserial, varchar, text, decimal, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, bigserial, varchar, text, decimal, jsonb, real } from "drizzle-orm/pg-core";
 import { timestamps } from "../columns.helpers";
 
 export const hotels = pgTable("hotels", {
@@ -9,6 +9,7 @@ export const hotels = pgTable("hotels", {
   latitude: decimal("latitude", { precision: 15, scale: 8 }).notNull(),
   longitude: decimal("longitude", { precision: 15, scale: 8 }).notNull(),
   stripeAccountId: varchar("stripe_account_id", { length: 255 }),
+  restaurantDiscount: real("restaurant_discount").notNull().default(20.0),
   metadata: jsonb("metadata"),
   ...timestamps,
 });

@@ -11,31 +11,26 @@ import { hotelPath } from '@/utils/hotel-path';
 
 type CheckoutViewProps = {
   restaurantGuid: string;
+  initialDiscountPercentage: number;
+  deliveryFee: number;
+  serviceFeePercent: number;
 };
 
-export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
+export function CheckoutView({ 
+  restaurantGuid, 
+  initialDiscountPercentage,
+  deliveryFee,
+  serviceFeePercent,
+}: CheckoutViewProps) {
   const router = useRouter();
   const slug = useHotelSlug();
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [discountPercentage, setDiscountPercentage] = useState<number>(0);
+  const discountPercentage = initialDiscountPercentage;
 
   useEffect(() => {
     const savedCart = localStorage.getItem(`cart-${restaurantGuid}`);
     if (savedCart) {
       setCart(JSON.parse(savedCart));
-    }
-
-    // Check for dining discount cookie
-    const cookies = document.cookie.split(';');
-    const discountCookie = cookies.find(cookie => 
-      cookie.trim().startsWith('dining_discount=')
-    );
-    
-    if (discountCookie) {
-      const discountValue = parseInt(discountCookie.split('=')[1]);
-      if (!Number.isNaN(discountValue) && discountValue > 0) {
-        setDiscountPercentage(discountValue);
-      }
     }
   }, [restaurantGuid]);
 
@@ -48,8 +43,23 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
     return (getSubtotal() * discountPercentage) / 100;
   };
 
-  const getTotalPrice = () => {
+  const getServiceFee = () => {
+    // Service fee is calculated on original subtotal (before discount)
+    return (getSubtotal() * serviceFeePercent) / 100;
+  };
+
+  const getDeliveryFee = () => {
+    return deliveryFee;
+  };
+
+  const getSubtotalAfterDiscount = () => {
     return getSubtotal() - getDiscountAmount();
+  };
+
+  const getTotalPrice = () => {
+    // Total = subtotal - discount + service fee + delivery fee
+    // Note: This is for display only. Actual total is calculated server-side.
+    return getSubtotalAfterDiscount() + getServiceFee() + getDeliveryFee();
   };
 
   const updateCart = (updatedCart: CartItem[]) => {
@@ -147,6 +157,8 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
+                  aria-label="Empty shopping bag"
+                  role="img"
                 >
                   <path
                     strokeLinecap="round"
@@ -207,9 +219,10 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
           {cart.map((item) => (
             <div key={item.id} className="py-4 border-b border-gray-200">
               {/* Item name and delete */}
-              <div className="flex justify-between items-start gap-2 mb-2 items-center">
+              <div className="flex justify-between items-center gap-2 mb-2">
                 <h3 className="font-medium text-base flex-1">{item.menuItem.name}</h3>
                 <button
+                  type="button"
                   onClick={() => removeItem(item.id)}
                   className="text-gray-400 p-1"
                   aria-label="Remove item"
@@ -233,6 +246,7 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
               <div className="flex items-center justify-between mt-3">
                 <div className="inline-flex items-center border border-gray-200 rounded-lg">
                   <button
+                    type="button"
                     onClick={() => decreaseQuantity(item.id)}
                     className="p-2 hover:bg-gray-50 rounded-l-lg transition-colors"
                     aria-label="Decrease quantity"
@@ -243,6 +257,7 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
                     {item.quantity}
                   </span>
                   <button
+                    type="button"
                     onClick={() => increaseQuantity(item.id)}
                     className="p-2 hover:bg-gray-50 rounded-r-lg transition-colors"
                     aria-label="Increase quantity"
@@ -271,8 +286,24 @@ export function CheckoutView({ restaurantGuid }: CheckoutViewProps) {
               </div>
             )}
             
+            {/* Service Fee */}
+            {serviceFeePercent > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-base text-gray-600">Service Fee ({serviceFeePercent}%)</span>
+                <span className="font-medium">${getServiceFee().toFixed(2)}</span>
+              </div>
+            )}
+            
+            {/* Delivery Fee */}
+            {deliveryFee > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-base text-gray-600">Delivery Fee</span>
+                <span className="font-medium">${getDeliveryFee().toFixed(2)}</span>
+              </div>
+            )}
+            
             <div className="flex justify-between items-center py-2 border-t border-gray-200">
-              <h3 className="font-medium text-lg">Total</h3>
+              <h3 className="font-medium text-lg">Estimated Total</h3>
               <span className="text-right font-semibold text-lg">${getTotalPrice().toFixed(2)}</span>
             </div>
           </div>

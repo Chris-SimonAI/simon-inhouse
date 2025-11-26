@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { X, CreditCard, Lock, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { createOrderAndPaymentIntent, confirmPayment } from '@/actions/payments';
-import { getDineInRestaurantByGuid } from '@/actions/dine-in-restaurants';
+import { createSecureOrderAndPaymentIntent, confirmPayment } from '@/actions/payments';
+import { redeemDiscount } from '@/actions/dining-discounts';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { stripePublishableKey } from '@/lib/stripe-client';
@@ -21,6 +21,7 @@ import {
     validateEmail,
     validatePhoneNumber
 } from '@/validations/card-payment';
+import type { TipOption, SecureOrderItem } from '@/validations/dine-in-orders';
 
 type CartItem = {
   selectedModifiers: Record<string, string[]>;
@@ -45,64 +46,6 @@ type CartItem = {
 type StripePaymentFormProps = {
   restaurantGuid: string;
   total: number;
-};
-
-// Helper function to calculate modifier price
-const calculateModifierPrice = (item: CartItem) => {
-  let modifierTotal = 0;
-  
-  Object.entries(item.selectedModifiers).forEach(([groupId, optionIds]) => {
-    const group = item.menuItem.modifierGroups.find((g) => g.id === groupId);
-    if (group && (optionIds as string[]).length > 0) {
-      (optionIds as string[]).forEach((optionId: string) => {
-        const option = group.options.find((o) => o.id === optionId);
-        if (option) {
-          modifierTotal += option.price;
-        }
-      });
-    }
-  });
-  
-  return Math.round(modifierTotal * 100) / 100;
-};
-
-// Helper function to transform modifier details
-const transformModifierDetails = (item: CartItem) => {
-  const modifierDetails: Array<{
-    groupId: string;
-    groupName: string;
-    options: Array<{
-      optionId: string;
-      optionName: string;
-      optionPrice: string;
-    }>;
-  }> = [];
-
-  Object.entries(item.selectedModifiers).forEach(([groupId, optionIds]) => {
-    const group = item.menuItem.modifierGroups.find((g) => g.id === groupId);
-    if (group && (optionIds as string[]).length > 0) {
-        const selectedOptions = (optionIds as string[])
-          .map((optionId: string) => {
-            const option = group.options.find((o) => o.id === optionId);
-            return option ? {
-              optionId: option.id,
-              optionName: option.name,
-              optionPrice: option.price.toFixed(2)
-            } : null;
-          })
-          .filter((option): option is NonNullable<typeof option> => option !== null);
-
-      if (selectedOptions.length > 0) {
-        modifierDetails.push({
-          groupId: group.id,
-          groupName: group.name,
-          options: selectedOptions
-        });
-      }
-    }
-  });
-
-  return modifierDetails;
 };
 
 // Inner component that uses Stripe Elements
@@ -223,50 +166,28 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       paymentDetails.attempts = (paymentDetails.attempts || 0) + 1;
       localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
       
-      // 1. Prepare order items (server will handle UUID to database ID conversion)
-      const orderItems = paymentDetails.cart.map((item: CartItem) => {
-        const modifierPrice = calculateModifierPrice(item);
-        const unitPrice = item.menuItem.price + modifierPrice;
-        
-        return {
-          menuItemId: 0, // Will be set by server after UUID lookup
-          menuItemGuid: item.menuItem.id, // This is the UUID
-          itemName: item.menuItem.name,
-          itemDescription: item.menuItem.description,
-          basePrice: item.menuItem.price.toFixed(2),
-          modifierPrice: modifierPrice.toFixed(2),
-          unitPrice: unitPrice.toFixed(2),
-          quantity: item.quantity,
-          totalPrice: (unitPrice * item.quantity).toFixed(2),
-          modifierDetails: transformModifierDetails(item)
-        };
-      });
+      // 1. Prepare SECURE order items (only IDs and quantities - NO PRICES)
+      // All prices are calculated server-side from database lookups
+      const secureOrderItems: SecureOrderItem[] = paymentDetails.cart.map((item: CartItem) => ({
+        menuItemGuid: item.menuItem.id, // This is the UUID
+        quantity: item.quantity,
+        selectedModifiers: item.selectedModifiers,
+      }));
 
-      // Resolve restaurant and hotel IDs from restaurantGuid
-      const restaurantLookup = await getDineInRestaurantByGuid(restaurantGuid);
-      if (!restaurantLookup.ok || !restaurantLookup.data) {
-        throw new Error('Restaurant not found');
-      }
-      const restaurantId = restaurantLookup.data.id as number;
-      const hotelId = restaurantLookup.data.hotelId as number;
+      // 2. Get tipOption from payment details (set by payment-view.tsx)
+      const tipOption: TipOption = paymentDetails.tipOption || { type: 'fixed', value: 0 };
 
-      // 2. Create order + Stripe payment intent
-      const orderResult = await createOrderAndPaymentIntent({
-        hotelId: hotelId,
-        restaurantId: restaurantId,
-        userId: 123, // Hardcoded for testing
+      // 3. Create SECURE order + Stripe payment intent
+      // Server calculates all prices from database - client prices are NOT trusted
+      const orderResult = await createSecureOrderAndPaymentIntent({
+        restaurantGuid: restaurantGuid,
         roomNumber: roomNumber,
         fullName: fullName,
         specialInstructions: "Please deliver to room",
         email: email,
         phoneNumber: phoneNumber,
-        items: orderItems,
-        subtotal: paymentDetails.subtotal,
-        discount: paymentDetails.discount,
-        discountPercentage: paymentDetails.discountPercentage,
-        tax: paymentDetails.tax,
-        tip: paymentDetails.tip,
-        total: paymentDetails.total,
+        items: secureOrderItems,
+        tipOption: tipOption,
       });
 
       if (!orderResult.ok) {
@@ -319,7 +240,12 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       paymentDetails.phoneNumber = phoneNumber;
       localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
       
-      // Clear cart and tip selection on successful payment
+      // 5. Redeem discount if one was applied (uses session internally)
+      if (paymentDetails.discountPercentage > 0) {
+        await redeemDiscount();
+      }
+      
+      // Clear cart
       localStorage.removeItem(`cart-${restaurantGuid}`);
       localStorage.removeItem(`tip-selection-${restaurantGuid}`);
       localStorage.removeItem(`payment-session-${restaurantGuid}`);
