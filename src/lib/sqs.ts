@@ -3,6 +3,7 @@ import 'server-only';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { env } from '@/env';
 import { createSuccess, createError } from '@/lib/utils';
+import { randomUUID } from 'node:crypto';
 
 // Initialize SQS client
 const sqsClient = new SQSClient({
@@ -140,4 +141,58 @@ export function prepareBotPayload(
     callbackSecret: env.FULFILLMENT_CALLBACK_SECRET,
     debug: 'true',
   };
+}
+
+export interface ScraperJobPayload {
+  urls: string | string[];
+  hotelID: string;
+  restaurantMode?: 'new' | 'existing';
+  restaurantGuid?: string;
+}
+
+/**
+ * Send scraper job to Lambda scraper via SQS FIFO queue
+ */
+export async function sendScraperJob(payload: ScraperJobPayload) {
+  try {
+    const urlsArray = Array.isArray(payload.urls) ? payload.urls : [payload.urls];
+
+    const messageBody = {
+      urls: urlsArray,
+      hotelID: payload.hotelID,
+      restaurantMode: payload.restaurantMode || 'new',
+      restaurantGuid: payload.restaurantGuid,
+    };
+
+    // Use a unique message group per job to avoid serialization and maximize parallelism.
+    const messageGroupId = `scraper-${payload.hotelID}-${randomUUID()}`;
+
+    // Use a UUID to avoid rare same-millisecond collisions and ensure uniqueness.
+    const messageDeduplicationId = `scraper-${payload.hotelID}-${randomUUID()}`;
+
+    const command = new SendMessageCommand({
+      QueueUrl: env.AWS_SQS_SCRAPER_QUEUE_URL,
+      MessageBody: JSON.stringify(messageBody),
+      MessageGroupId: messageGroupId,
+      MessageDeduplicationId: messageDeduplicationId,
+    });
+
+    const result = await sqsClient.send(command);
+
+    console.log('Scraper job sent to SQS:', {
+      hotelID: payload.hotelID,
+      messageId: result.MessageId,
+      messageGroupId,
+      messageDeduplicationId,
+    });
+
+    return createSuccess({
+      messageId: result.MessageId,
+      messageGroupId,
+      messageDeduplicationId,
+    });
+  } catch (error) {
+    console.error('Failed to send scraper job to SQS:', error);
+    return createError('Failed to send scraper job to queue', error);
+  }
 }

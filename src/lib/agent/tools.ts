@@ -106,16 +106,9 @@ export const getDineInRestaurantsTool = new DynamicTool({
   name: "get_dine_in_restaurants",
   description:
     "Get all on-property restaurants managed by the hotel/group. Use this when guests ask about our in-house dining options. Input: hotel ID as a string (e.g., '1')",
-  func: async (input: string) => {
-    const hotelId = parseInt(input);
+  func: async () => {
     try {
-      if (isNaN(hotelId)) {
-        return JSON.stringify({
-          error: "INVALID_HOTEL_ID",
-          message: "Hotel ID must be a valid number"
-        });
-      }
-      const result = await getDineInRestaurantsByHotelId(hotelId);
+      const result = await getDineInRestaurantsByHotelId();
       if (!result.ok) {
         return JSON.stringify({
           error: "DINE_IN_RESTAURANTS_FETCH_FAILED",

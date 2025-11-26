@@ -84,4 +84,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Run migrations and seed, then start the server
-CMD ["sh", "-c", "node --experimental-strip-types scripts/migrate.ts && npm run db:seed && node server.js"]
+CMD ["sh", "-c", "node --experimental-strip-types scripts/migrate.ts && node server.js"]

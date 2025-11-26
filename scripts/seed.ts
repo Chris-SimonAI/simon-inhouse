@@ -486,8 +486,8 @@ async function insertedMenu(
   modifierOptions: typeof DEMO_MODIFIER_OPTIONS
 ) {
   const insertedMenu = await db.execute(sql`
-    INSERT INTO menus (restaurant_id, menu_guid, name, description, metadata, created_at, updated_at)
-    VALUES (${restaurantId}, ${menuData.menuGuid}, ${menuData.name}, ${menuData.description}, ${JSON.stringify(menuData.metadata)}, NOW(), NOW())
+    INSERT INTO menus (restaurant_id, menu_guid, name, description, metadata, status, version, created_at, updated_at)
+    VALUES (${restaurantId}, ${menuData.menuGuid}, ${menuData.name}, ${menuData.description}, ${JSON.stringify(menuData.metadata)}, 'approved', 1, NOW(), NOW())
     RETURNING id
   `);
   const menuId = insertedMenu.rows[0].id;
@@ -498,8 +498,8 @@ async function insertedMenu(
   for (const group of menuGroups) {
     const imageUrlsArray = `{${group.imageUrls.map((url: string) => `"${url.replace(/"/g, '\\"')}"`).join(',')}}`;
     const result = await db.execute(sql`
-      INSERT INTO menu_groups (menu_id, menu_group_guid, name, image_urls, description, metadata, sort_order, created_at, updated_at)
-      VALUES (${menuId}, ${group.menuGroupGuid}, ${group.name}, ${imageUrlsArray}::text[], ${group.description}, ${JSON.stringify(group.metadata)}, ${group.sortOrder}, NOW(), NOW())
+      INSERT INTO menu_groups (menu_id, menu_group_guid, name, image_urls, description, metadata, sort_order, status, created_at, updated_at)
+      VALUES (${menuId}, ${group.menuGroupGuid}, ${group.name}, ${imageUrlsArray}::text[], ${group.description}, ${JSON.stringify(group.metadata)}, ${group.sortOrder}, 'approved', NOW(), NOW())
       RETURNING id
     `);
     insertedMenuGroups.push(result);
@@ -534,8 +534,8 @@ async function insertedMenu(
     const imageUrlsArray = `{${itemWithoutRefs.imageUrls.map((img: string) => `"${img.replace(/"/g, '\\"')}"`).join(',')}}`;
     const allergensArray = `{${itemWithoutRefs.allergens.map((allergen: string) => `"${allergen.replace(/"/g, '\\"')}"`).join(',')}}`;
     const result = await db.execute(sql`
-      INSERT INTO menu_items (menu_group_id, menu_item_guid, name, description, price, calories, image_urls, allergens, modifier_groups_references, sort_order, metadata, created_at, updated_at)
-      VALUES (${menuGroupId}, ${itemWithoutRefs.menuItemGuid}, ${itemWithoutRefs.name}, ${itemWithoutRefs.description ?? ''}, ${itemWithoutRefs.price}, ${itemWithoutRefs.calories ?? 0}, ${imageUrlsArray}::text[], ${allergensArray}::text[], ARRAY[]::integer[], ${itemWithoutRefs.sortOrder ?? 0}, ${JSON.stringify(itemWithoutRefs.metadata)}, NOW(), NOW())
+      INSERT INTO menu_items (menu_group_id, menu_item_guid, name, description, price, original_price, calories, image_urls, allergens, modifier_groups_references, sort_order, status, metadata, created_at, updated_at)
+      VALUES (${menuGroupId}, ${itemWithoutRefs.menuItemGuid}, ${itemWithoutRefs.name}, ${itemWithoutRefs.description ?? ''}, ${itemWithoutRefs.price}, ${itemWithoutRefs.price}, ${itemWithoutRefs.calories ?? 0}, ${imageUrlsArray}::text[], ${allergensArray}::text[], ARRAY[]::integer[], ${itemWithoutRefs.sortOrder ?? 0}, 'approved', ${JSON.stringify(itemWithoutRefs.metadata)}, NOW(), NOW())
       RETURNING id
     `);
     insertedMenuItems.push(result);
@@ -583,8 +583,8 @@ async function insertedMenu(
     const { modifierOptionsReferences: _modifierOptionsReferences, ...groupWithoutRefs } = group;
 
     const result = await db.execute(sql`
-      INSERT INTO modifier_groups (menu_item_id, modifier_group_guid, name, description, min_selections, max_selections, is_required, is_multi_select, metadata, created_at, updated_at)
-      VALUES (${menuItemId}, ${groupWithoutRefs.modifierGroupGuid}, ${groupWithoutRefs.name}, ${groupWithoutRefs.description}, ${groupWithoutRefs.minSelections}, ${groupWithoutRefs.maxSelections}, ${groupWithoutRefs.isRequired}, ${groupWithoutRefs.isMultiSelect}, ${JSON.stringify(groupWithoutRefs.metadata)}, NOW(), NOW())
+      INSERT INTO modifier_groups (menu_item_id, modifier_group_guid, name, description, min_selections, max_selections, is_required, is_multi_select, status, metadata, created_at, updated_at)
+      VALUES (${menuItemId}, ${groupWithoutRefs.modifierGroupGuid}, ${groupWithoutRefs.name}, ${groupWithoutRefs.description}, ${groupWithoutRefs.minSelections}, ${groupWithoutRefs.maxSelections}, ${groupWithoutRefs.isRequired}, ${groupWithoutRefs.isMultiSelect}, 'approved', ${JSON.stringify(groupWithoutRefs.metadata)}, NOW(), NOW())
       RETURNING id
     `);
     insertedModifierGroups.push(result);
@@ -642,8 +642,8 @@ async function insertedMenu(
     const { modifierGroupReferences: _modifierGroupReferences, ...optionWithoutRefs } = option;
 
     const result = await db.execute(sql`
-      INSERT INTO modifier_options (modifier_group_id, modifier_option_guid, name, description, price, calories, is_default, metadata, created_at, updated_at)
-      VALUES (${modifierGroupId}, ${optionWithoutRefs.modifierOptionGuid}, ${optionWithoutRefs.name}, ${optionWithoutRefs.description}, ${optionWithoutRefs.price}, ${optionWithoutRefs.calories}, ${optionWithoutRefs.isDefault}, '{}', NOW(), NOW())
+      INSERT INTO modifier_options (modifier_group_id, modifier_option_guid, name, description, price, original_price, calories, is_default, status, metadata, created_at, updated_at)
+      VALUES (${modifierGroupId}, ${optionWithoutRefs.modifierOptionGuid}, ${optionWithoutRefs.name}, ${optionWithoutRefs.description}, ${optionWithoutRefs.price}, ${optionWithoutRefs.price}, ${optionWithoutRefs.calories}, ${optionWithoutRefs.isDefault}, 'approved', '{}', NOW(), NOW())
       RETURNING id
     `);
     insertedModifierOptions.push(result);
@@ -711,7 +711,7 @@ async function main() {
       INSERT INTO dine_in_restaurants (
         hotel_id, restaurant_guid, name, description, cuisine,
         image_urls, rating, address_line1, address_line2,
-        city, state, zip_code, country, phone_number, metadata, created_at, updated_at
+        city, state, zip_code, country, phone_number, status, metadata, created_at, updated_at
       )
       VALUES (
         ${hotelId}, ${restaurant.restaurantGuid}, ${restaurant.name},
@@ -720,6 +720,7 @@ async function main() {
         ${restaurant.rating},
         ${restaurant.addressLine1}, '', ${restaurant.city}, ${restaurant.state},
         ${restaurant.zipCode}, ${restaurant.country}, ${restaurant.phoneNumber},
+        'approved',
         ${JSON.stringify(restaurant.metadata)}::jsonb,
         NOW(), NOW()
       )

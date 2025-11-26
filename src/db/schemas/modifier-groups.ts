@@ -1,6 +1,7 @@
 import { pgTable, bigserial, bigint, uuid, text, integer, jsonb, boolean, index } from "drizzle-orm/pg-core";
 import { timestamps } from "../columns.helpers";
 import { menuItems } from "./menu-items";
+import { menuStatusEnum } from "./menus";
 import { relations } from "drizzle-orm";
 
 export const modifierGroups = pgTable("modifier_groups", {
@@ -14,11 +15,13 @@ export const modifierGroups = pgTable("modifier_groups", {
   isRequired: boolean("is_required"),   
   isMultiSelect: boolean("is_multi_select"),
   modifierOptionsReferences: integer("modifier_options_references").array().$type<number[]>(),
+  status: menuStatusEnum("status").default("pending").notNull(),
   metadata: jsonb("metadata"),  
   ...timestamps,
 }, (table) => [
   index("modifier_groups_menu_item_id_index").on(table.menuItemId),
-  index("modifier_groups_modifier_group_guid_index").on(table.modifierGroupGuid)
+  index("modifier_groups_modifier_group_guid_index").on(table.modifierGroupGuid),
+  index("modifier_groups_status_index").on(table.status)
 ]); 
 
 export const modifierGroupsRelations = relations(modifierGroups, ({ one }) => ({

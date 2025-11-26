@@ -2,14 +2,28 @@
 
 import { DineInRestaurant, dineInRestaurants } from "@/db/schemas"; 
 import { db } from "@/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { createError, createSuccess } from "@/lib/utils";
 import { CreateError, CreateSuccess } from "@/types/response";
+import { getHotelSession } from "@/actions/sessions";
 
 
-export async function getDineInRestaurantsByHotelId(hotelId: number): Promise<CreateSuccess<DineInRestaurant[]> | CreateError<string[]>> {
+export async function getDineInRestaurantsByHotelId(): Promise<CreateSuccess<DineInRestaurant[]> | CreateError<string[]>> {
   try {
-    const restaurantsList = await db.select().from(dineInRestaurants).where(eq(dineInRestaurants.hotelId, hotelId));
+    const sessionResult = await getHotelSession();
+    if (!sessionResult.ok || !sessionResult.data) {
+      return createError("No active hotel session");
+    }
+    const hotelId = sessionResult.data.hotelId;
+    const restaurantsList = await db
+      .select()
+      .from(dineInRestaurants)
+      .where(
+        and(
+          eq(dineInRestaurants.hotelId, hotelId),
+          eq(dineInRestaurants.status, "approved")
+        )
+      );
     return createSuccess(restaurantsList);
   } catch (error) {
     console.error("Error in getDineInRestaurantsByHotelId:", error);

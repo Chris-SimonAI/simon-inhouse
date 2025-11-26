@@ -9,7 +9,7 @@ import {
   modifierOptions,
   dineInRestaurants 
 } from "@/db/schemas";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, and } from "drizzle-orm";
 import { createSuccess, createError } from "@/lib/utils";
 import { CreateError, CreateSuccess } from "@/types/response";
 
@@ -70,8 +70,14 @@ export async function getCompleteMenuByRestaurant(
     // Single query with all joins to get complete menu data
     const whereCondition =
       "id" in identifier
-        ? eq(dineInRestaurants.id, identifier.id)
-        : eq(dineInRestaurants.restaurantGuid, identifier.guid);
+        ? and(
+            eq(dineInRestaurants.id, identifier.id),
+            eq(dineInRestaurants.status, "approved")
+          )
+        : and(
+            eq(dineInRestaurants.restaurantGuid, identifier.guid),
+            eq(dineInRestaurants.status, "approved")
+          );
 
     const result = await db
       .select({
@@ -119,11 +125,28 @@ export async function getCompleteMenuByRestaurant(
         modifierOptionIsDefault: modifierOptions.isDefault,
       })
       .from(dineInRestaurants)
-      .leftJoin(menus, eq(menus.restaurantId, dineInRestaurants.id))
-      .leftJoin(menuGroups, eq(menuGroups.menuId, menus.id))
-      .leftJoin(menuItems, eq(menuItems.menuGroupId, menuGroups.id))
-      .leftJoin(modifierGroups, eq(modifierGroups.menuItemId, menuItems.id))
-      .leftJoin(modifierOptions, eq(modifierOptions.modifierGroupId, modifierGroups.id))
+      // Safe to join on the approved menu directly:
+      // a partial unique index guarantees at most one approved menu per restaurant. This prevents duplicate rows from the join.
+      .leftJoin(menus, and(
+        eq(menus.restaurantId, dineInRestaurants.id),
+        eq(menus.status, "approved")
+      ))
+      .leftJoin(menuGroups, and(
+        eq(menuGroups.menuId, menus.id),
+        eq(menuGroups.status, "approved")
+      ))
+      .leftJoin(menuItems, and(
+        eq(menuItems.menuGroupId, menuGroups.id),
+        eq(menuItems.status, "approved")
+      ))
+      .leftJoin(modifierGroups, and(
+        eq(modifierGroups.menuItemId, menuItems.id),
+        eq(modifierGroups.status, "approved")
+      ))
+      .leftJoin(modifierOptions, and(
+        eq(modifierOptions.modifierGroupId, modifierGroups.id),
+        eq(modifierOptions.status, "approved")
+      ))
       .where(whereCondition)
       .orderBy(asc(menuGroups.sortOrder), desc(menuItems.sortOrder));
 
