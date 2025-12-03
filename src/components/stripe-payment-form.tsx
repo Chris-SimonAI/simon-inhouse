@@ -17,11 +17,12 @@ import {
   validateCardPayment,
   validateRoomNumber,
   validateFullName,
-    validateNameOnCard,
-    validateEmail,
-    validatePhoneNumber
+  validateNameOnCard,
+  validateEmail,
 } from '@/validations/card-payment';
 import type { TipOption, SecureOrderItem } from '@/validations/dine-in-orders';
+import PhoneInput from 'react-phone-number-input/input';
+import { isValidPhoneNumber } from 'react-phone-number-input';
 
 type CartItem = {
   selectedModifiers: Record<string, string[]>;
@@ -62,7 +63,8 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
   const [fullName, setFullName] = useState("");
   const [nameOnCard, setNameOnCard] = useState("");
   const [email, setEmail] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [phoneNational, setPhoneNational] = useState("");
   const [errors, setErrors] = useState<
     Partial<Record<keyof CardPaymentForm, string>>
   >({});
@@ -95,11 +97,18 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
     setErrors(prev => ({ ...prev, email: error || undefined }));
   };
 
-  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setPhoneNumber(value);
-    const error = validatePhoneNumber(value);
-    setErrors(prev => ({ ...prev, phoneNumber: error || undefined }));
+  const handlePhoneNumberChange = (value?: string) => {
+    const v = typeof value === 'string' ? value : '';
+    setPhoneNumber(v);
+    const national = v.replace(/^\+1/, '').replace(/\D/g, '');
+    const valid = v.length > 0 && isValidPhoneNumber(v) && national.length === 10;
+    if (valid) {
+      setPhoneNational(national);
+      setErrors(prev => ({ ...prev, phoneNumber: undefined }));
+      return;
+    }
+    setPhoneNational("");
+    setErrors(prev => ({ ...prev, phoneNumber: 'Enter a valid phone number' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,7 +121,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       fullName,
       nameOnCard,
       email,
-      phoneNumber,
+      phoneNumber: phoneNational,
     };
 
     const result = validateCardPayment(formData);
@@ -185,7 +194,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         fullName: fullName,
         specialInstructions: "Please deliver to room",
         email: email,
-        phoneNumber: phoneNumber,
+        phoneNumber: phoneNational,
         items: secureOrderItems,
         tipOption: tipOption,
       });
@@ -213,8 +222,8 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         card: cardNumberElement,
         billing_details: {
           name: nameOnCard,
-          email: email || undefined,
-          phone: phoneNumber || undefined,
+          email: email ? email : undefined,
+          phone: phoneNational ? phoneNational : undefined,
         },
       });
 
@@ -237,7 +246,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       paymentDetails.orderId = orderResult.data.order.id;
       paymentDetails.paymentId = confirmResult.data.payment.id;
       paymentDetails.email = email;
-      paymentDetails.phoneNumber = phoneNumber;
+      paymentDetails.phoneNumber = phoneNational;
       localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
       
       // 5. Redeem discount if one was applied (uses session internally)
@@ -434,9 +443,10 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10 select-none text-gray-500 text-sm">
                   +1
                 </div>
-                <input
-                  type="tel"
+                <PhoneInput
                   id="phoneNumber"
+                  country="US"
+                  international={false}
                   value={phoneNumber}
                   onChange={handlePhoneNumberChange}
                   className={cn(
@@ -444,8 +454,6 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                     errors.phoneNumber && "border-red-500 focus:ring-red-500 focus:border-red-500"
                   )}
                   placeholder="Enter phone number"
-                  inputMode="tel"
-                  autoComplete="tel"
                   required
                 />
               </div>
