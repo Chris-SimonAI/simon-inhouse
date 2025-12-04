@@ -9,6 +9,7 @@ import { createSuccess, createError } from '@/lib/utils';
 import { SecureCreateOrderRequestSchema, type SecureOrderItem, type TipOption } from '@/validations/dine-in-orders';
 import { eq, inArray } from 'drizzle-orm';
 import { getActiveDiscount } from '@/actions/dining-discounts';
+import { env } from '@/env';
 
 /**
  * Result of server-side order total calculation
@@ -359,6 +360,7 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
         discountPercentage: calculation.discountPercentage.toString(),
         tip: calculation.tip.toString(),
         total: calculation.total.toString(),
+        source: env.NODE_ENV,
       },
     });
     
