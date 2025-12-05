@@ -1,5 +1,5 @@
 {
-  "id": "7609a2b9-088f-4ae9-8659-9dada10ead31",
+  "id": "15e7eee6-bec0-4b86-ad38-d2b3f83506f2",
   "prevId": "14babcb7-5843-4456-a39b-1ed2bb4f9f39",
   "version": "7",
   "dialect": "postgresql",
@@ -909,6 +909,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'20.00'"
+        },
+        "business_hours": {
+          "name": "business_hours",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "metadata": {
           "name": "metadata",
