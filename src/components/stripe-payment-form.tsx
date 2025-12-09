@@ -21,7 +21,6 @@ import {
   validateEmail,
 } from '@/validations/card-payment';
 import type { TipOption, SecureOrderItem } from '@/validations/dine-in-orders';
-import PhoneInput from 'react-phone-number-input/input';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 
 type CartItem = {
@@ -64,7 +63,6 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
   const [nameOnCard, setNameOnCard] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState<string>("");
-  const [phoneNational, setPhoneNational] = useState("");
   const [errors, setErrors] = useState<
     Partial<Record<keyof CardPaymentForm, string>>
   >({});
@@ -97,31 +95,26 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
     setErrors(prev => ({ ...prev, email: error || undefined }));
   };
 
-  const handlePhoneNumberChange = (value?: string) => {
-    const v = typeof value === 'string' ? value : '';
-    setPhoneNumber(v);
-    const national = v.replace(/^\+1/, '').replace(/\D/g, '');
-    const valid = v.length > 0 && isValidPhoneNumber(v) && national.length === 10;
-    if (valid) {
-      setPhoneNational(national);
-      setErrors(prev => ({ ...prev, phoneNumber: undefined }));
-      return;
-    }
-    setPhoneNational("");
-    setErrors(prev => ({ ...prev, phoneNumber: 'Enter a valid phone number' }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
     setError(null);
+
+    // Validate phone at submit time only
+    const nationalDigits = phoneNumber.replace(/^\+1/, '').replace(/\D/g, '');
+    const e164 = `+1${nationalDigits}`; // currently hardcoded to US
+    const phoneIsValid = e164 ? isValidPhoneNumber(e164) && nationalDigits.length === 10 : false;
+    if (!phoneIsValid) {
+      setErrors(prev => ({ ...prev, phoneNumber: 'Enter a valid phone number' }));
+      return;
+    }
 
     const formData: CardPaymentForm = {
       roomNumber,
       fullName,
       nameOnCard,
       email,
-      phoneNumber: phoneNational,
+      phoneNumber: nationalDigits,
     };
 
     const result = validateCardPayment(formData);
@@ -194,7 +187,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         fullName: fullName,
         specialInstructions: "Please deliver to room",
         email: email,
-        phoneNumber: phoneNational,
+        phoneNumber: nationalDigits,
         items: secureOrderItems,
         tipOption: tipOption,
       });
@@ -222,8 +215,8 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         card: cardNumberElement,
         billing_details: {
           name: nameOnCard,
-          email: email ? email : undefined,
-          phone: phoneNational ? phoneNational : undefined,
+          email: email,
+          phone: nationalDigits,
         },
       });
 
@@ -246,7 +239,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       paymentDetails.orderId = orderResult.data.order.id;
       paymentDetails.paymentId = confirmResult.data.payment.id;
       paymentDetails.email = email;
-      paymentDetails.phoneNumber = phoneNational;
+      paymentDetails.phoneNumber = nationalDigits;
       localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
       
       // 5. Redeem discount if one was applied (uses session internally)
@@ -443,12 +436,13 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10 select-none text-gray-500 text-sm">
                   +1
                 </div>
-                <PhoneInput
+                <input
                   id="phoneNumber"
-                  country="US"
-                  international={false}
                   value={phoneNumber}
-                  onChange={handlePhoneNumberChange}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
                   className={cn(
                     "w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
                     errors.phoneNumber && "border-red-500 focus:ring-red-500 focus:border-red-500"
