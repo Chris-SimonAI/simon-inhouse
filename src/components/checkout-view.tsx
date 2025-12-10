@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { CartItem } from './menu-view';
 import { Button } from '@/components/ui/button';
-import {X, Trash2, Plus, Minus } from 'lucide-react';
+import {X, Trash2, Plus, Minus, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useHotelSlug } from '@/hooks/use-hotel-slug';
 import { hotelPath } from '@/utils/hotel-path';
+import { ConfirmExitButton } from '@/components/confirm-exit-button';
 
 type CheckoutViewProps = {
   restaurantGuid: string;
@@ -26,6 +27,7 @@ export function CheckoutView({
   const slug = useHotelSlug();
   const [cart, setCart] = useState<CartItem[]>([]);
   const discountPercentage = initialDiscountPercentage;
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const savedCart = localStorage.getItem(`cart-${restaurantGuid}`);
@@ -33,6 +35,31 @@ export function CheckoutView({
       setCart(JSON.parse(savedCart));
     }
   }, [restaurantGuid]);
+
+  const clearCartAndPaymentState = () => {
+    try {
+      localStorage.removeItem(`cart-${restaurantGuid}`);
+      localStorage.removeItem(`tip-selection-${restaurantGuid}`);
+      localStorage.removeItem(`payment-details-${restaurantGuid}`);
+      localStorage.removeItem(`payment-session-${restaurantGuid}`);
+    } catch {
+      // no-op
+    }
+  };
+
+  const goToRestaurantMenu = () => {
+    if (!slug) return null;
+    router.push(hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`));
+  };
+
+  const handleBack = () => {
+    goToRestaurantMenu();
+  };
+
+  const handleConfirmExit = () => {
+    clearCartAndPaymentState();
+    goToRestaurantMenu();
+  };
 
   const getSubtotal = () => {
     return cart.reduce((total, item) => total + item.totalPrice, 0);
@@ -193,23 +220,26 @@ export function CheckoutView({
   }
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <div ref={containerRef} className="flex flex-col min-h-dvh relative">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-semibold text-gray-900 truncate pr-4">
-            Order Summary
-          </h1>
-          <Link
-            href={
-              slug
-                ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`)
-                : '#'
-            }
-            className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex items-center gap-2 text-gray-900"
+            aria-label="Back to Menu"
           >
-            <X className="w-5 h-5" />
-          </Link>
+            <ChevronLeft className="w-5 h-5" />
+            <span className="text-base font-semibold">Order Summary</span>
+          </button>
+
+          <ConfirmExitButton
+            container={containerRef.current}
+            title="Leave checkout?"
+            description="Leaving now will clear your cart and return you to the restaurant menu. Continue?"
+            onConfirm={handleConfirmExit}
+          />
         </div>
       </div>
 

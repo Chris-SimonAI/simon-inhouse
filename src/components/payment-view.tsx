@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { CartItem } from "./menu-view";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronRight, X, ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useHotelSlug } from "@/hooks/use-hotel-slug";
 import { hotelPath } from "@/utils/hotel-path";
+import { ConfirmExitButton } from "@/components/confirm-exit-button";
 
 type PaymentViewProps = {
   restaurantGuid: string;
@@ -35,6 +36,7 @@ export function PaymentView({
   const [showCustomTipInput, setShowCustomTipInput] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const discountPercentage = initialDiscountPercentage;
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const savedCart = localStorage.getItem(`cart-${restaurantGuid}`);
@@ -122,8 +124,26 @@ export function PaymentView({
     return hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}${suffix}`);
   };
 
-  const handleClose = () => {
+  const handleBack = () => {
     const path = buildRestaurantPath("/checkout");
+    if (!path) return;
+    router.push(path);
+  };
+
+  const clearCartAndPaymentState = () => {
+    try {
+      localStorage.removeItem(`cart-${restaurantGuid}`);
+      localStorage.removeItem(`tip-selection-${restaurantGuid}`);
+      localStorage.removeItem(`payment-details-${restaurantGuid}`);
+      localStorage.removeItem(`payment-session-${restaurantGuid}`);
+    } catch {
+      // no-op
+    }
+  };
+
+  const handleConfirmExit = () => {
+    clearCartAndPaymentState();
+    const path = buildRestaurantPath("/menu");
     if (!path) return;
     router.push(path);
   };
@@ -219,7 +239,7 @@ export function PaymentView({
             <h1 className="text-lg font-semibold text-gray-900">Menu</h1>
             <button
               type="button"
-              onClick={handleClose}
+              onClick={handleBack}
               className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
@@ -247,18 +267,26 @@ export function PaymentView({
   }
 
   return (
-    <div className="flex flex-col h-dvh bg-gray-50">
+    <div ref={containerRef} className="flex flex-col h-dvh bg-gray-50 relative">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-semibold text-gray-900">Menu</h1>
           <button
             type="button"
-            onClick={handleClose}
-            className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
+            onClick={handleBack}
+            className="flex items-center gap-2 text-gray-900"
+            aria-label="Back to Order Summary"
           >
-            <X className="w-5 h-5" />
+            <ChevronLeft className="w-5 h-5" />
+            <span className="text-base font-medium">Menu</span>
           </button>
+
+          <ConfirmExitButton
+            container={containerRef.current}
+            title="Leave payment?"
+            description="Leaving now will clear your cart and return you to the restaurant menu. Continue?"
+            onConfirm={handleConfirmExit}
+          />
         </div>
       </div>
 

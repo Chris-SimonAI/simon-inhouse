@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, CreditCard, Lock, Info } from 'lucide-react';
+import { CreditCard, Lock, Info, ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { createSecureOrderAndPaymentIntent, confirmPayment } from '@/actions/payments';
@@ -12,6 +12,7 @@ import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStri
 import { stripePublishableKey } from '@/lib/stripe-client';
 import { useHotelSlug } from '@/hooks/use-hotel-slug';
 import { hotelPath } from '@/utils/hotel-path';
+import { ConfirmExitButton } from '@/components/confirm-exit-button';
 import { 
   type CardPaymentForm,
   validateCardPayment,
@@ -56,6 +57,8 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // exit confirm handled by reusable component
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Form state
   const [roomNumber, setRoomNumber] = useState("");
@@ -275,25 +278,49 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
     }
   };
 
-  const handleClose = () => {
+  const handleBack = () => {
     if (!slug) return;
-    router.push(
-      hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/payment`),
-    );
+    router.push(hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/payment`));
+  };
+
+  const clearCartAndPaymentState = () => {
+    try {
+      localStorage.removeItem(`cart-${restaurantGuid}`);
+      localStorage.removeItem(`tip-selection-${restaurantGuid}`);
+      localStorage.removeItem(`payment-details-${restaurantGuid}`);
+      localStorage.removeItem(`payment-session-${restaurantGuid}`);
+    } catch {
+      // no-op
+    }
+  };
+
+  const handleConfirmExit = () => {
+    clearCartAndPaymentState();
+    if (!slug) return;
+    router.push(hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`));
   };
 
   return (
-    <div className="flex flex-col h-dvh bg-gray-50">
+    <div ref={containerRef} className="flex flex-col h-dvh bg-gray-50 relative">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-semibold text-gray-900">Menu</h1>
           <button
-            onClick={handleClose}
-            className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
+            type="button"
+            onClick={handleBack}
+            className="flex items-center gap-2 text-gray-900"
+            aria-label="Back to Payment Method"
           >
-            <X className="w-5 h-5" />
+            <ChevronLeft className="w-5 h-5" />
+            <span className="text-base font-semibold">Menu</span>
           </button>
+
+          <ConfirmExitButton
+            container={containerRef.current}
+            title="Leave payment?"
+            description="Leaving now will clear your cart and return you to the restaurant menu. Continue?"
+            onConfirm={handleConfirmExit}
+          />
         </div>
       </div>
 
