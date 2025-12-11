@@ -5,11 +5,12 @@ export const runtime = 'nodejs';
 
 import { db } from '@/db';
 import { dineInOrderItems, dineInOrders, dineInPayments, dineInRestaurants, hotels, tips } from '@/db/schemas';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { createError } from '@/lib/utils';
 import { prepareBotPayload, sendOrderToBot } from '@/lib/sqs';
 import { TIP_PAYMENT_STATUS, type TipPaymentStatus } from '@/constants/payments';
+import { env } from '@/env';
 
 export async function POST(req: NextRequest) {
   try {
@@ -134,6 +135,15 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
       return;
     }
 
+    // Guard: Only trigger bot for pending orders
+    if (order[0].orderStatus !== 'pending') {
+      console.log('Skipping bot trigger: order is not pending', {
+        orderId: orderIdNum,
+        orderStatus: order[0].orderStatus,
+      });
+      return;
+    }
+
     // Check if payment record already exists
     const existingPayment = await db.select()
       .from(dineInPayments)
@@ -168,6 +178,27 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
         .where(eq(dineInPayments.stripePaymentIntentId, paymentIntent.id));
       console.log('Payment record updated to authorized status for order:', orderIdNum);
     } else {
+      return;
+    }
+
+    // Guard: Ensure this is a dine_in intent (not a tip or other)
+    const metaType = paymentIntent.metadata.type;
+    if (metaType !== 'dine_in') {
+      console.log('Skipping bot trigger: payment intent type is not dine_in', {
+        paymentIntentId: paymentIntent.id,
+        type: metaType,
+      });
+      return;
+    }
+
+    // Guard: Ensure metadata.source matches current environment
+    const piSource = paymentIntent.metadata.source;
+    if (piSource !== env.NODE_ENV) {
+      console.log('Skipping bot trigger: payment intent source does not match environment', {
+        paymentIntentId: paymentIntent.id,
+        source: piSource,
+        expected: env.NODE_ENV,
+      });
       return;
     }
 
@@ -251,7 +282,12 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
             botStatus: 'processing',
           } as Record<string, unknown>,
         })
-        .where(eq(dineInOrders.id, orderIdNum));
+        .where(
+          and(
+            eq(dineInOrders.id, orderIdNum),
+            eq(dineInOrders.orderStatus, 'pending')
+          )
+        );
     }
 
     console.log('Payment authorized and bot triggered for order:', orderIdNum);

@@ -17,11 +17,11 @@ import {
   validateCardPayment,
   validateRoomNumber,
   validateFullName,
-    validateNameOnCard,
-    validateEmail,
-    validatePhoneNumber
+  validateNameOnCard,
+  validateEmail,
 } from '@/validations/card-payment';
 import type { TipOption, SecureOrderItem } from '@/validations/dine-in-orders';
+import { isValidPhoneNumber } from 'react-phone-number-input';
 
 type CartItem = {
   selectedModifiers: Record<string, string[]>;
@@ -62,7 +62,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
   const [fullName, setFullName] = useState("");
   const [nameOnCard, setNameOnCard] = useState("");
   const [email, setEmail] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
   const [errors, setErrors] = useState<
     Partial<Record<keyof CardPaymentForm, string>>
   >({});
@@ -95,24 +95,26 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
     setErrors(prev => ({ ...prev, email: error || undefined }));
   };
 
-  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setPhoneNumber(value);
-    const error = validatePhoneNumber(value);
-    setErrors(prev => ({ ...prev, phoneNumber: error || undefined }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
     setError(null);
+
+    // Validate phone at submit time only
+    const nationalDigits = phoneNumber.replace(/^\+1/, '').replace(/\D/g, '');
+    const e164 = `+1${nationalDigits}`; // currently hardcoded to US
+    const phoneIsValid = e164 ? isValidPhoneNumber(e164) && nationalDigits.length === 10 : false;
+    if (!phoneIsValid) {
+      setErrors(prev => ({ ...prev, phoneNumber: 'Enter a valid phone number' }));
+      return;
+    }
 
     const formData: CardPaymentForm = {
       roomNumber,
       fullName,
       nameOnCard,
       email,
-      phoneNumber,
+      phoneNumber: nationalDigits,
     };
 
     const result = validateCardPayment(formData);
@@ -185,7 +187,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         fullName: fullName,
         specialInstructions: "Please deliver to room",
         email: email,
-        phoneNumber: phoneNumber,
+        phoneNumber: nationalDigits,
         items: secureOrderItems,
         tipOption: tipOption,
       });
@@ -213,8 +215,8 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         card: cardNumberElement,
         billing_details: {
           name: nameOnCard,
-          email: email || undefined,
-          phone: phoneNumber || undefined,
+          email: email,
+          phone: nationalDigits,
         },
       });
 
@@ -237,7 +239,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       paymentDetails.orderId = orderResult.data.order.id;
       paymentDetails.paymentId = confirmResult.data.payment.id;
       paymentDetails.email = email;
-      paymentDetails.phoneNumber = phoneNumber;
+      paymentDetails.phoneNumber = nationalDigits;
       localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
       
       // 5. Redeem discount if one was applied (uses session internally)
@@ -435,17 +437,17 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                   +1
                 </div>
                 <input
-                  type="tel"
                   id="phoneNumber"
                   value={phoneNumber}
-                  onChange={handlePhoneNumberChange}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
                   className={cn(
                     "w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
                     errors.phoneNumber && "border-red-500 focus:ring-red-500 focus:border-red-500"
                   )}
                   placeholder="Enter phone number"
-                  inputMode="tel"
-                  autoComplete="tel"
                   required
                 />
               </div>
