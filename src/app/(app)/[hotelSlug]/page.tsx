@@ -11,6 +11,8 @@ import {
   processChatMessageStream,
   getThreadMessages,
 } from "@/actions/chatbot";
+import { AnalyticsEvents } from "@/lib/analytics/events";
+import { PostHogServerClient } from "@/lib/analytics/posthog/server";
 
 interface PageProps {
   params: Promise<{ hotelSlug: string }>;
@@ -23,7 +25,7 @@ export default async function HotelHomePage({
 }: PageProps) {
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
-  const { hotel, threadId } = await requireHotelSession({
+  const { hotel, threadId, userId } = await requireHotelSession({
     hotelSlug: resolvedParams.hotelSlug,
     redirectTo: `/${resolvedParams.hotelSlug}`,
   });
@@ -46,6 +48,8 @@ export default async function HotelHomePage({
   if (!hasPlayedIntro) {
     return <WelcomeClient hotel={hotel} />;
   }
+
+  PostHogServerClient.capture(userId, AnalyticsEvents.meetSimonHomepageViewed);
 
   return (
     <main className="h-dvh w-full bg-gray-50">

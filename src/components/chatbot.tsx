@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, ChangeEvent, FormEvent, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import Image from "next/image";
 import {
   Conversation,
@@ -16,7 +17,7 @@ import {
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
 import { useRscChat } from "@/hooks/use-rsc-chat";
-import { RealtimeVoiceAgent, RealtimeVoiceAgentRef } from "@/components/voice/realtime-voice-agent";
+import { RealtimeVoiceAgent } from "@/components/voice/realtime-voice-agent";
 import VoiceIntroduction from "@/components/voice-introduction";
 import { Loader } from "@/components/ai-elements/loader";
 import { Suggestion } from "@/components/suggestion";
@@ -25,26 +26,30 @@ import { AmenityCard } from "@/components/amenity-card";
 import { AttractionsView } from "@/components/attractions-view";
 import { DineInRestaurantCard } from "@/components/dine-in-restaurant-card";
 import { useChatScrollAnchor } from "@/hooks/use-chat-scroll-anchor";
-import { type PlaceResult } from "@/lib/places";
-import { type Amenity } from "@/db/schemas/amenities";
-import { type Hotel } from "@/db/schemas/hotels";
+import type { PlaceResult } from "@/lib/places";
+import type { Amenity } from "@/db/schemas/amenities";
+import type { Hotel } from "@/db/schemas/hotels";
 import { cn } from "@/lib/utils";
-import { type RscServerAction } from "@/actions/chatbot";
+import type { RscServerAction } from "@/actions/chatbot";
 import type { UIMessage } from "ai";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
-import { StickToBottomContext } from "use-stick-to-bottom";
-import { SCROLL_STOP_TYPES, UI_TOOLS, UiTool, AssistantTextType } from "@/constants/ui-tools";
+import type { StickToBottomContext } from "use-stick-to-bottom";
+import { SCROLL_STOP_TYPES, UI_TOOLS } from "@/constants/ui-tools";
+import type { UiTool, AssistantTextType } from "@/constants/ui-tools";
 import { ArrowLeft, Mic } from "lucide-react";
 import { MarkdownResponse } from "./ai-elements/markdown-response";
 import { AmenitiesLogo, AttractionsLogo, DiningLogo, HistoryLogo, InRoomDiningLogo } from "@/svgs";
-import { DineInRestaurant } from "@/db";
+import type { DineInRestaurant } from "@/db";
 import { CardSkeletonGroup } from "@/components/card-skeleton";
 import { AttractionsViewSkeleton } from "@/components/attractions-view-skeleton";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import { hotelPath } from "@/utils/hotel-path";
 import { TipStaffCard } from "@/components/tip-staff-card";
+import { Analytics } from "@/lib/analytics/client";
+import { AnalyticsEvents } from "@/lib/analytics/events";
+import type { RealtimeVoiceAgentRef } from "@/components/voice/realtime-voice-agent";
 
 type Props = {
   processChatMessageStream: RscServerAction
@@ -130,6 +135,8 @@ export default function Chatbot({ processChatMessageStream, getThreadMessages, t
   };
 
   const handleVoiceToggle = () => {
+    Analytics.capture(AnalyticsEvents.chatVoiceStartClicked);
+
     // Check if hotel context is available
     if (!hotelContext) {
       toast.error("Voice assistant temporarily unavailable", {
@@ -324,7 +331,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
                   <MessageContent className={cn(
                     message.role === 'assistant'
                       ? '!bg-transparent rounded-2xl rounded-tl-md !min-w-full max-w-full p-0 py-1'
-                      : '!bg-gray-200 !text-gray-700 rounded-full pl-6 pr-4 py-2 pl-6 shadow-sm !min-w-full text-right max-w-full [&>div]:flex [&>div]:items-center [&>div]:gap-2'
+                      : '!bg-gray-200 !text-gray-700 rounded-full pl-6 pr-4 py-2 shadow-sm !min-w-full text-right max-w-full [&>div]:flex [&>div]:items-center [&>div]:gap-2'
                   )}>
                     {/* only show */}
                     {status === 'submitted' && message.role === 'assistant' && message.id === messages[messages.length - 1].id && (
@@ -487,7 +494,7 @@ function ChatBotContent({ openL1, input, messages, status, setOpenL1, handleSubm
               onChange={handleInputChange}
               value={input}
               placeholder="Ask Simon anything"
-              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] min-h-[50px] pt-3 rounded-full pl-4 pr-16 pt-4"
+              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] min-h-[50px] pt-3 rounded-full pl-4 pr-16"
             />
             <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
               <PromptInputTools>
@@ -578,6 +585,9 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
                   </div>
                   <Suggestion
                     onClick={() => {
+                      Analytics.capture(AnalyticsEvents.chatCannedPromptClicked, {
+                        suggestion: suggestion.label,
+                      });
                       setOpenL1(true);
                       setScrollToBottom(true);
                       if (suggestion.action) {
@@ -739,7 +749,7 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
               onChange={(e) => setInput(e.target.value)}
               value={input}
               placeholder="Ask Simon anything"
-              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] min-h-[50px] pt-3 rounded-full pl-4 pr-16 pt-4"
+              className="bg-transparent border-none outline-none text-gray-700 placeholder-gray-400 resize-none h-[50px] min-h-[50px] pt-3 rounded-full pl-4 pr-16"
             />
             <PromptInputToolbar className="absolute right-4 top-1/2 transform -translate-y-1/2">
               <PromptInputTools>
@@ -756,6 +766,14 @@ function ChatBotContentHome({ openL1, input, messages, setOpenL1, handleSubmit, 
               </PromptInputTools>
             </PromptInputToolbar>
           </PromptInput>
+          <div className="mt-3 text-center">
+            <a
+              href="mailto:support@meetsimon.ai"
+              className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
+            >
+              Questions? support@meetsimon.ai
+            </a>
+          </div>
         </div>
       </div>
     </div>

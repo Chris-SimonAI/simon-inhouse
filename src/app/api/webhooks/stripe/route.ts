@@ -1,62 +1,72 @@
-import { NextRequest, NextResponse } from 'next/server';
-import 'server-only';
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import "server-only";
 
 export const runtime = 'nodejs';
 
 import { db } from '@/db';
 import { dineInOrderItems, dineInOrders, dineInPayments, dineInRestaurants, hotels, tips } from '@/db/schemas';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { createError } from '@/lib/utils';
 import { prepareBotPayload, sendOrderToBot } from '@/lib/sqs';
 import { TIP_PAYMENT_STATUS, type TipPaymentStatus } from '@/constants/payments';
+import { env } from '@/env';
+import { AnalyticsEvents } from "@/lib/analytics/events";
+import { PostHogServerClient } from "@/lib/analytics/posthog/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { stripe } = await import('@/lib/stripe');
+    const { stripe } = await import("@/lib/stripe");
     
     const body = await req.text();
-    const signature = req.headers.get('stripe-signature');
+    const signature = req.headers.get("stripe-signature");
 
     if (!signature) {
-      console.error('Missing Stripe signature');
-      return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
+      console.error("Missing Stripe signature");
+      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
     }
 
     let event: Stripe.Event;
 
+
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error("Missing STRIPE_WEBHOOK_SECRET");
+      return NextResponse.json({ error: "Missing webhook secret" }, { status: 500 });
+    }
 
     try {
       // Verify webhook signature
       event = stripe.webhooks.constructEvent(
         body,
         signature,
-        process.env.STRIPE_WEBHOOK_SECRET!
+        webhookSecret
       );
     } catch (err) {
-      console.error('Webhook signature verification failed:', err);
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+      console.error("Webhook signature verification failed:", err);
+      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
-    console.log('Webhook received:', { type: event.type, id: event.id });
+    console.log("Webhook received:", { type: event.type, id: event.id });
 
     // Handle the event
     switch (event.type) {
-      case 'payment_intent.amount_capturable_updated':
+      case "payment_intent.amount_capturable_updated":
         // Payment authorized but not yet captured (manual capture)
         await handlePaymentIntentAuthorized(event.data.object as Stripe.PaymentIntent);
         break;
       
-      case 'payment_intent.succeeded':
+      case "payment_intent.succeeded":
         // Payment captured and succeeded
         await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
         break;
       
-      case 'payment_intent.payment_failed':
+      case "payment_intent.payment_failed":
         await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
         break;
       
-      case 'payment_intent.canceled':
+      case "payment_intent.canceled":
         await handlePaymentIntentCanceled(event.data.object as Stripe.PaymentIntent);
         break;
       
@@ -66,8 +76,26 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error('Webhook error:', error);
-    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
+    console.error("Webhook error:", error);
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+  }
+}
+
+function captureStripeAnalytics(
+  paymentIntent: Stripe.PaymentIntent,
+  event: string,
+  props: Record<string, unknown>
+) {
+  const metadata = (paymentIntent.metadata as Record<string, string>) || {};
+  const distinctId = metadata.userId
+
+  try {
+    void PostHogServerClient.capture(distinctId, event, {
+      payment_intent_id: paymentIntent.id,
+      ...props,
+    });
+  } catch (err) {
+    console.error("Failed to capture analytics event", { event, err });
   }
 }
 
@@ -77,12 +105,12 @@ async function updateTipFromPaymentIntent(
 ): Promise<void> {
   const tipIdMeta = (paymentIntent.metadata as Record<string, string> | undefined)?.tipId;
   if (!tipIdMeta) {
-    console.error('No tipId in payment intent metadata');
+    console.error("No tipId in payment intent metadata");
     return;
   }
   const tipIdNum = parseInt(tipIdMeta, 10);
   if (Number.isNaN(tipIdNum)) {
-    console.error('Invalid tipId in payment intent metadata:', tipIdMeta);
+    console.error("Invalid tipId in payment intent metadata:", tipIdMeta);
     return;
   }
 
@@ -108,29 +136,55 @@ async function updateTipFromPaymentIntent(
     .where(eq(tips.id, tipIdNum));
 
   console.log(`Tip marked as ${status}:`, tipIdNum);
+
+  if (status === TIP_PAYMENT_STATUS.completed) {
+    captureStripeAnalytics(paymentIntent, AnalyticsEvents.tipPaymentSucceeded, {
+      tip_id: tipIdNum,
+      amount: paymentIntent.amount_received / 100,
+      currency: paymentIntent.currency,
+      payment_status: paymentIntent.status,
+    });
+  } else if (status === TIP_PAYMENT_STATUS.failed) {
+    captureStripeAnalytics(paymentIntent, AnalyticsEvents.tipPaymentFailed, {
+      tip_id: tipIdNum,
+      amount: paymentIntent.amount / 100,
+      currency: paymentIntent.currency,
+      payment_status: paymentIntent.status,
+      last_error: paymentIntent.last_payment_error,
+    });
+  }
   return;
 }
 
 async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent) {
   try {
-    console.log('Processing payment_intent.amount_capturable_updated (authorized):', paymentIntent.id);
+    console.log("Processing payment_intent.amount_capturable_updated (authorized):", paymentIntent.id);
     
     const orderId = paymentIntent.metadata.orderId;
     if (!orderId) {
-      console.error('No orderId in payment intent metadata');
+      console.error("No orderId in payment intent metadata");
       return;
     }
 
     const orderIdNum = parseInt(orderId);
-    if (isNaN(orderIdNum)) {
-      console.error('Invalid orderId in payment intent metadata:', orderId);
+    if (Number.isNaN(orderIdNum)) {
+      console.error("Invalid orderId in payment intent metadata:", orderId);
       return;
     }
 
     // Check if order exists
     const order = await db.select().from(dineInOrders).where(eq(dineInOrders.id, orderIdNum)).limit(1);
     if (order.length === 0) {
-      console.error('Order not found:', orderIdNum);
+      console.error("Order not found:", orderIdNum);
+      return;
+    }
+
+    // Guard: Only trigger bot for pending orders
+    if (order[0].orderStatus !== 'pending') {
+      console.log('Skipping bot trigger: order is not pending', {
+        orderId: orderIdNum,
+        orderStatus: order[0].orderStatus,
+      });
       return;
     }
 
@@ -171,6 +225,27 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
       return;
     }
 
+    // Guard: Ensure this is a dine_in intent (not a tip or other)
+    const metaType = paymentIntent.metadata.type;
+    if (metaType !== 'dine_in') {
+      console.log('Skipping bot trigger: payment intent type is not dine_in', {
+        paymentIntentId: paymentIntent.id,
+        type: metaType,
+      });
+      return;
+    }
+
+    // Guard: Ensure metadata.source matches current environment
+    const piSource = paymentIntent.metadata.source;
+    if (piSource !== env.NODE_ENV) {
+      console.log('Skipping bot trigger: payment intent source does not match environment', {
+        paymentIntentId: paymentIntent.id,
+        source: piSource,
+        expected: env.NODE_ENV,
+      });
+      return;
+    }
+
     // Get restaurant details for bot payload
     const [restaurant] = await db.select().from(dineInRestaurants).where(eq(dineInRestaurants.id, order[0].restaurantId)).limit(1);
     if (!restaurant) {
@@ -196,7 +271,7 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
 
     const hotel = await db.select().from(hotels).where(eq(hotels.id, order[0].hotelId)).limit(1);
     if (hotel.length === 0) {
-      console.error('Hotel not found:', order[0].hotelId);
+      console.error("Hotel not found:", order[0].hotelId);
       return;
     }
 
@@ -251,19 +326,34 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
             botStatus: 'processing',
           } as Record<string, unknown>,
         })
-        .where(eq(dineInOrders.id, orderIdNum));
+        .where(
+          and(
+            eq(dineInOrders.id, orderIdNum),
+            eq(dineInOrders.orderStatus, 'pending')
+          )
+        );
     }
 
     console.log('Payment authorized and bot triggered for order:', orderIdNum);
+
+    captureStripeAnalytics(paymentIntent, AnalyticsEvents.dineInPaymentAuthorized, {
+      order_id: orderIdNum,
+      restaurant_id: restaurant.id,
+      restaurant_name: restaurant.name,
+      hotel_id: order[0].hotelId,
+      amount: paymentIntent.amount / 100,
+      currency: paymentIntent.currency,
+      stripe_status: paymentIntent.status,
+    });
     
   } catch (error) {
-    console.error('Error handling payment_intent.amount_capturable_updated:', error);
+    console.error("Error handling payment_intent.amount_capturable_updated:", error);
   }
 }
 
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   try {
-    console.log('Processing payment_intent.succeeded (captured):', paymentIntent.id);
+    console.log("Processing payment_intent.succeeded (captured):", paymentIntent.id);
     const metaType = (paymentIntent.metadata as Record<string, string> | undefined)?.type;
     if (metaType === 'tip') {
       await updateTipFromPaymentIntent(paymentIntent, TIP_PAYMENT_STATUS.completed);
@@ -272,20 +362,20 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 
     const orderId = paymentIntent.metadata.orderId;
     if (!orderId) {
-      console.error('No orderId in payment intent metadata');
+      console.error("No orderId in payment intent metadata");
       return;
     }
 
     const orderIdNum = parseInt(orderId);
-    if (isNaN(orderIdNum)) {
-      console.error('Invalid orderId in payment intent metadata:', orderId);
+    if (Number.isNaN(orderIdNum)) {
+      console.error("Invalid orderId in payment intent metadata:", orderId);
       return;
     }
 
     // Check if order exists
     const order = await db.select().from(dineInOrders).where(eq(dineInOrders.id, orderIdNum)).limit(1);
     if (order.length === 0) {
-      console.error('Order not found:', orderIdNum);
+      console.error("Order not found:", orderIdNum);
       return;
     }
 
@@ -335,15 +425,21 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       .where(eq(dineInOrders.id, orderIdNum));
 
     console.log('Order fulfilled successfully:', orderIdNum);
+    captureStripeAnalytics(paymentIntent, AnalyticsEvents.dineInPaymentSucceeded, {
+      order_id: orderIdNum,
+      amount: paymentIntent.amount_received / 100,
+      currency: paymentIntent.currency,
+      stripe_status: paymentIntent.status,
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error handling payment_intent.succeeded:', error);
+    console.error("Error handling payment_intent.succeeded:", error);
   }
 }
 
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
-    console.log('Processing payment_intent.payment_failed:', paymentIntent.id);
+    console.log("Processing payment_intent.payment_failed:", paymentIntent.id);
     const metaType = (paymentIntent.metadata as Record<string, string> | undefined)?.type;
     if (metaType === 'tip') {
       await updateTipFromPaymentIntent(paymentIntent, TIP_PAYMENT_STATUS.failed);
@@ -352,13 +448,13 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 
     const orderId = paymentIntent.metadata.orderId;
     if (!orderId) {
-      console.error('No orderId in payment intent metadata');
+      console.error("No orderId in payment intent metadata");
       return;
     }
 
     const orderIdNum = parseInt(orderId);
-    if (isNaN(orderIdNum)) {
-      console.error('Invalid orderId in payment intent metadata:', orderId);
+    if (Number.isNaN(orderIdNum)) {
+      console.error("Invalid orderId in payment intent metadata:", orderId);
       return;
     }
 
@@ -424,26 +520,33 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
         .where(eq(dineInOrders.id, orderIdNum));
     }
     console.log('Order marked as payment failed:', orderIdNum);
+    captureStripeAnalytics(paymentIntent, AnalyticsEvents.dineInPaymentFailed, {
+      order_id: orderIdNum,
+      amount: paymentIntent.amount / 100,
+      currency: paymentIntent.currency,
+      stripe_status: paymentIntent.status,
+      last_error: paymentIntent.last_payment_error,
+    });
     
   } catch (error) {
-    console.error('Error handling payment_intent.payment_failed:', error);
+    console.error("Error handling payment_intent.payment_failed:", error);
   }
 }
 
 // We are marking the order as failed because we are cancelling the payment intent when the bot fails to process the order
 async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) {
   try {
-    console.log('Processing payment_intent.canceled:', paymentIntent.id);
+    console.log("Processing payment_intent.canceled:", paymentIntent.id);
     
     const orderId = paymentIntent.metadata.orderId;
     if (!orderId) {
-      console.error('No orderId in payment intent metadata');
+      console.error("No orderId in payment intent metadata");
       return;
     }
 
     const orderIdNum = parseInt(orderId);
-    if (isNaN(orderIdNum)) {
-      console.error('Invalid orderId in payment intent metadata:', orderId);
+    if (Number.isNaN(orderIdNum)) {
+      console.error("Invalid orderId in payment intent metadata:", orderId);
       return;
     }
 
@@ -486,8 +589,15 @@ async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) 
       .where(eq(dineInOrders.id, orderIdNum));
 
     console.log('Order cancelled:', orderIdNum);
+    captureStripeAnalytics(paymentIntent, AnalyticsEvents.dineInPaymentCanceled, {
+      order_id: orderIdNum,
+      amount: paymentIntent.amount / 100,
+      currency: paymentIntent.currency,
+      stripe_status: paymentIntent.status,
+      cancellation_reason: paymentIntent.cancellation_reason,
+    });
     
   } catch (error) {
-    console.error('Error handling payment_intent.canceled:', error);
+    console.error("Error handling payment_intent.canceled:", error);
   }
 }

@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTTS } from "@/hooks/use-tts";
 import { BarVisualizer } from "@/components/ui/bar-visualizer";
-import { type Hotel } from "@/db/schemas/hotels";
+import type { Hotel } from "@/db/schemas/hotels";
 import { useAudioStream } from "@/hooks/use-audio-stream";
 import { isIOS, isSafari } from "@/lib/utils";
+import { Analytics } from "@/lib/analytics/client";
+import { AnalyticsEvents } from "@/lib/analytics/events";
 
 type VoiceIntroClientProps = {
   hotel: Hotel;
@@ -15,6 +17,7 @@ type VoiceIntroClientProps = {
 export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
   const router = useRouter();
   const hasStartedRef = useRef(false);
+  const promptLoggedRef = useRef(false);
   const [showTapPrompt, setShowTapPrompt] = useState(false);
   const isIOSOrSafari = isSafari() || isIOS();
 
@@ -31,11 +34,13 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
   } = useTTS({
     onPlaybackStart: () => {
       setShowTapPrompt(false);
+      Analytics.capture(AnalyticsEvents.voiceIntroPlaybackStarted);
     },
     onPlaybackComplete: () => {
       // Mark as played and return to home
       const maxAge = 100 * 365 * 24 * 60 * 60; // 100 years
       document.cookie = `simon-intro-played=true; max-age=${maxAge}; path=/`;
+      Analytics.capture(AnalyticsEvents.voiceIntroPlaybackCompleted);
       router.replace("/");
     },
   });
@@ -47,20 +52,34 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
     if (hasStartedRef.current) return;
     hasStartedRef.current = true;
 
+    Analytics.capture(AnalyticsEvents.voiceIntroPageViewed);
+
     const initializeAudio = async () => {
       try {
         if (isIOSOrSafari) {
           await preloadAudio(introText);
           setShowTapPrompt(true);
+          if (!promptLoggedRef.current) {
+            Analytics.capture(AnalyticsEvents.voiceIntroAutoplayNeeded);
+            promptLoggedRef.current = true;
+          }
         } else {
           try {
             await preloadAndPlay(introText);
           } catch (_error) {
             setShowTapPrompt(true);
+            if (!promptLoggedRef.current) {
+              Analytics.capture(AnalyticsEvents.voiceIntroAutoplayNeeded);
+              promptLoggedRef.current = true;
+            }
           }
         }
       } catch (_error) {
         setShowTapPrompt(true);
+        if (!promptLoggedRef.current) {
+          Analytics.capture(AnalyticsEvents.voiceIntroAutoplayNeeded);
+          promptLoggedRef.current = true;
+        }
       }
     };
 
@@ -74,6 +93,7 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
   }, []);
 
   const handleTapToStart = async () => {
+    Analytics.capture(AnalyticsEvents.voiceIntroTapToStartClicked);
     setShowTapPrompt(false);
     if (isPreloaded) {
       await playPreloadedAudio();
@@ -137,6 +157,7 @@ export default function VoiceIntroClient({ hotel }: VoiceIntroClientProps) {
             <div className="absolute inset-0 bg-white/95 flex items-center justify-center z-20">
               <button
                 onClick={handleTapToStart}
+                type="button"
                 className="px-8 py-4 bg-black text-white rounded-full text-lg font-semibold hover:bg-gray-800 active:scale-95 transition-all"
               >
                 Tap to Start

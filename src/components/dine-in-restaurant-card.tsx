@@ -1,20 +1,38 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { type DineInRestaurant } from "@/db/schemas";
+import type { DineInRestaurant } from "@/db/schemas";
 import { useHotelSlug } from "@/hooks/use-hotel-slug";
 import { hotelPath } from "@/utils/hotel-path";
+import { Analytics } from "@/lib/analytics/client";
+import { AnalyticsEvents } from "@/lib/analytics/events";
 
 export function DineInRestaurantCard({
-    restaurantGuid,  
-    name,
-    imageUrls,
-  }: DineInRestaurant) {
+  restaurantGuid,
+  name,
+  imageUrls,
+}: DineInRestaurant) {
   const slug = useHotelSlug();
   const href = slug
     ? hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`)
     : "#";
+
+  useEffect(() => {
+    Analytics.capture(AnalyticsEvents.dineInRestaurantCardViewed, {
+      restaurant_guid: restaurantGuid,
+      restaurant_name: name,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleOrderClick = () => {
+    Analytics.capture(AnalyticsEvents.dineInRestaurantOrderClicked, {
+      restaurant_guid: restaurantGuid,
+      restaurant_name: name,
+    });
+  };
 
   return (
     <div
@@ -64,6 +82,7 @@ export function DineInRestaurantCard({
                 href={href}
                 className="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 flex-shrink-0"
                 aria-disabled={!slug}
+                onClick={handleOrderClick}
               >
                 Order Now
               </Link>

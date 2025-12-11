@@ -2,6 +2,8 @@ import { DineInRestaurantPage as DineInRestaurantComponent } from "@/components/
 import { getDineInRestaurantByGuid } from "@/actions/dine-in-restaurants";
 import { notFound } from "next/navigation";
 import { requireHotelSession } from "@/utils/require-hotel-session";
+import { AnalyticsEvents } from "@/lib/analytics/events";
+import { PostHogServerClient } from "@/lib/analytics/posthog/server";
 
 interface PageProps {
   params: Promise<{ hotelSlug: string; restaurantGuid: string }>;
@@ -9,7 +11,7 @@ interface PageProps {
 
 export default async function Page({ params }: PageProps) {
   const { hotelSlug, restaurantGuid } = await params;
-  await requireHotelSession({
+  const session = await requireHotelSession({
     hotelSlug,
     redirectTo: `/${hotelSlug}/dine-in/restaurant/${restaurantGuid}/details`,
   });
@@ -24,6 +26,10 @@ export default async function Page({ params }: PageProps) {
   if (!dineInRestaurant) {
     notFound();
   }
+
+  await PostHogServerClient.capture(session.userId, AnalyticsEvents.dineInDetailsViewed, {
+    restaurant_guid: restaurantGuid, 
+  });
 
   return (
     <div className="h-dvh bg-white ">

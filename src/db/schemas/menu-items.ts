@@ -1,4 +1,4 @@
-import { bigserial, pgTable, bigint, text, uuid, integer, decimal, index } from "drizzle-orm/pg-core";
+import { bigserial, pgTable, bigint, text, uuid, integer, decimal, index, boolean } from "drizzle-orm/pg-core";
 import { jsonb } from "drizzle-orm/pg-core";
 import { timestamps } from "../columns.helpers";
 import { menuGroups } from "./menu-groups";
@@ -18,12 +18,14 @@ export const menuItems = pgTable("menu_items", {
   allergens: text("allergens").array().$type<string[]>(),
   modifierGroupsReferences: integer("modifier_groups_references").array().$type<number[]>(),
   sortOrder: integer("sort_order"),
+  isAvailable: boolean("is_available").notNull().default(true),
   status: menuStatusEnum("status").default("pending").notNull(),
   metadata: jsonb("metadata"),
   ...timestamps,
 }, (table) => [
   index("menu_items_menu_group_id_index").on(table.menuGroupId),
   index("menu_items_menu_item_guid_index").on(table.menuItemGuid),
+  index("menu_items_is_available_index").on(table.isAvailable),
   index("menu_items_status_index").on(table.status)
 ]);
 

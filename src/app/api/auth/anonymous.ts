@@ -50,10 +50,6 @@ export async function GET(request: NextRequest) {
   
   const redirectUrl = new URL(redirectTo, baseUrl);
 
-  // TODO: Remove this
-  console.log("baseUrl from api/auth/anonymous", baseUrl);
-  console.log("redirectUrl from api/auth/anonymous", redirectUrl);
-
   const redirectResponse = NextResponse.redirect(redirectUrl);
 
   const setCookies = authResponse.headers.getSetCookie?.() ?? [];

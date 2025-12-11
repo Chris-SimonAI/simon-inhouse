@@ -5,7 +5,7 @@ export const cardPaymentFormSchema = z.object({
   fullName: z.string().min(1, "Full name is required"),
   nameOnCard: z.string().min(1, "Name on card is required"),
   email: z.string().email("Valid email is required"),
-  phoneNumber: z.string().min(7, "Phone number is required"),
+  phoneNumber: z.string().regex(/^\d{10}$/, "Enter a valid phone number"),
 });
 
 export type CardPaymentForm = z.infer<typeof cardPaymentFormSchema>;
@@ -31,10 +31,5 @@ export const validateNameOnCard = (value: string) => {
 
 export const validateEmail = (value: string) => {
   const result = z.string().email("Valid email is required").safeParse(value);
-  return result.success ? null : result.error.errors[0]?.message;
-};
-
-export const validatePhoneNumber = (value: string) => {
-  const result = z.string().min(7, "Phone number is required").safeParse(value);
   return result.success ? null : result.error.errors[0]?.message;
 };

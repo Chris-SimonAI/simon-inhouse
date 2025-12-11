@@ -1,6 +1,7 @@
 'use client';
 
 import { MenuItem } from '@/actions/menu';
+import { getMenuItemStartingPrice } from '@/lib/pricing';
 import Image from 'next/image';
 
 type MenuItemCardProps = {
@@ -9,6 +10,8 @@ type MenuItemCardProps = {
 };
 
 export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
+  const displayedPrice =
+    item.price > 0 ? item.price : getMenuItemStartingPrice(item);
   return (
     <div
       className="cursor-pointer border border-gray-300 p-4 rounded-lg"
@@ -38,7 +41,7 @@ export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
           </p>
 
           <span className="text-base font-semibold text-gray-900 flex-shrink-0">
-            ${item.price.toFixed(2)}
+            ${displayedPrice.toFixed(2)}
           </span>
         </div>
       </div>

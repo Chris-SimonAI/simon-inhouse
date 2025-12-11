@@ -1,10 +1,11 @@
 'use server';
 
-import { type DineInRestaurant, dineInRestaurants } from "@/db/schemas"; 
+import { dineInRestaurants } from "@/db/schemas"; 
+import type { DineInRestaurant } from "@/db/schemas"; 
 import { db } from "@/db";
 import { eq, and } from "drizzle-orm";
 import { createError, createSuccess } from "@/lib/utils";
-import { CreateError, CreateSuccess } from "@/types/response";
+import type { CreateError, CreateSuccess } from "@/types/response";
 import { getHotelSession } from "@/actions/sessions";
 
 
@@ -57,6 +58,7 @@ export async function getDineInRestaurantByGuid(guid: string): Promise<CreateSuc
 export type RestaurantFees = {
   deliveryFee: number;
   serviceFeePercent: number;
+  showTips: boolean;
 };
 
 /**
@@ -69,6 +71,7 @@ export async function getRestaurantFees(restaurantGuid: string): Promise<CreateS
       .select({
         deliveryFee: dineInRestaurants.deliveryFee,
         serviceFeePercent: dineInRestaurants.serviceFeePercent,
+        showTips: dineInRestaurants.showTips,
       })
       .from(dineInRestaurants)
       .where(eq(dineInRestaurants.restaurantGuid, restaurantGuid))
@@ -81,6 +84,7 @@ export async function getRestaurantFees(restaurantGuid: string): Promise<CreateS
     return createSuccess({
       deliveryFee: parseFloat(result[0].deliveryFee),
       serviceFeePercent: parseFloat(result[0].serviceFeePercent),
+      showTips: result[0].showTips,
     });
   } catch (error) {
     console.error("Error in getRestaurantFees:", error);

@@ -32,6 +32,14 @@ export const insertHotelSchema = createInsertSchema(hotels, {
   slug: slugValidation,
   latitude: latitudeValidation,
   longitude: longitudeValidation,
+  address: (schema) => schema.optional(),
+  stripeAccountId: (schema) => schema.optional(),
+  restaurantDiscount: (schema) =>
+    (schema as unknown as z.ZodNumber).refine(
+      (n) => n >= 0 && n <= 100,
+      "Restaurant discount must be between 0 and 100"
+    ).optional(),
+  metadata: () => z.unknown().optional(),
 });
 
 export const updateHotelSchema = createUpdateSchema(hotels, {
@@ -39,6 +47,15 @@ export const updateHotelSchema = createUpdateSchema(hotels, {
   slug: (schema) => slugValidation(schema).optional(),
   latitude: (schema) => latitudeValidation(schema).optional(),
   longitude: (schema) => longitudeValidation(schema).optional(),
+  address: (schema) => schema.optional(),
+  stripeAccountId: (schema) => schema.optional(),
+  // restaurantDiscount is a number (real) - allow 0..100
+  restaurantDiscount: (schema) =>
+    (schema as unknown as z.ZodNumber).refine(
+      (n) => n >= 0 && n <= 100,
+      "Restaurant discount must be between 0 and 100"
+    ).optional(),
+  metadata: () => z.unknown().optional(),
 });
 
 export const selectHotelSchema = createSelectSchema(hotels);
