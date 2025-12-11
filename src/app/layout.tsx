@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import type { ReactNode } from "react";
+
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { AnalyticsAuthProvider } from "@/lib/analytics/posthog/provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,18 +24,20 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-dvh h-dvh w-full bg-gray-50 max-w-md mx-auto relative`}
       >
-        <div className="flex justify-center items-center h-full w-full">
-          <div className="h-dvh w-full max-w-md bg-white">
-            {children}
+        <AnalyticsAuthProvider>
+          <div className="flex justify-center items-center h-full w-full">
+            <div className="h-dvh w-full max-w-md bg-white">
+              {children}
+            </div>
           </div>
-        </div>
-        <Toaster />
+          <Toaster />
+        </AnalyticsAuthProvider>
       </body>
     </html>
   );

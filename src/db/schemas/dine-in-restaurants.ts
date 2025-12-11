@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, bigint, jsonb, decimal, bigserial, index } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, bigint, jsonb, decimal, bigserial, index, boolean } from "drizzle-orm/pg-core";
 import { timestamps } from "../columns.helpers";
 import { hotels } from "./hotels";
 import { menuStatusEnum } from "./menus";
@@ -27,6 +27,7 @@ export const dineInRestaurants = pgTable("dine_in_restaurants", {
   deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).notNull().default("5.00"),
   serviceFeePercent: decimal("service_fee_percent", { precision: 5, scale: 2 }).notNull().default("20.00"),
   businessHours: jsonb("business_hours"),
+  showTips: boolean("show_tips").notNull().default(true),
   metadata: jsonb("metadata"),
   ...timestamps,
 }, (table) => [

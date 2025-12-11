@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CartItem } from "./menu-view";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, X, ChevronLeft } from "lucide-react";
@@ -11,22 +11,39 @@ import { useHotelSlug } from "@/hooks/use-hotel-slug";
 import { hotelPath } from "@/utils/hotel-path";
 import { ConfirmExitButton } from "@/components/confirm-exit-button";
 import { clearCheckoutState } from "@/utils/clear-checkout-state";
+import { loadStripe } from "@stripe/stripe-js";
+import { stripePublishableKey } from "@/lib/stripe-client";
+import {
+  buildTipOption,
+  calculateTotals,
+  type PaymentMethod,
+  type TipSelection,
+} from "@/lib/payments/totals";
+import {
+  loadCartFromStorage,
+  loadPaymentMethod,
+  loadTipSelection,
+  savePaymentDetails,
+  savePaymentMethod,
+  savePaymentSessionId,
+  saveTipSelection,
+} from "@/lib/payments/storage";
+import { useApplePayAvailability } from "@/hooks/use-apple-pay-availability";
 
 type PaymentViewProps = {
   restaurantGuid: string;
   initialDiscountPercentage: number;
   deliveryFee: number;
   serviceFeePercent: number;
+  showTips: boolean;
 };
-
-type PaymentMethod = "card" | "delivery";
-type TipSelection = 18 | 20 | 25 | 0 | "custom";
 
 export function PaymentView({ 
   restaurantGuid, 
   initialDiscountPercentage,
   deliveryFee,
   serviceFeePercent,
+  showTips,
 }: PaymentViewProps) {
   const router = useRouter();
   const slug = useHotelSlug();
@@ -38,71 +55,54 @@ export function PaymentView({
   const [isProcessing, setIsProcessing] = useState(false);
   const discountPercentage = initialDiscountPercentage;
 
+  const totals = calculateTotals({
+    cart,
+    discountPercentage,
+    serviceFeePercent,
+    deliveryFee,
+    tipSelection: selectedTip,
+    customTipAmount: parseFloat(customTipAmount) || 0,
+  });
+
   useEffect(() => {
-    const savedCart = localStorage.getItem(`cart-${restaurantGuid}`);
-    if (savedCart) {
-      try {
-        const parsedCart = JSON.parse(savedCart);
-        setCart(parsedCart);
-      } catch (error) {
-        console.error('Error parsing cart:', error);
-        localStorage.removeItem(`cart-${restaurantGuid}`);
-        setCart([]);
-      }
+    if (!showTips) {
+      setSelectedTip(0);
+      setShowCustomTipInput(false);
+      setCustomTipAmount("");
+    }
+  }, [showTips]);
+
+  useEffect(() => {
+    setCart(loadCartFromStorage(restaurantGuid) as CartItem[]);
+
+    const storedTip = loadTipSelection(restaurantGuid);
+    if (storedTip !== null) {
+      setSelectedTip(storedTip);
     }
 
-    // Restore saved tip selection
-    const savedTipSelection = localStorage.getItem(`tip-selection-${restaurantGuid}`);
-    if (savedTipSelection) {
-      try {
-        const tipData = JSON.parse(savedTipSelection);
-        if (tipData.selectedTip !== undefined) {
-          setSelectedTip(tipData.selectedTip);
-        }
-      } catch (error) {
-        console.error('Error loading tip selection:', error);
-      }
+    const storedPaymentMethod = loadPaymentMethod(restaurantGuid);
+    if (storedPaymentMethod) {
+      setPaymentMethod(storedPaymentMethod);
     }
   }, [restaurantGuid]);
 
-  const getSubtotal = () => {
-    return cart.reduce((total, item) => total + item.totalPrice, 0);
-  };
+  const stripePromise = useMemo(
+    () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
+    [],
+  );
 
-  const getDiscountAmount = () => {
-    if (discountPercentage === 0) return 0;
-    return (getSubtotal() * discountPercentage) / 100;
-  };
+  const { paymentRequest, canUseApplePay, isChecking: isCheckingApplePay } = useApplePayAvailability({
+    stripeOrPromise: stripePromise,
+    amountCents: totals.amountCents,
+    label: "Total",
+    requireApplePay: true,
+  });
 
-  const getSubtotalAfterDiscount = () => {
-    return getSubtotal() - getDiscountAmount();
-  };
-
-  const getServiceFee = () => {
-    // Service fee is calculated on original subtotal (before discount)
-    return (getSubtotal() * serviceFeePercent) / 100;
-  };
-
-  const getDeliveryFee = () => {
-    return deliveryFee;
-  };
-
-  const getTipAmount = () => {
-    if (selectedTip === "custom") {
-      return parseFloat(customTipAmount) || 0;
+  useEffect(() => {
+    if (!canUseApplePay && paymentMethod === "applePay") {
+      setPaymentMethod("card");
     }
-    if (selectedTip === 0) {
-      return 0;
-    }
-    // Tip is calculated on the original subtotal (before discount, before fees)
-    return getSubtotal() * (selectedTip / 100);
-  };
-
-  const getTotal = () => {
-    // Total = subtotal - discount + service fee + delivery fee + tip
-    // Note: This is for display only. Actual total is calculated server-side.
-    return getSubtotalAfterDiscount() + getServiceFee() + getDeliveryFee() + getTipAmount();
-  };
+  }, [canUseApplePay, paymentMethod]);
 
   const handleTipSelection = (tip: TipSelection) => {
     setSelectedTip(tip);
@@ -113,10 +113,9 @@ export function PaymentView({
       setCustomTipAmount("");
     }
 
-    // Save tip selection to localStorage for persistence (excluding custom tip amount)
-    localStorage.setItem(`tip-selection-${restaurantGuid}`, JSON.stringify({
-      selectedTip: tip,
-    }));
+    if (showTips) {
+      saveTipSelection(restaurantGuid, tip);
+    }
   };
 
   const buildRestaurantPath = (suffix: string) => {
@@ -133,55 +132,45 @@ export function PaymentView({
 
   const handlePayment = async () => {
     if (isProcessing) return;
-    
+
     setIsProcessing(true);
-    
+
     try {
-      // Generate a unique session ID for this payment attempt
-      const sessionId = `payment-${restaurantGuid}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Build tipOption for secure payment flow
-      const tipOption = selectedTip === "custom" 
-        ? { type: 'fixed' as const, value: parseFloat(customTipAmount) || 0 }
-        : { type: 'percentage' as const, value: selectedTip };
-      
-      // Store payment details in localStorage with session tracking
-      // Note: These display values are for reference only. Actual prices are calculated server-side.
+      const sessionId = `payment-${restaurantGuid}-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+
+      const tipOption = buildTipOption(
+        selectedTip,
+        parseFloat(customTipAmount) || 0,
+      );
+
       const paymentData = {
         sessionId,
-        subtotal: getSubtotal(),
-        serviceFee: getServiceFee(),
-        deliveryFee: getDeliveryFee(),
-        discount: getDiscountAmount(),
-        discountPercentage: discountPercentage,
-        subtotalAfterDiscount: getSubtotalAfterDiscount(),
-        tip: getTipAmount(),
-        tipOption, // Include tipOption for secure payment flow
-        total: getTotal(),
-        cart: cart,
+        subtotal: totals.subtotal,
+        serviceFee: totals.serviceFee,
+        deliveryFee,
+        discount: totals.discountAmount,
+        discountPercentage,
+        subtotalAfterDiscount: totals.subtotalAfterDiscount,
+        tip: totals.tipAmount,
+        tipOption,
+        total: totals.total,
+        cart,
         timestamp: Date.now(),
-        status: 'pending', // pending, processing, completed, failed
+        status: "pending" as const,
         attempts: 0,
+        paymentMethod,
+        canUseApplePay,
       };
-      
-      localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentData));
-      
-      // Also store the session ID separately for tracking
-      localStorage.setItem(`payment-session-${restaurantGuid}`, sessionId);
-      
-      if (paymentMethod === "card") {
-        const path = buildRestaurantPath("/card-payment");
-        if (!path) return;
-        router.push(path);
-      } else {
-        // TODO: Handle delivery payment
-        console.log("Processing delivery payment...", {
-          paymentMethod,
-          subtotal: getSubtotal(),
-          tip: getTipAmount(),
-          total: getTotal(),
-        });
-      }
+
+      savePaymentDetails(restaurantGuid, paymentData);
+      savePaymentMethod(restaurantGuid, paymentMethod);
+      savePaymentSessionId(restaurantGuid, sessionId);
+
+      const path = buildRestaurantPath("/card-payment");
+      if (!path) return;
+      router.push(path);
     } catch (error) {
       console.error("Error preparing payment:", error);
       alert("An error occurred. Please try again.");
@@ -275,6 +264,9 @@ export function PaymentView({
             <div className="text-[14px] text-gray-900 mb-3">
               How would you like to pay?
             </div>
+            {isCheckingApplePay && (
+              <p className="text-xs text-gray-500">Checking Apple Pay availability...</p>
+            )}
 
             <div className="flex flex-col gap-5 pl-2">
               {/* Pay now with card */}
@@ -301,6 +293,34 @@ export function PaymentView({
                   )}
                 </div>
               </button>
+
+              {paymentRequest && (canUseApplePay || isCheckingApplePay) && (
+                <button
+                  type="button"
+                  onClick={() => !isCheckingApplePay && setPaymentMethod("applePay")}
+                  disabled={isCheckingApplePay}
+                  className={cn(
+                    "w-full flex items-center justify-between rounded-lg transition-colors",
+                    isCheckingApplePay && "opacity-60 cursor-not-allowed"
+                  )}
+                >
+                  <span className="text-base font-medium text-gray-900">
+                    {isCheckingApplePay ? "Checking Apple Pay..." : "Apple Pay / Wallet"}
+                  </span>
+                  <div
+                    className={cn(
+                      "w-6 h-6 rounded-full border-2 flex items-center justify-center",
+                      paymentMethod === "applePay"
+                        ? "border-gray-900"
+                        : "border-gray-300"
+                    )}
+                  >
+                    {paymentMethod === "applePay" && (
+                      <div className="w-3 h-3 rounded-full bg-gray-900" />
+                    )}
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -334,7 +354,7 @@ export function PaymentView({
               <div className="flex justify-between items-center text-base">
                 <span className="font-semibold text-gray-900">Subtotal</span>
                 <span className="font-semibold text-gray-900">
-                  {getSubtotal().toFixed(2)} USD
+                  {totals.subtotal.toFixed(2)} USD
                 </span>
               </div>
               
@@ -342,7 +362,7 @@ export function PaymentView({
                 <div className="flex justify-between items-center text-base text-green-600">
                   <span className="font-medium">Discount ({discountPercentage}%)</span>
                   <span className="font-medium">
-                    -{getDiscountAmount().toFixed(2)} USD
+                    -{totals.discountAmount.toFixed(2)} USD
                   </span>
                 </div>
               )}
@@ -351,64 +371,68 @@ export function PaymentView({
 
           {/* Tip Section */}
 
-          <h2 className="text-lg font-bold text-gray-900 mb-4 mt-5">
-            Would you like to add a tip?
-          </h2>
-          <div className="grid grid-cols-4 gap-2 mb-3">
-            {[18, 20, 25].map((tip) => (
+          {showTips ? (
+            <>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 mt-5">
+                Would you like to add a tip?
+              </h2>
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                {[18, 20, 25].map((tip) => (
+                  <button
+                    key={tip}
+                    type="button"
+                    onClick={() => handleTipSelection(tip as TipSelection)}
+                    className={cn(
+                      "py-2 px-2 rounded-lg border-2 text-base font-medium transition-colors",
+                      selectedTip === tip
+                        ? "border-gray-900 bg-gray-50 text-gray-900"
+                        : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+                    )}
+                  >
+                    {tip}%
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => handleTipSelection(0)}
+                  className={cn(
+                    "py-2 px-2 rounded-lg border-2 text-base font-medium transition-colors",
+                    selectedTip === 0
+                      ? "border-gray-900 bg-gray-50 text-gray-900"
+                      : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+                  )}
+                >
+                  No tip
+                </button>
+              </div>
               <button
-                key={tip}
                 type="button"
-                onClick={() => handleTipSelection(tip as TipSelection)}
+                onClick={() => handleTipSelection("custom")}
                 className={cn(
-                  "py-2 px-2 rounded-lg border-2 text-base font-medium transition-colors",
-                  selectedTip === tip
+                  "w-full py-2 px-2 rounded-lg border-2 text-base font-medium transition-colors",
+                  selectedTip === "custom"
                     ? "border-gray-900 bg-gray-50 text-gray-900"
                     : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
                 )}
               >
-                {tip}%
+                Custom tip
               </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => handleTipSelection(0)}
-              className={cn(
-                "py-2 px-2 rounded-lg border-2 text-base font-medium transition-colors",
-                selectedTip === 0
-                  ? "border-gray-900 bg-gray-50 text-gray-900"
-                  : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
-              )}
-            >
-              No tip
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => handleTipSelection("custom")}
-            className={cn(
-              "w-full py-2 px-2 rounded-lg border-2 text-base font-medium transition-colors",
-              selectedTip === "custom"
-                ? "border-gray-900 bg-gray-50 text-gray-900"
-                : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
-            )}
-          >
-            Custom tip
-          </button>
 
-          {showCustomTipInput && (
-            <div className="mt-3">
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={customTipAmount}
-                onChange={(e) => setCustomTipAmount(e.target.value)}
-                placeholder="Enter custom tip amount"
-                className="w-full py-2 px-4 rounded-lg border-2 border-gray-300 text-base focus:border-gray-900 focus:outline-none"
-              />
-            </div>
-          )}
+              {showCustomTipInput && (
+                <div className="mt-3">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={customTipAmount}
+                    onChange={(e) => setCustomTipAmount(e.target.value)}
+                    placeholder="Enter custom tip amount"
+                    className="w-full py-2 px-4 rounded-lg border-2 border-gray-300 text-base focus:border-gray-900 focus:outline-none"
+                  />
+                </div>
+              )}
+            </>
+          ) : null}
 
           <div className="mt-4 space-y-2">
             {/* Service Fee */}
@@ -416,7 +440,7 @@ export function PaymentView({
               <div className="flex justify-between items-center text-base">
                 <span className="text-gray-600">Service Fee ({serviceFeePercent}%)</span>
                 <span className="text-gray-900">
-                  {getServiceFee().toFixed(2)} USD
+                  {totals.serviceFee.toFixed(2)} USD
                 </span>
               </div>
             )}
@@ -426,29 +450,37 @@ export function PaymentView({
               <div className="flex justify-between items-center text-base">
                 <span className="text-gray-600">Delivery Fee</span>
                 <span className="text-gray-900">
-                  {getDeliveryFee().toFixed(2)} USD
+                  {totals.deliveryFee.toFixed(2)} USD
                 </span>
               </div>
             )}
             
-            {getTipAmount() > 0 && (
+            {totals.tipAmount > 0 && (
               <div className="flex justify-between items-center text-base">
                 <span className="text-gray-900">Tip</span>
                 <span className="text-gray-900">
-                  {getTipAmount().toFixed(2)} USD
+                  {totals.tipAmount.toFixed(2)} USD
                 </span>
               </div>
             )}
             <div className="flex justify-between items-center text-lg font-bold pt-2 border-t border-gray-200">
               <span className="text-gray-900">Estimated Total</span>
-              <span className="text-gray-900">{getTotal().toFixed(2)} USD</span>
+              <span className="text-gray-900">{totals.total.toFixed(2)} USD</span>
             </div>
           </div>
         </div>
 
+        {/* Service Fee Disclaimer */}
+        {serviceFeePercent > 0 && (
+          <p className="text-gray-600 mt-3">
+            Simon charges a {serviceFeePercent}% service fee to address delivery
+            fees and tips.
+          </p>
+        )}
+
         {/* Payment Method Footer Text */}
         <h2 className="text-sm font-semibold text-gray-700 mb-2 mt-4">
-          {paymentMethod === "card" ? "Pay now with card" : "Pay on delivery"}
+          {paymentMethod === "applePay" ? "Pay now with Apple Pay" : "Pay now with card"}
         </h2>
         <div className="bg-white px-4 py-6">
           <Button
@@ -457,7 +489,13 @@ export function PaymentView({
             className="w-full bg-gray-900 text-white hover:bg-gray-800 rounded-[2px] py-7 text-base font-semibold flex items-center justify-center disabled:opacity-50"
             size="lg"
           >
-            <span>{isProcessing ? "Processing..." : "Pay now with card"}</span>
+            <span>
+              {isProcessing
+                ? "Processing..."
+                : paymentMethod === "applePay"
+                ? "Pay now with Apple Pay"
+                : "Pay now with card"}
+            </span>
             {!isProcessing && <ChevronRight />}
           </Button>
         </div>

@@ -3,6 +3,8 @@ import { CheckoutView } from "@/components/checkout-view";
 import { requireHotelSession } from "@/utils/require-hotel-session";
 import { getActiveDiscount } from "@/actions/dining-discounts";
 import { getRestaurantFees } from "@/actions/dine-in-restaurants";
+import { AnalyticsEvents } from "@/lib/analytics/events";
+import { PostHogServerClient } from "@/lib/analytics/posthog/server";
 
 type PageProps = {
   params: Promise<{
@@ -13,9 +15,13 @@ type PageProps = {
 
 export default async function CheckoutPage({ params }: PageProps) {
   const { hotelSlug, restaurantGuid } = await params;
-  await requireHotelSession({
+  const session = await requireHotelSession({
     hotelSlug,
     redirectTo: `/${hotelSlug}/dine-in/restaurant/${restaurantGuid}/checkout`,
+  });
+
+  await PostHogServerClient.capture(session.userId, AnalyticsEvents.dineInCheckoutViewed, {
+    restaurant_guid: restaurantGuid,  
   });
 
   const [discountResult, feesResult] = await Promise.all([

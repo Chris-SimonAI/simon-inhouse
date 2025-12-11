@@ -92,7 +92,7 @@ const orderItemSchema = z.object({
 export const CreateOrderRequestSchema = z.object({
   hotelId: z.number().int().positive(),
   restaurantId: z.number().int().positive(),
-  userId: z.number().int().positive(),
+  userId: z.string().uuid(),
   roomNumber: z.string().min(1).max(10),
   specialInstructions: z.string().optional(),
   fullName: z.string().min(1, { message: 'Full name is required' }),

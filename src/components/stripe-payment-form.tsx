@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { CreditCard, Lock, Info, ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -9,12 +9,23 @@ import { cn } from '@/lib/utils';
 import { createSecureOrderAndPaymentIntent, confirmPayment } from '@/actions/payments';
 import { redeemDiscount } from '@/actions/dining-discounts';
 import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, PaymentRequestButtonElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { stripePublishableKey } from '@/lib/stripe-client';
 import { useHotelSlug } from '@/hooks/use-hotel-slug';
 import { hotelPath } from '@/utils/hotel-path';
 import { ConfirmExitButton } from '@/components/confirm-exit-button';
 import { clearCheckoutState } from '@/utils/clear-checkout-state';
+import type { PaymentRequestPaymentMethodEvent } from '@stripe/stripe-js';
+import { useApplePayAvailability } from '@/hooks/use-apple-pay-availability';
+import {
+  loadPaymentDetails,
+  loadPaymentMethod,
+  markPaymentAsProcessing,
+  resetPaymentStatusToPending,
+  savePaymentDetails,
+  savePaymentMethod,
+} from '@/lib/payments/storage';
+import type { PaymentMethod } from '@/lib/payments/totals';
 import { 
   type CardPaymentForm,
   validateCardPayment,
@@ -59,7 +70,9 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // exit confirm handled by reusable component
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
+  const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
+  const [storedApplePayAvailable, setStoredApplePayAvailable] = useState<boolean | null>(null);
 
   // Form state
   const [roomNumber, setRoomNumber] = useState("");
@@ -70,6 +83,53 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
   const [errors, setErrors] = useState<
     Partial<Record<keyof CardPaymentForm, string>>
   >({});
+
+  const roomNumberId = useId();
+  const fullNameId = useId();
+  const emailId = useId();
+  const phoneNumberId = useId();
+  const nameOnCardId = useId();
+
+  // Restore preferred payment method from prior screen
+  useEffect(() => {
+    const storedMethod = loadPaymentMethod(restaurantGuid);
+    if (storedMethod) {
+      setPaymentMethod(storedMethod);
+    }
+
+    const paymentDetails = loadPaymentDetails(restaurantGuid);
+    if (paymentDetails?.paymentMethod) {
+      setPaymentMethod(paymentDetails.paymentMethod);
+    }
+    if (paymentDetails?.canUseApplePay !== undefined) {
+      setStoredApplePayAvailable(paymentDetails.canUseApplePay);
+    }
+  }, [restaurantGuid]);
+
+  useEffect(() => {
+    savePaymentMethod(restaurantGuid, paymentMethod);
+  }, [paymentMethod, restaurantGuid]);
+
+  const amountCents = Math.max(50, Math.round(total * 100));
+
+  const { paymentRequest, canUseApplePay: hookCanUseApplePay } = useApplePayAvailability({
+    stripeOrPromise: useMemo(() => stripe ?? null, [stripe]),
+    amountCents,
+    label: 'Total',
+    requireApplePay: true,
+  });
+
+  const effectiveCanUseApplePay =
+    storedApplePayAvailable === null ? hookCanUseApplePay : storedApplePayAvailable;
+
+  useEffect(() => {
+    if (!effectiveCanUseApplePay && paymentMethod === 'applePay') {
+      setPaymentMethod('card');
+      setPaymentNotice('Apple Pay is not available on this device. Switched to card.');
+    } else {
+      setPaymentNotice(null);
+    }
+  }, [effectiveCanUseApplePay, paymentMethod]);
 
   const handleRoomNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -121,11 +181,10 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       phoneNumber: nationalDigits,
     };
 
-    const result = validateCardPayment(formData);
-
-    if (!result.success) {
+    const validation = validateCardPayment(formData);
+    if (!validation.success) {
       const fieldErrors: Partial<Record<keyof CardPaymentForm, string>> = {};
-      result.error.errors.forEach((err) => {
+      validation.error.errors.forEach((err) => {
         if (err.path[0]) {
           fieldErrors[err.path[0] as keyof CardPaymentForm] = err.message;
         }
@@ -133,44 +192,13 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       setErrors(fieldErrors);
       return;
     }
+    const validatedForm = validation.data;
 
     if (isProcessing || !stripe || !elements) return;
     setIsProcessing(true);
 
     try {
-      // Get payment details from localStorage
-      const paymentDetailsStr = localStorage.getItem(`payment-details-${restaurantGuid}`);
-      if (!paymentDetailsStr) {
-        throw new Error('Payment session not found. Please start over.');
-      }
-      
-      const paymentDetails = JSON.parse(paymentDetailsStr);
-      
-      // Check if payment is already completed
-      if (paymentDetails.status === 'completed') {
-        throw new Error('Payment already completed.');
-      }
-      
-      // Check if payment is already being processed
-      if (paymentDetails.status === 'processing') {
-        throw new Error('Payment is already being processed. Please wait.');
-      }
-      
-      // Check session age (5 minutes max)
-      const sessionAge = Date.now() - paymentDetails.timestamp;
-      if (sessionAge > 5 * 60 * 1000) {
-        throw new Error('Payment session expired. Please start over.');
-      }
-      
-      // Check attempt limit (max 3 attempts)
-      if (paymentDetails.attempts >= 3) {
-        throw new Error('Maximum payment attempts exceeded. Please start over.');
-      }
-      
-      // Update status to processing and increment attempts
-      paymentDetails.status = 'processing';
-      paymentDetails.attempts = (paymentDetails.attempts || 0) + 1;
-      localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
+      const paymentDetails = markPaymentAsProcessing(restaurantGuid);
       
       // 1. Prepare SECURE order items (only IDs and quantities - NO PRICES)
       // All prices are calculated server-side from database lookups
@@ -187,11 +215,11 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       // Server calculates all prices from database - client prices are NOT trusted
       const orderResult = await createSecureOrderAndPaymentIntent({
         restaurantGuid: restaurantGuid,
-        roomNumber: roomNumber,
-        fullName: fullName,
+        roomNumber: validatedForm.roomNumber,
+        fullName: validatedForm.fullName,
         specialInstructions: "Please deliver to room",
-        email: email,
-        phoneNumber: nationalDigits,
+        email: validatedForm.email,
+        phoneNumber: validatedForm.phoneNumber,
         items: secureOrderItems,
         tipOption: tipOption,
       });
@@ -214,7 +242,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         throw new Error('Card elements not found');
       }
 
-      const { error: stripeError, paymentMethod } = await stripe.createPaymentMethod({
+      const { error: stripeError, paymentMethod: createdPaymentMethod } = await stripe.createPaymentMethod({
         type: 'card',
         card: cardNumberElement,
         billing_details: {
@@ -231,7 +259,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       // 3. Confirm payment with Payment Method
       const confirmResult = await confirmPayment({
         paymentIntentId: orderResult.data.paymentIntentId,
-        paymentMethodId: paymentMethod.id,
+        paymentMethodId: createdPaymentMethod.id,
       });
 
       if (!confirmResult.ok) {
@@ -239,12 +267,15 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       }
 
       // 4. Mark payment as completed and redirect to success
-      paymentDetails.status = 'completed';
-      paymentDetails.orderId = orderResult.data.order.id;
-      paymentDetails.paymentId = confirmResult.data.payment.id;
-      paymentDetails.email = email;
-      paymentDetails.phoneNumber = nationalDigits;
-      localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
+      const completedDetails = {
+        ...paymentDetails,
+        status: 'completed' as const,
+        orderId: orderResult.data.order.id,
+        paymentId: confirmResult.data.payment.id,
+        email: validatedForm.email,
+        phoneNumber: validatedForm.phoneNumber,
+      };
+      savePaymentDetails(restaurantGuid, completedDetails);
       
       // 5. Redeem discount if one was applied (uses session internally)
       if (paymentDetails.discountPercentage > 0) {
@@ -266,12 +297,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       console.error('Payment error:', err);
       
       // Reset payment status to pending on error (allow retry)
-      const paymentDetailsStr = localStorage.getItem(`payment-details-${restaurantGuid}`);
-      if (paymentDetailsStr) {
-        const paymentDetails = JSON.parse(paymentDetailsStr);
-        paymentDetails.status = 'pending';
-        localStorage.setItem(`payment-details-${restaurantGuid}`, JSON.stringify(paymentDetails));
-      }
+      resetPaymentStatusToPending(restaurantGuid);
       
       setError(err instanceof Error ? err.message : 'Payment processing failed. Please try again.');
     } finally {
@@ -281,9 +307,125 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
 
   const handleConfirmExit = () => {
     clearCheckoutState(restaurantGuid);
-    if (!slug) return;
-    router.push(hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`));
-  };
+    }  // Handle Payment Request (Apple Pay) submission
+  useEffect(() => {
+    if (!paymentRequest) return;
+
+    const handlePaymentRequestEvent = async (ev: PaymentRequestPaymentMethodEvent) => {
+      setPaymentMethod('applePay');
+      setErrors({});
+      setError(null);
+
+    const fieldErrors: Partial<Record<keyof CardPaymentForm, string>> = {};
+    const roomError = validateRoomNumber(roomNumber);
+    const fullNameError = validateFullName(fullName);
+    const emailError = validateEmail(email);
+
+    if (roomError) fieldErrors.roomNumber = roomError;
+    if (fullNameError) fieldErrors.fullName = fullNameError;
+    if (emailError) fieldErrors.email = emailError;
+
+    const hasErrors = Object.values(fieldErrors).some(Boolean);
+    if (hasErrors) {
+      setErrors(fieldErrors);
+      ev.complete('fail');
+      return;
+    }
+
+    const validatedForm = {
+      roomNumber,
+      fullName,
+      nameOnCard,
+      email,
+      phoneNumber,
+    };
+
+      if (isProcessing) {
+        ev.complete('fail');
+        return;
+      }
+
+      setIsProcessing(true);
+
+      try {
+        const paymentDetails = markPaymentAsProcessing(restaurantGuid);
+
+        const secureOrderItems: SecureOrderItem[] = paymentDetails.cart.map((item: CartItem) => ({
+          menuItemGuid: item.menuItem.id,
+          quantity: item.quantity,
+          selectedModifiers: item.selectedModifiers,
+        }));
+
+        const tipOption: TipOption = paymentDetails.tipOption || { type: 'fixed', value: 0 };
+
+        const orderResult = await createSecureOrderAndPaymentIntent({
+          restaurantGuid: restaurantGuid,
+          roomNumber: validatedForm.roomNumber,
+          fullName: validatedForm.fullName,
+          specialInstructions: "Please deliver to room",
+          email: validatedForm.email,
+          phoneNumber: validatedForm.phoneNumber,
+          items: secureOrderItems,
+          tipOption: tipOption,
+        });
+
+        if (!orderResult.ok) {
+          throw new Error('Failed to create order and payment intent');
+        }
+
+        const paymentMethodId = ev.paymentMethod?.id;
+        if (!paymentMethodId) {
+          throw new Error('Payment method not available');
+        }
+
+        const confirmResult = await confirmPayment({
+          paymentIntentId: orderResult.data.paymentIntentId,
+          paymentMethodId,
+        });
+
+        if (!confirmResult.ok) {
+          throw new Error('Payment confirmation failed');
+        }
+
+        const completedDetails = {
+          ...paymentDetails,
+          status: 'completed' as const,
+          orderId: orderResult.data.order.id,
+          paymentId: confirmResult.data.payment.id,
+          email: validatedForm.email,
+          phoneNumber: validatedForm.phoneNumber,
+        };
+        savePaymentDetails(restaurantGuid, completedDetails);
+
+        if (paymentDetails.discountPercentage > 0) {
+          await redeemDiscount();
+        }
+
+        localStorage.removeItem(`cart-${restaurantGuid}`);
+        localStorage.removeItem(`tip-selection-${restaurantGuid}`);
+        localStorage.removeItem(`payment-session-${restaurantGuid}`);
+
+        const successPath = slug
+          ? `${hotelPath(slug)}?orderSuccess=true&orderId=${orderResult.data.order.id}&paymentId=${confirmResult.data.payment.id}&status=processing`
+          : `/?orderSuccess=true&orderId=${orderResult.data.order.id}&paymentId=${confirmResult.data.payment.id}&status=processing`;
+
+        ev.complete('success');
+        router.push(successPath);
+      } catch (err) {
+        console.error('Payment request error:', err);
+        resetPaymentStatusToPending(restaurantGuid);
+        setError(err instanceof Error ? err.message : 'Payment processing failed. Please try again.');
+        ev.complete('fail');
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    paymentRequest.on('paymentmethod', handlePaymentRequestEvent);
+    return () => {
+      paymentRequest.off('paymentmethod', handlePaymentRequestEvent);
+    };
+  }, [email, fullName, isProcessing, nameOnCard, paymentRequest, phoneNumber, restaurantGuid, router, slug, roomNumber]);
 
   return (
     <div className="flex flex-col h-dvh bg-gray-50 relative">
@@ -308,38 +450,22 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto pb-8 bg-[#f2f2f2] p-4">
-        {/* Payment Options */}
+        {/* Payment Summary */}
         <h2 className="text-sm font-semibold text-gray-700 mb-2">
-          Payment Options
+          Payment Method
         </h2>
-        <div className="bg-white px-4 py-6 mb-2">
-          <div className="space-y-3">
-            <div className="text-[14px] text-gray-900 mb-3">
-              How would you like to pay by card?
-            </div>
-
-            <div className="flex flex-col gap-5 pl-2">
-              {/* Enter card details manually */}
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  id="manual"
-                  name="paymentMethod"
-                  value="manual"
-                  defaultChecked
-                  className="w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-900"
-                />
-                <label htmlFor="manual" className="text-base font-medium text-gray-900">
-                  Enter card details manually
-                </label>
-              </div>
-            </div>
+        <div className="bg-white px-4 py-6 mb-2 space-y-2">
+          <div className="text-[14px] text-gray-900">
+            {paymentMethod === 'applePay' ? 'Apple Pay / Wallet' : 'Card payment'}
           </div>
+          {paymentNotice && (
+            <p className="text-xs text-red-600">{paymentNotice}</p>
+          )}
         </div>
 
         {/* Pay Now Section */}
         <h2 className="text-sm font-semibold text-gray-700 mb-2 mt-4">
-          Pay now with card
+          Pay now
         </h2>
         <div className="bg-white px-4 py-6 mb-2">
           <div className="space-y-3">
@@ -355,21 +481,21 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
 
         {/* Form */}
         <h2 className="text-sm font-semibold text-gray-700 mb-2 mt-4">
-          Card Details
+          Payment Details
         </h2>
         <div className="bg-white px-4 py-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Room Number */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label htmlFor="roomNumber" className="text-sm font-medium text-gray-700">
+                <label htmlFor={roomNumberId} className="text-sm font-medium text-gray-700">
                   Room Number
                 </label>
                 <span className="text-xs text-red-500">Required</span>
               </div>
               <input
                 type="text"
-                id="roomNumber"
+                id={roomNumberId}
                 value={roomNumber}
                 onChange={handleRoomNumberChange}
                 className={cn(
@@ -386,14 +512,14 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
             {/* Full Name */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label htmlFor="fullName" className="text-sm font-medium text-gray-700">
+                <label htmlFor={fullNameId} className="text-sm font-medium text-gray-700">
                   Full Name
                 </label>
                 <span className="text-xs text-red-500">Required</span>
               </div>
               <input
                 type="text"
-                id="fullName"
+                id={fullNameId}
                 value={fullName}
                 onChange={handleFullNameChange}
                 className={cn(
@@ -410,14 +536,14 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
             {/* Email */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                <label htmlFor={emailId} className="text-sm font-medium text-gray-700">
                   Email
                 </label>
                 <span className="text-xs text-red-500">Required</span>
               </div>
               <input
                 type="email"
-                id="email"
+                id={emailId}
                 value={email}
                 onChange={handleEmailChange}
                 className={cn(
@@ -437,7 +563,7 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
             {/* Phone Number */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700">
+                <label htmlFor={phoneNumberId} className="text-sm font-medium text-gray-700">
                   Phone Number
                 </label>
                 <span className="text-xs text-red-500">Required</span>
@@ -447,7 +573,8 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                   +1
                 </div>
                 <input
-                  id="phoneNumber"
+
+                  id={phoneNumberId}
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   type="tel"
@@ -466,115 +593,147 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
               )}
             </div>
 
-            {/* Name on Card */}
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label htmlFor="nameOnCard" className="text-sm font-medium text-gray-700">
-                  Name on Card
-                </label>
-                <span className="text-xs text-red-500">Required</span>
-              </div>
-              <input
-                type="text"
-                id="nameOnCard"
-                value={nameOnCard}
-                onChange={handleNameOnCardChange}
-                className={cn(
-                  "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
-                  errors.nameOnCard && "border-red-500 focus:ring-red-500 focus:border-red-500"
+            {/* Name on Card (card-only) */}
+            {paymentMethod !== 'applePay' && (
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label htmlFor={nameOnCardId} className="text-sm font-medium text-gray-700">
+                    Name on Card
+                  </label>
+                  <span className="text-xs text-red-500">Required</span>
+                </div>
+                <input
+                  type="text"
+                  id={nameOnCardId}
+                  value={nameOnCard}
+                  onChange={handleNameOnCardChange}
+                  className={cn(
+                    "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900",
+                    errors.nameOnCard && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                  )}
+                  placeholder="Enter name as it appears on card"
+                />
+                {errors.nameOnCard && (
+                  <p className="mt-1 text-xs text-red-600">{errors.nameOnCard}</p>
                 )}
-                placeholder="Enter name as it appears on card"
-              />
-              {errors.nameOnCard && (
-                <p className="mt-1 text-xs text-red-600">{errors.nameOnCard}</p>
-              )}
-            </div>
-
-            {/* Card Number */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">
-                Card Number
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10">
-                  <CreditCard className="h-4 w-4 text-gray-400" />
-                </div>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10">
-                  <Lock className="h-4 w-4 text-gray-400" />
-                </div>
-                <div className="px-10 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-gray-900">
-                  <CardNumberElement
-                    options={{
-                      style: {
-                        base: {
-                          fontSize: '14px',
-                          color: '#374151',
-                          fontFamily: 'system-ui, sans-serif',
-                          '::placeholder': {
-                            color: '#9CA3AF',
-                          },
-                        },
-                      },
-                    }}
-                  />
-                </div>
               </div>
-            </div>
+            )}
 
-            {/* Expiry and CVC */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Expiration Date
-                </label>
-                <div className="px-3 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-gray-900">
-                  <CardExpiryElement
-                    options={{
-                      style: {
-                        base: {
-                          fontSize: '14px',
-                          color: '#374151',
-                          fontFamily: 'system-ui, sans-serif',
-                          '::placeholder': {
-                            color: '#9CA3AF',
-                          },
-                        },
-                      },
-                      placeholder: 'MM/YY',
-                    }}
-                  />
-                </div>
+            {paymentMethod === 'applePay' && effectiveCanUseApplePay && paymentRequest ? (
+              <div className="space-y-3">
+                <PaymentRequestButtonElement
+                  options={{
+                    paymentRequest,
+                    style: { paymentRequestButton: { type: 'default', height: '44px' } },
+                  }}
+                />
+                <p className="text-xs text-gray-600">
+                  Use Apple Pay to complete your payment securely.
+                </p>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Security Code
-                </label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10">
-                    <Info className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10">
-                    <Lock className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <div className="px-10 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-gray-900">
-                    <CardCvcElement
-                      options={{
-                        style: {
-                          base: {
-                            fontSize: '14px',
-                            color: '#374151',
-                            fontFamily: 'system-ui, sans-serif',
-                            '::placeholder': {
-                              color: '#9CA3AF',
+            ) : (
+              <>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-1">
+                    Card Number
+                  </p>
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10">
+                      <CreditCard className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10">
+                      <Lock className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <div className="px-10 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-gray-900">
+                      <CardNumberElement
+                        options={{
+                          style: {
+                            base: {
+                              fontSize: '14px',
+                              color: '#374151',
+                              fontFamily: 'system-ui, sans-serif',
+                              '::placeholder': {
+                                color: '#9CA3AF',
+                              },
                             },
                           },
-                        },
-                      }}
-                    />
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-1">
+                      Expiration Date
+                    </p>
+                    <div className="px-3 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-gray-900">
+                      <CardExpiryElement
+                        options={{
+                          style: {
+                            base: {
+                              fontSize: '14px',
+                              color: '#374151',
+                              fontFamily: 'system-ui, sans-serif',
+                              '::placeholder': {
+                                color: '#9CA3AF',
+                              },
+                            },
+                          },
+                          placeholder: 'MM/YY',
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-1">
+                      Security Code
+                    </p>
+                    <div className="relative">
+                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10">
+                        <Info className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10">
+                        <Lock className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <div className="px-10 py-2 border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-gray-900 focus-within:border-gray-900">
+                        <CardCvcElement
+                          options={{
+                            style: {
+                              base: {
+                                fontSize: '14px',
+                                color: '#374151',
+                                fontFamily: 'system-ui, sans-serif',
+                                '::placeholder': {
+                                  color: '#9CA3AF',
+                                },
+                              },
+                            },
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isProcessing}
+                  className="w-full bg-gray-900 text-white hover:bg-gray-800 rounded-[2px] py-7 text-base font-semibold flex items-center justify-center"
+                  size="lg"
+                >
+                  {isProcessing ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Processing Payment...</span>
+                    </div>
+                  ) : (
+                    `Pay $${total.toFixed(2)}`
+                  )}
+                </Button>
+              </>
+            )}
 
             {/* Error Message */}
             {error && (
@@ -582,32 +741,15 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
                 <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
-
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              disabled={isProcessing}
-              className="w-full bg-gray-900 text-white hover:bg-gray-800 rounded-[2px] py-7 text-base font-semibold flex items-center justify-center"
-              size="lg"
-            >
-              {isProcessing ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Processing Payment...</span>
-                </div>
-              ) : (
-                `Pay $${total.toFixed(2)}`
-              )}
-            </Button>
           </form>
         </div>
 
         <div className="mt-3 text-xs text-gray-500 text-center">
           Meet Simon&apos;s privacy policy & SMS policy regarding Internet
           information |{" "}
-          <a href="#" className="text-blue-600 underline">
+          <Link href="/privacy" className="text-blue-600 underline">
             Your Privacy Choices
-          </a>
+          </Link>
         </div>
       </div>
     </div>

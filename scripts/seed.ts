@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { sql } from "drizzle-orm";
 import "dotenv/config";
-import { type ClientConfig } from "pg";
+import type { ClientConfig } from "pg";
 import fs from "fs";
 import { OpenAIEmbeddings } from "@langchain/openai";
 
@@ -194,6 +194,7 @@ export const DEMO_RESTAURANTS = [
     restaurantGuid: "efee1329-76cb-4021-8dec-645725820bb2",
     addressLine1: "1329 Santa Monica BoulevardSanta Monica",
     cuisine: "BBQ",
+    showTips: true,
     city: "Santa Monica",
     state: "CA",
     zipCode: "90404",
@@ -218,6 +219,7 @@ export const DEMO_RESTAURANTS = [
     restaurantGuid: "fa3b226a-3cc9-4515-aebe-1779126f696a",
     addressLine1: "3032 Wilshire BoulevardSanta Monica",
     cuisine: "Pizza",
+    showTips: false,
     city: "Santa Monica",
     state: "CA",
     zipCode: "90403",
@@ -225,7 +227,7 @@ export const DEMO_RESTAURANTS = [
     description: "Savor the flavors of Italy with our mouth-watering selection of pizzas and classic Italian favorites! From crispy, cheesy slices straight from the oven to rich pastas and hearty sauces, every bite is crafted for comfort and joy. Buon appetito — your Italian feast is just a click away!",
     phoneNumber: "3103103462",
     rating: 4.3,
-    deliveryFee: 5.00,
+    deliveryFee: 0,
     serviceFeePercent: 20.0,
     imageUrls: ["https://d2s742iet3d3t1.cloudfront.net/restaurant_service/restaurants/e2bb67bf-956f-4f35-99ff-7ccc42a20525/Restaurant/dcd0e0ed-e85c-4928-bcad-f2132753f53d.jpg?size=medium"],
     metadata: {
