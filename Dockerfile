@@ -1,4 +1,4 @@
-FROM node:24-alpine AS base
+FROM node:24-alpine3.22 AS base
 
 # Install git and curl (needed for some packages and health checks)
 RUN apk add --no-cache git curl
