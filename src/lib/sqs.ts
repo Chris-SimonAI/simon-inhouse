@@ -144,9 +144,9 @@ export function prepareBotPayload(
 }
 
 export interface ScraperJobPayload {
-  urls: string | string[];
-  hotelID: string;
-  restaurantMode?: 'new' | 'existing';
+  urls?: string | string[];
+  hotelID?: string;
+  restaurantMode?: 'new' | 'existing' | 'stock-availability';
   restaurantGuid?: string;
 }
 
@@ -155,20 +155,26 @@ export interface ScraperJobPayload {
  */
 export async function sendScraperJob(payload: ScraperJobPayload) {
   try {
-    const urlsArray = Array.isArray(payload.urls) ? payload.urls : [payload.urls];
+    const urlsArray =
+      payload.urls === undefined
+        ? undefined
+        : Array.isArray(payload.urls)
+        ? payload.urls
+        : [payload.urls];
 
     const messageBody = {
-      urls: urlsArray,
-      hotelID: payload.hotelID,
+      ...(urlsArray ? { urls: urlsArray } as const : {}),
+      ...(payload.hotelID ? { hotelID: payload.hotelID } as const : {}),
       restaurantMode: payload.restaurantMode || 'new',
       restaurantGuid: payload.restaurantGuid,
     };
 
     // Use a unique message group per job to avoid serialization and maximize parallelism.
-    const messageGroupId = `scraper-${payload.hotelID}-${randomUUID()}`;
+    const scope = payload.hotelID ?? 'all';
+    const messageGroupId = `scraper-${scope}-${randomUUID()}`;
 
     // Use a UUID to avoid rare same-millisecond collisions and ensure uniqueness.
-    const messageDeduplicationId = `scraper-${payload.hotelID}-${randomUUID()}`;
+    const messageDeduplicationId = `scraper-${scope}-${randomUUID()}`;
 
     const command = new SendMessageCommand({
       QueueUrl: env.AWS_SQS_SCRAPER_QUEUE_URL,

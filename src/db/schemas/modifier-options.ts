@@ -14,6 +14,7 @@ export const modifierOptions = pgTable("modifier_options", {
   originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
   calories: integer("calories"),
   isDefault: boolean("is_default"),
+  isAvailable: boolean("is_available").notNull().default(true),
   modifierGroupReferences: integer("modifier_group_references").array().$type<number[]>(),
   status: menuStatusEnum("status").default("pending").notNull(),
   metadata: jsonb("metadata"),
@@ -21,6 +22,7 @@ export const modifierOptions = pgTable("modifier_options", {
 }, (table) => [
   index("modifier_options_modifier_group_id_index").on(table.modifierGroupId),
   index("modifier_options_modifier_option_guid_index").on(table.modifierOptionGuid),
+  index("modifier_options_is_available_index").on(table.isAvailable),
   index("modifier_options_status_index").on(table.status)
 ]); 
 

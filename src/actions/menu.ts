@@ -42,6 +42,7 @@ export interface MenuItem {
   calories: number;
   imageUrl: string;
   allergens: string[];
+  isAvailable: boolean;
   modifierGroups: MenuModifierGroup[];
 }
 
@@ -106,6 +107,7 @@ export async function getCompleteMenuByRestaurant(
         menuItemImageUrls: menuItems.imageUrls,
         menuItemAllergens: menuItems.allergens,
         menuItemSortOrder: menuItems.sortOrder,
+        menuItemIsAvailable: menuItems.isAvailable,
         // Modifier group data
         modifierGroupId: modifierGroups.id,
         modifierGroupGuid: modifierGroups.modifierGroupGuid,
@@ -137,7 +139,8 @@ export async function getCompleteMenuByRestaurant(
       ))
       .leftJoin(menuItems, and(
         eq(menuItems.menuGroupId, menuGroups.id),
-        eq(menuItems.status, "approved")
+        eq(menuItems.status, "approved"),
+        eq(menuItems.isAvailable, true)
       ))
       .leftJoin(modifierGroups, and(
         eq(modifierGroups.menuItemId, menuItems.id),
@@ -196,6 +199,7 @@ export async function getCompleteMenuByRestaurant(
           calories: row.menuItemCalories || 0,
           imageUrl: row.menuItemImageUrls?.[0] || "",
           allergens: row.menuItemAllergens || [],
+          isAvailable: Boolean(row.menuItemIsAvailable),
           modifierGroups: [],
         });
       }
