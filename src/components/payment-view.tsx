@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import type { CartItem } from "./menu-view";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronRight, X, ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useHotelSlug } from "@/hooks/use-hotel-slug";
 import { hotelPath } from "@/utils/hotel-path";
+import { ConfirmExitButton } from "@/components/confirm-exit-button";
+import { clearCheckoutState } from "@/utils/clear-checkout-state";
 
 type PaymentViewProps = {
   restaurantGuid: string;
@@ -122,8 +124,9 @@ export function PaymentView({
     return hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}${suffix}`);
   };
 
-  const handleClose = () => {
-    const path = buildRestaurantPath("/checkout");
+  const handleConfirmExit = () => {
+    clearCheckoutState(restaurantGuid);
+    const path = buildRestaurantPath("/menu");
     if (!path) return;
     router.push(path);
   };
@@ -217,29 +220,23 @@ export function PaymentView({
         <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
           <div className="flex items-center justify-between px-4 py-3">
             <h1 className="text-lg font-semibold text-gray-900">Menu</h1>
-            <button
-              type="button"
-              onClick={handleClose}
+            <Link
+              href={buildRestaurantPath("/checkout") ?? '#'}
               className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
-            </button>
+            </Link>
           </div>
         </div>
 
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="text-center">
             <p className="text-gray-500 text-lg mb-4">No items in your cart</p>
-            <Button
-              onClick={() => {
-                const path = buildRestaurantPath("/menu");
-                if (!path) return;
-                router.push(path);
-              }}
-              className="bg-gray-900 text-white hover:bg-gray-800"
-            >
-              Go to Menu
-            </Button>
+            <Link href={buildRestaurantPath("/menu") ?? '#'}>
+              <Button className="bg-gray-900 text-white hover:bg-gray-800">
+                Go to Menu
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -247,18 +244,24 @@ export function PaymentView({
   }
 
   return (
-    <div className="flex flex-col h-dvh bg-gray-50">
+    <div className="flex flex-col h-dvh bg-gray-50 relative">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-semibold text-gray-900">Menu</h1>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex-shrink-0 p-2 text-gray-800 bg-transparent hover:bg-gray-100 rounded-full transition-colors"
+          <Link
+            href={buildRestaurantPath("/checkout") ?? '#'}
+            className="flex items-center gap-2 text-gray-900"
+            aria-label="Back to Order Summary"
           >
-            <X className="w-5 h-5" />
-          </button>
+            <ChevronLeft className="w-5 h-5" />
+            <span className="text-base font-medium">Menu</span>
+          </Link>
+
+          <ConfirmExitButton
+            title="Leave payment?"
+            description="Leaving now will clear your cart and return you to the restaurant menu. Continue?"
+            onConfirm={handleConfirmExit}
+          />
         </div>
       </div>
 
