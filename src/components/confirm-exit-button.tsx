@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/dialog';
 
 type ConfirmExitButtonProps = {
-  container?: HTMLElement | null;
   title: string;
   description: string;
   confirmLabel?: string;
@@ -25,7 +24,6 @@ type ConfirmExitButtonProps = {
 };
 
 export function ConfirmExitButton({
-  container,
   title,
   description,
   confirmLabel = 'Leave and clear cart',
@@ -46,7 +44,7 @@ export function ConfirmExitButton({
           <X className="w-5 h-5" />
         </button>
       </DialogTrigger>
-      <DialogContent container={container}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

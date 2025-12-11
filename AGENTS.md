@@ -492,3 +492,22 @@ function MyComponent() {
 - Session management (use Better Auth hooks)
 - API calls (use server actions)
 - State synchronization that can be handled server-side
+
+## Navigation: Prefer `<Link>` over `router.push`
+
+**Rule:** Use Next.js `Link` for client-side navigation by default. Only use `router.push/replace/back` when navigation must be imperative.
+
+**Use `Link` when:**
+- Navigating to a known internal URL on user click.
+- You do not need to await anything before navigating.
+- You only need synchronous side-effects (e.g., analytics, `localStorage` cleanup) in `onClick`.
+
+**Use `router.push` when:**
+- Navigation depends on conditional logic or computed paths not known at render.
+- You must `await` an async operation before redirecting (e.g., server action).
+- Inside dialog/confirm flows where navigation happens inside an imperative callback (e.g., `onConfirm` of a modal).
+- Replacing history (`router.replace`) or programmatic back navigation (`router.back`).
+
+Notes:
+- Avoid mixing both for the same interaction.
+- Keep accessibility: ensure the actionable element is a link when the primary action is navigation.
