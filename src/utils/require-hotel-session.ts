@@ -32,7 +32,7 @@ export async function requireHotelSession({
     );
   }
 
-  let { hotelId, threadId } = sessionResult.data;
+  let { hotelId, threadId, userId } = sessionResult.data;
 
   if (hotelId !== hotelResult.data.id || !threadId) {
     const ensuredSession = await ensureSessionForHotel(hotelResult.data.id);
@@ -43,6 +43,7 @@ export async function requireHotelSession({
     }
     hotelId = ensuredSession.data.hotelId;
     threadId = ensuredSession.data.threadId;
+    userId = ensuredSession.data.userId;
   }
 
   if (hotelId !== hotelResult.data.id || !threadId) {
@@ -54,5 +55,6 @@ export async function requireHotelSession({
   return {
     hotel: hotelResult.data,
     threadId,
+    userId,
   };
 }

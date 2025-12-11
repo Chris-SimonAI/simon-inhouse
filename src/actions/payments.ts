@@ -10,6 +10,7 @@ import { SecureCreateOrderRequestSchema, type SecureOrderItem, type TipOption } 
 import { eq, inArray } from 'drizzle-orm';
 import { getActiveDiscount } from '@/actions/dining-discounts';
 import { env } from '@/env';
+import { getHotelSession } from './sessions';
 
 /**
  * Result of server-side order total calculation
@@ -257,6 +258,13 @@ export async function calculateOrderTotal(
  */
 export async function createSecureOrderAndPaymentIntent(input: unknown) {
   try {
+    const sessionResult = await getHotelSession();
+    if (!sessionResult.ok || !sessionResult.data) {
+      return createError("No active session found");
+    }
+
+    const { userId } = sessionResult.data;
+
     // 1. Validate input using secure schema (no prices)
     const validatedInput = SecureCreateOrderRequestSchema.parse(input);
     
@@ -277,7 +285,7 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
     const orderResult = await db.insert(dineInOrders).values({
       hotelId: calculation.hotelId,
       restaurantId: calculation.restaurantId,
-      userId: 0, // I hate to have to set this to 0, but it's this is done wrong in the first place, userId is not a number, it's a string
+      userId,
       roomNumber: validatedInput.roomNumber,
       specialInstructions: validatedInput.specialInstructions,
       totalAmount: calculation.total.toFixed(2),
@@ -361,6 +369,7 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
         tip: calculation.tip.toString(),
         total: calculation.total.toString(),
         source: env.NODE_ENV,
+        userId: userId,
       },
     });
     

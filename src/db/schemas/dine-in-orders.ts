@@ -1,6 +1,7 @@
 import { pgTable, bigserial, bigint, varchar, text, timestamp, jsonb, pgEnum } from 'drizzle-orm/pg-core';
 import { hotels } from './hotels';
 import { dineInRestaurants } from './dine-in-restaurants';
+import { user } from './auth';
 
 export const orderStatusEnum = pgEnum('order_status', [
   'pending', 
@@ -17,7 +18,9 @@ export const dineInOrders = pgTable('dine_in_orders', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
   hotelId: bigint('hotel_id', { mode: 'number' }).notNull().references(() => hotels.id),
   restaurantId: bigint('restaurant_id', { mode: 'number' }).notNull().references(() => dineInRestaurants.id),
-  userId: bigint('user_id', { mode: 'number' }).notNull(), // No FK constraint as per requirements
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   roomNumber: varchar('room_number', { length: 10 }).notNull(),
   specialInstructions: text('special_instructions'),
   totalAmount: varchar('total_amount', { length: 20 }).notNull(), // Store as string to avoid precision issues

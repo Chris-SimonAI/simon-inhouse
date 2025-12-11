@@ -134,21 +134,6 @@ export async function getOrderById(orderId: number) {
   }
 }
 
-export async function getOrdersByUserId(userId: number) {
-  try {
-    const orders = await db
-      .select()
-      .from(dineInOrders)
-      .where(eq(dineInOrders.userId, userId))
-      .orderBy(desc(dineInOrders.createdAt));
-
-    return createSuccess(orders);
-  } catch (error) {
-    console.error('Get orders by user error:', error);
-    return createError('Failed to get orders');
-  }
-}
-
 export async function getRestaurantIdByGuid(restaurantId: number) {
   try {
     return createSuccess(restaurantId);

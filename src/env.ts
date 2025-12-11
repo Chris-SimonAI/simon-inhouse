@@ -16,6 +16,7 @@ const Env = z.object({
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().min(1),
   APP_API_KEY: z.string().min(1),
   NEXT_PUBLIC_APP_URL: z.string().url(),
+  POSTHOG_KEY: z.string().min(1).optional(),
   AWS_REGION: z.string().min(1),
   AWS_SQS_QUEUE_URL: z.string().min(1),
   AWS_SQS_SCRAPER_QUEUE_URL: z.string().min(1),

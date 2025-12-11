@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { type Hotel } from "@/db/schemas/hotels";
+import type { Hotel } from "@/db/schemas/hotels";
 import { useHotelSlug } from "@/hooks/use-hotel-slug";
+import { AnalyticsEvents } from "@/lib/analytics/events";
+import { Analytics } from "@/lib/analytics/client";
 
 type WelcomeClientProps = {
   hotel: Hotel;
@@ -16,16 +18,10 @@ export default function WelcomeClient({ hotel }: WelcomeClientProps) {
   const slug = useHotelSlug();
 
   const meetSimon = useCallback(() => {
+    Analytics.capture(AnalyticsEvents.meetSimonIntroButtonClicked);
     router.push(`/${slug}?voice=true`);
   }, [router, slug]);
-
-//   const skipIntro = useCallback(() => {
-//     // Set cookie for 1 day and return to home
-//     const maxAge = 24 * 60 * 60; // 1 day
-//     document.cookie = `simon-intro-played=true; max-age=${maxAge}; path=/`;
-//     router.replace("/");
-//   }, [router]);
-
+  
   return (
     <div className="h-dvh w-full bg-gray-50">
       <div className="h-dvh w-full flex justify-center">
