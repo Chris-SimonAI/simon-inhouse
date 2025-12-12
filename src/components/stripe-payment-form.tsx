@@ -74,6 +74,8 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
   const [storedApplePayAvailable, setStoredApplePayAvailable] = useState<boolean | null>(null);
 
+  const debugId = useId();
+
   // Form state
   const [roomNumber, setRoomNumber] = useState("");
   const [fullName, setFullName] = useState("");
@@ -198,6 +200,22 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
     setIsProcessing(true);
 
     try {
+      console.log("[stripe][checkout][card] submit:start", {
+        debugId,
+        restaurantGuid,
+        total,
+        amountCents,
+        slug: slug ?? null,
+        hasStripe: Boolean(stripe),
+        hasElements: Boolean(elements),
+        paymentMethod,
+        roomNumber: roomNumber || null,
+        fullNameProvided: Boolean(fullName),
+        nameOnCardProvided: Boolean(nameOnCard),
+        email,
+        phoneNumber,
+      });
+
       const paymentDetails = markPaymentAsProcessing(restaurantGuid);
       
       // 1. Prepare SECURE order items (only IDs and quantities - NO PRICES)
@@ -210,6 +228,26 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
 
       // 2. Get tipOption from payment details (set by payment-view.tsx)
       const tipOption: TipOption = paymentDetails.tipOption || { type: 'fixed', value: 0 };
+
+      console.log("[stripe][checkout][card] order:create:payload", {
+        debugId,
+        restaurantGuid,
+        itemCount: secureOrderItems.length,
+        items: secureOrderItems.map((it) => ({
+          menuItemGuid: it.menuItemGuid,
+          quantity: it.quantity,
+          selectedModifierGroupCount: Object.keys(it.selectedModifiers || {}).length,
+          selectedModifierOptionCount: Object.values(it.selectedModifiers || {}).reduce(
+            (sum, arr) => sum + arr.length,
+            0,
+          ),
+        })),
+        roomNumber: validatedForm.roomNumber,
+        fullNameProvided: Boolean(validatedForm.fullName),
+        email: validatedForm.email,
+        phoneNumber: validatedForm.phoneNumber,
+        tipOption,
+      });
 
       // 3. Create SECURE order + Stripe payment intent
       // Server calculates all prices from database - client prices are NOT trusted
@@ -225,6 +263,11 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       });
 
       if (!orderResult.ok) {
+        console.error("[stripe][checkout][card] order:create:failed", {
+          debugId,
+          restaurantGuid,
+          message: orderResult.message ?? "Unknown error",
+        });
         throw new Error('Failed to create order and payment intent');
       }
 
@@ -233,14 +276,49 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         paymentIntentId: orderResult.data.paymentIntentId,
       });
 
+      console.log("[stripe][checkout][card] order:create:success", {
+        debugId,
+        restaurantGuid,
+        orderId: orderResult.data.order?.id,
+        paymentIntentId: orderResult.data.paymentIntentId,
+        hasClientSecret: Boolean(orderResult.data.clientSecret),
+        calculation: orderResult.data.calculation
+          ? {
+              subtotal: orderResult.data.calculation.subtotal,
+              serviceFee: orderResult.data.calculation.serviceFee,
+              deliveryFee: orderResult.data.calculation.deliveryFee,
+              discount: orderResult.data.calculation.discount,
+              discountPercentage: orderResult.data.calculation.discountPercentage,
+              tip: orderResult.data.calculation.tip,
+              total: orderResult.data.calculation.total,
+            }
+          : null,
+      });
+
       // 2. Create Payment Method using Stripe Elements
       const cardNumberElement = elements.getElement(CardNumberElement);
       const cardExpiryElement = elements.getElement(CardExpiryElement);
       const cardCvcElement = elements.getElement(CardCvcElement);
 
       if (!cardNumberElement || !cardExpiryElement || !cardCvcElement) {
+        console.error("[stripe][checkout][card] elements:missing", {
+          debugId,
+          hasCardNumberElement: Boolean(cardNumberElement),
+          hasCardExpiryElement: Boolean(cardExpiryElement),
+          hasCardCvcElement: Boolean(cardCvcElement),
+        });
         throw new Error('Card elements not found');
       }
+
+      console.log("[stripe][checkout][card] paymentMethod:create:start", {
+        debugId,
+        card: cardNumberElement,
+        billingDetails: {
+          nameProvided: Boolean(nameOnCard),
+          email,
+          phone: nationalDigits,
+        },
+      });
 
       const { error: stripeError, paymentMethod: createdPaymentMethod } = await stripe.createPaymentMethod({
         type: 'card',
@@ -253,18 +331,68 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       });
 
       if (stripeError) {
+        console.error("[stripe][checkout][card] paymentMethod:create:error", {
+          debugId,
+          stripeError: {
+            type: stripeError.type,
+            code: (stripeError as unknown as { code?: string }).code,
+            message: stripeError.message,
+          },
+        });
         throw new Error(stripeError.message);
       }
 
+      console.log("[stripe][checkout][card] paymentMethod:create:success", {
+        debugId,
+        paymentMethodId: createdPaymentMethod.id,
+        type: createdPaymentMethod.type,
+        card: createdPaymentMethod.card
+          ? {
+              brand: createdPaymentMethod.card.brand,
+              country: createdPaymentMethod.card.country ?? null,
+              funding: createdPaymentMethod.card.funding ?? null,
+              last4: createdPaymentMethod.card.last4 ?? null,
+              expMonth: createdPaymentMethod.card.exp_month ?? null,
+              expYear: createdPaymentMethod.card.exp_year ?? null,
+            }
+          : null,
+      });
+
       // 3. Confirm payment with Payment Method
+      console.log("[stripe][checkout][card] paymentIntent:confirm:request", {
+        debugId,
+        paymentIntentId: orderResult.data.paymentIntentId,
+        paymentMethodId: createdPaymentMethod.id,
+      });
+
       const confirmResult = await confirmPayment({
         paymentIntentId: orderResult.data.paymentIntentId,
         paymentMethodId: createdPaymentMethod.id,
       });
 
       if (!confirmResult.ok) {
+        console.error("[stripe][checkout][card] paymentIntent:confirm:failed", {
+          debugId,
+          paymentIntentId: orderResult.data.paymentIntentId,
+          paymentMethodId: createdPaymentMethod.id,
+          message: confirmResult.message ?? "Unknown error",
+        });
         throw new Error('Payment confirmation failed');
       }
+
+      console.log("[stripe][checkout][card] paymentIntent:confirm:success", {
+        debugId,
+        paymentIntentId: orderResult.data.paymentIntentId,
+        paymentMethodId: createdPaymentMethod.id,
+        paymentRecord: confirmResult.data?.payment
+          ? {
+              id: confirmResult.data.payment.id,
+              orderId: confirmResult.data.payment.orderId,
+              status: confirmResult.data.payment.paymentStatus,
+              stripePaymentIntentId: confirmResult.data.payment.stripePaymentIntentId,
+            }
+          : null,
+      });
 
       // 4. Mark payment as completed and redirect to success
       const completedDetails = {
@@ -315,6 +443,16 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
       setPaymentMethod('applePay');
       setErrors({});
       setError(null);
+
+      console.log("[stripe][checkout][applePay] paymentRequest:event", {
+        debugId,
+        restaurantGuid,
+        paymentMethodId: ev.paymentMethod?.id ?? null,
+        hasShippingAddress: Boolean((ev as unknown as { shippingAddress?: unknown }).shippingAddress),
+        hasPayerName: Boolean((ev as unknown as { payerName?: unknown }).payerName),
+        hasPayerEmail: Boolean((ev as unknown as { payerEmail?: unknown }).payerEmail),
+        hasPayerPhone: Boolean((ev as unknown as { payerPhone?: unknown }).payerPhone),
+      });
 
     const fieldErrors: Partial<Record<keyof CardPaymentForm, string>> = {};
     const roomError = validateRoomNumber(roomNumber);
@@ -370,13 +508,33 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         });
 
         if (!orderResult.ok) {
+          console.error("[stripe][checkout][applePay] order:create:failed", {
+            debugId,
+            restaurantGuid,
+            message: orderResult.message ?? "Unknown error",
+          });
           throw new Error('Failed to create order and payment intent');
         }
 
+        console.log("[stripe][checkout][applePay] order:create:success", {
+          debugId,
+          restaurantGuid,
+          orderId: orderResult.data.order?.id,
+          paymentIntentId: orderResult.data.paymentIntentId,
+          hasClientSecret: Boolean(orderResult.data.clientSecret),
+        });
+
         const paymentMethodId = ev.paymentMethod?.id;
         if (!paymentMethodId) {
+          console.error("[stripe][checkout][applePay] paymentMethod:missing", { debugId });
           throw new Error('Payment method not available');
         }
+
+        console.log("[stripe][checkout][applePay] paymentIntent:confirm:request", {
+          debugId,
+          paymentIntentId: orderResult.data.paymentIntentId,
+          paymentMethodId,
+        });
 
         const confirmResult = await confirmPayment({
           paymentIntentId: orderResult.data.paymentIntentId,
@@ -384,8 +542,28 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
         });
 
         if (!confirmResult.ok) {
+          console.error("[stripe][checkout][applePay] paymentIntent:confirm:failed", {
+            debugId,
+            paymentIntentId: orderResult.data.paymentIntentId,
+            paymentMethodId,
+            message: confirmResult.message ?? "Unknown error",
+          });
           throw new Error('Payment confirmation failed');
         }
+
+        console.log("[stripe][checkout][applePay] paymentIntent:confirm:success", {
+          debugId,
+          paymentIntentId: orderResult.data.paymentIntentId,
+          paymentMethodId,
+          paymentRecord: confirmResult.data?.payment
+            ? {
+                id: confirmResult.data.payment.id,
+                orderId: confirmResult.data.payment.orderId,
+                status: confirmResult.data.payment.paymentStatus,
+                stripePaymentIntentId: confirmResult.data.payment.stripePaymentIntentId,
+              }
+            : null,
+        });
 
         const completedDetails = {
           ...paymentDetails,
@@ -425,7 +603,21 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
     return () => {
       paymentRequest.off('paymentmethod', handlePaymentRequestEvent);
     };
-  }, [email, fullName, isProcessing, nameOnCard, paymentRequest, phoneNumber, restaurantGuid, router, slug, roomNumber]);
+  }, [
+    amountCents,
+    debugId,
+    email,
+    fullName,
+    isProcessing,
+    nameOnCard,
+    paymentRequest,
+    phoneNumber,
+    restaurantGuid,
+    roomNumber,
+    router,
+    slug,
+    total,
+  ]);
 
   return (
     <div className="flex flex-col h-dvh bg-gray-50 relative">

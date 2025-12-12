@@ -267,6 +267,26 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
 
     // 1. Validate input using secure schema (no prices)
     const validatedInput = SecureCreateOrderRequestSchema.parse(input);
+
+    console.log('[stripe][secureCreate] input:validated', {
+      env: env.NODE_ENV,
+      restaurantGuid: validatedInput.restaurantGuid,
+      userId,
+      roomNumber: validatedInput.roomNumber,
+      fullNameProvided: Boolean(validatedInput.fullName),
+      email: validatedInput.email,
+      phoneNumber: validatedInput.phoneNumber,
+      items: validatedInput.items.map((it) => ({
+        menuItemGuid: it.menuItemGuid,
+        quantity: it.quantity,
+        selectedModifierGroupCount: Object.keys(it.selectedModifiers || {}).length,
+        selectedModifierOptionCount: Object.values(it.selectedModifiers || {}).reduce(
+          (sum, arr) => sum + arr.length,
+          0,
+        ),
+      })),
+      tipOption: validatedInput.tipOption,
+    });
     
     // 2. Calculate order total server-side
     const calculationResult = await calculateOrderTotal(
@@ -276,10 +296,33 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
     );
     
     if (!calculationResult.ok) {
+      console.error('[stripe][secureCreate] total:calculation:failed', {
+        env: env.NODE_ENV,
+        restaurantGuid: validatedInput.restaurantGuid,
+        userId,
+        message: calculationResult.message ?? 'Unknown error',
+      });
       return createError('Failed to calculate order total');
     }
     
     const calculation = calculationResult.data;
+
+    console.log('[stripe][secureCreate] total:calculation:success', {
+      env: env.NODE_ENV,
+      restaurantGuid: validatedInput.restaurantGuid,
+      restaurantId: calculation.restaurantId,
+      hotelId: calculation.hotelId,
+      totals: {
+        subtotal: calculation.subtotal,
+        serviceFee: calculation.serviceFee,
+        deliveryFee: calculation.deliveryFee,
+        discount: calculation.discount,
+        discountPercentage: calculation.discountPercentage,
+        tip: calculation.tip,
+        total: calculation.total,
+      },
+      itemCount: calculation.items.length,
+    });
 
     // 3. Create order with server-calculated values
     const orderResult = await db.insert(dineInOrders).values({
@@ -307,10 +350,25 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
     }).returning();
 
     if (orderResult.length === 0) {
+      console.error('[stripe][secureCreate] order:insert:failed', {
+        env: env.NODE_ENV,
+        restaurantGuid: validatedInput.restaurantGuid,
+        userId,
+      });
       return createError('Failed to create order');
     }
 
     const order = orderResult[0];
+
+    console.log('[stripe][secureCreate] order:insert:success', {
+      env: env.NODE_ENV,
+      orderId: order.id,
+      hotelId: order.hotelId,
+      restaurantId: order.restaurantId,
+      userId,
+      orderStatus: order.orderStatus,
+      totalAmount: order.totalAmount,
+    });
 
     // 4. Create order items with server-calculated prices
     const orderItems = await Promise.all(
@@ -339,8 +397,7 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
     ]);
 
     // 6. Create Stripe Payment Intent with server-calculated amount
-    console.log('Creating Stripe payment intent (secure)...');
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntentCreateParams = {
       amount: Math.round(calculation.total * 100), // Convert to cents
       currency: 'usd',
       capture_method: 'manual', // Authorize but don't capture until bot succeeds
@@ -371,9 +428,26 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
         source: env.NODE_ENV,
         userId: userId,
       },
+    } as const;
+
+    console.log('Creating Stripe payment intent (secure)...', {
+      env: env.NODE_ENV,
+      orderId: order.id,
+      restaurantId: order.restaurantId,
+      hotelId: order.hotelId,
+      paymentIntentCreateParams: {
+        amount: paymentIntentCreateParams.amount,
+        currency: paymentIntentCreateParams.currency,
+        capture_method: paymentIntentCreateParams.capture_method,
+        automatic_payment_methods: paymentIntentCreateParams.automatic_payment_methods,
+        metadata: paymentIntentCreateParams.metadata,
+      },
     });
+
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentCreateParams);
     
     console.log('Stripe payment intent created (secure):', {
+      env: env.NODE_ENV,
       paymentIntentId: paymentIntent.id,
       amount: paymentIntent.amount,
       currency: paymentIntent.currency,
@@ -400,6 +474,12 @@ export async function confirmPayment(input: {
   paymentMethodId: string;
 }) {
   try {
+    console.log('[stripe][confirmPayment] request', {
+      env: env.NODE_ENV,
+      paymentIntentId: input.paymentIntentId,
+      paymentMethodId: input.paymentMethodId,
+    });
+
     // Retrieve payment intent from Stripe
     console.log('Retrieving payment intent from Stripe...');
     const paymentIntent = await stripe.paymentIntents.retrieve(input.paymentIntentId);
@@ -409,14 +489,48 @@ export async function confirmPayment(input: {
       return createError('Payment intent not found');
     }
 
+    console.log('[stripe][confirmPayment] paymentIntent:retrieved', {
+      env: env.NODE_ENV,
+      paymentIntentId: paymentIntent.id,
+      status: paymentIntent.status,
+      amount: paymentIntent.amount,
+      currency: paymentIntent.currency,
+      capture_method: paymentIntent.capture_method,
+      customer: paymentIntent.customer ?? null,
+      metadata: paymentIntent.metadata || {},
+    });
 
     // Confirm Payment Intent with Payment Method
+    console.log('[stripe][confirmPayment] paymentIntent:confirm:request', {
+      env: env.NODE_ENV,
+      paymentIntentId: input.paymentIntentId,
+      payment_method: input.paymentMethodId,
+    });
+
     const confirmedPaymentIntent = await stripe.paymentIntents.confirm(
       input.paymentIntentId,
       {
         payment_method: input.paymentMethodId,
       }
     );
+
+    console.log('[stripe][confirmPayment] paymentIntent:confirm:response', {
+      env: env.NODE_ENV,
+      paymentIntentId: confirmedPaymentIntent.id,
+      status: confirmedPaymentIntent.status,
+      amount: confirmedPaymentIntent.amount,
+      currency: confirmedPaymentIntent.currency,
+      latest_charge: confirmedPaymentIntent.latest_charge ?? null,
+      last_payment_error: confirmedPaymentIntent.last_payment_error
+        ? {
+            code: confirmedPaymentIntent.last_payment_error.code ?? null,
+            type: confirmedPaymentIntent.last_payment_error.type ?? null,
+            message: confirmedPaymentIntent.last_payment_error.message ?? null,
+            decline_code: confirmedPaymentIntent.last_payment_error.decline_code ?? null,
+          }
+        : null,
+      payment_method: confirmedPaymentIntent.payment_method ?? null,
+    });
 
     if (confirmedPaymentIntent.status !== 'requires_capture') {
       console.error('Payment confirmation failed with status:', confirmedPaymentIntent.status);
@@ -455,6 +569,15 @@ export async function confirmPayment(input: {
     if (paymentRecord.length === 0) {
       return createError('Failed to create payment record');
     }
+
+    console.log('[stripe][confirmPayment] paymentRecord:created', {
+      env: env.NODE_ENV,
+      paymentId: paymentRecord[0]?.id,
+      orderId,
+      paymentStatus: paymentRecord[0]?.paymentStatus,
+      stripePaymentIntentId: paymentRecord[0]?.stripePaymentIntentId,
+      paymentMethodId: input.paymentMethodId,
+    });
 
     return createSuccess({ payment: paymentRecord[0] });
   } catch (error) {
