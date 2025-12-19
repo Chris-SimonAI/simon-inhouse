@@ -8,11 +8,13 @@ import { useHotelSlug } from "@/hooks/use-hotel-slug";
 import { hotelPath } from "@/utils/hotel-path";
 import { Analytics } from "@/lib/analytics/client";
 import { AnalyticsEvents } from "@/lib/analytics/events";
+import { formatRestaurantHoursLine } from "@/lib/business-hours";
 
 export function DineInRestaurantCard({
   restaurantGuid,
   name,
   imageUrls,
+  businessHours,
 }: DineInRestaurant) {
   const slug = useHotelSlug();
   const href = slug
@@ -33,6 +35,8 @@ export function DineInRestaurantCard({
       restaurant_name: name,
     });
   };
+
+  const hoursLine = formatRestaurantHoursLine(businessHours);
 
   return (
     <div
@@ -69,6 +73,12 @@ export function DineInRestaurantCard({
               </span>
             ) : null} */}
           </div>
+
+          {hoursLine ? (
+            <p className="text-xs font-semibold text-gray-900 mt-1 truncate">
+              {hoursLine}
+            </p>
+          ) : null}
 
           {/* Subtext line: cuisine (if provided) TODO: clarify if we can get this from scraping as it is not available in the Toast API */}
           {/* <p className="text-sm text-gray-600 truncate">
