@@ -154,7 +154,7 @@ export function MenuView({ menuData, restaurantGuid }: MenuViewProps) {
       <div className="sticky top-0 z-30 bg-white">
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-lg font-semibold text-gray-900 truncate pr-4">
-            {menuData.restaurantName}
+            {selectedItem ? selectedItem.name : menuData.restaurantName}
           </h1>
           <Button
             onClick={() => handleClose()}

@@ -435,7 +435,10 @@ function PaymentForm({ restaurantGuid, total }: StripePaymentFormProps) {
 
   const handleConfirmExit = () => {
     clearCheckoutState(restaurantGuid);
-    }  // Handle Payment Request (Apple Pay) submission
+    const path = hotelPath(slug, `/dine-in/restaurant/${restaurantGuid}/menu`);
+    if (!path) return;
+    router.push(path);
+  }  // Handle Payment Request (Apple Pay) submission
   useEffect(() => {
     if (!paymentRequest) return;
 
