@@ -302,7 +302,7 @@ export function CheckoutView({
             {/* Service Fee */}
             {serviceFeePercent > 0 && (
               <div className="flex justify-between items-center">
-                <span className="text-base text-gray-600">Service Fee ({serviceFeePercent}%)</span>
+                <span className="text-base text-gray-600">Taxes and Services</span>
                 <span className="font-medium">${getServiceFee().toFixed(2)}</span>
               </div>
             )}

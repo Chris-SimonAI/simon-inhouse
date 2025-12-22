@@ -438,7 +438,7 @@ export function PaymentView({
             {/* Service Fee */}
             {serviceFeePercent > 0 && (
               <div className="flex justify-between items-center text-base">
-                <span className="text-gray-600">Service Fee ({serviceFeePercent}%)</span>
+                <span className="text-gray-600">Taxes and Services</span>
                 <span className="text-gray-900">
                   {totals.serviceFee.toFixed(2)} USD
                 </span>
@@ -471,12 +471,12 @@ export function PaymentView({
         </div>
 
         {/* Service Fee Disclaimer */}
-        {serviceFeePercent > 0 && (
+        {/* {serviceFeePercent > 0 && (
           <p className="text-gray-600 mt-3">
             Simon charges a {serviceFeePercent}% service fee to address delivery
             fees and tips.
           </p>
-        )}
+        )} */}
 
         {/* Payment Method Footer Text */}
         <h2 className="text-sm font-semibold text-gray-700 mb-2 mt-4">
