@@ -13,3 +13,4 @@ export * from "@/db/schemas/modifier-groups";
 export * from "@/db/schemas/modifier-options"; 
 export * from "@/db/schemas/auth";
 export * from "@/db/schemas/hotel-dining-discounts";
+export * from "./hotel-restaurants";

@@ -1,0 +1,1 @@
+ALTER TABLE "dine_in_restaurants" ALTER COLUMN "hotel_id" DROP NOT NULL;

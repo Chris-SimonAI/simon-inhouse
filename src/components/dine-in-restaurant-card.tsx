@@ -9,6 +9,7 @@ import { hotelPath } from "@/utils/hotel-path";
 import { Analytics } from "@/lib/analytics/client";
 import { AnalyticsEvents } from "@/lib/analytics/events";
 import { formatRestaurantHoursLine } from "@/lib/business-hours";
+import { Utensils } from "lucide-react";
 
 export function DineInRestaurantCard({
   restaurantGuid,
@@ -41,11 +42,11 @@ export function DineInRestaurantCard({
   return (
     <div
       key={restaurantGuid}
-      className="bg-white border rounded-xl shadow-sm p-1 hover:shadow-md transition-shadow duration-200"
+      className="bg-white border rounded-xl shadow-sm p-1 hover:shadow-md transition-shadow duration-200 text-left"
     >
       <div className="flex gap-4 items-stretch">
-        {imageUrls ? (
-          <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+        <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+          {imageUrls && imageUrls.length > 0 && imageUrls[0] ? (
             <Image
               src={imageUrls[0]}
               alt={name}
@@ -53,12 +54,15 @@ export function DineInRestaurantCard({
               height={100}
               className="w-full h-full object-cover"
               onError={(e) => {
-                // Hide broken images gracefully
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
-          </div>
-        ) : null}
+          ) : (
+            <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+              <Utensils className="w-8 h-8 text-gray-400" />
+            </div>
+          )}
+        </div>
 
         <div className="flex-1 min-w-0 flex flex-col self-stretch">
           <div className="flex items-start justify-between gap-2">

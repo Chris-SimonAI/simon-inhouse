@@ -19,7 +19,7 @@ import { createSuccess, createError } from '@/lib/utils';
 import { z } from 'zod';
 import { revalidateTag } from 'next/cache';
 import { getHotelBySlug } from '@/actions/hotels';
-import { dineInRestaurants } from '@/db/schemas';
+import { dineInRestaurants, hotels } from '@/db/schemas';
 import { and, inArray } from 'drizzle-orm';
 
 export async function createDineInOrder(input: unknown) {
@@ -323,6 +323,83 @@ export async function getDineInOrdersForHotel(
     return createSuccess(data);
   } catch (error) {
     console.error('Get dine-in orders for hotel error:', error);
+    return createError('Failed to get orders');
+  }
+}
+
+/**
+ * Get all dine-in orders across all hotels (admin)
+ */
+export async function getAllDineInOrders(
+  status?: typeof dineInOrders.$inferSelect['orderStatus'],
+) {
+  try {
+    const whereClause = status
+      ? eq(dineInOrders.orderStatus, status)
+      : undefined;
+
+    const orders = await db
+      .select({
+        id: dineInOrders.id,
+        createdAt: dineInOrders.createdAt,
+        orderStatus: dineInOrders.orderStatus,
+        roomNumber: dineInOrders.roomNumber,
+        totalAmount: dineInOrders.totalAmount,
+        metadata: dineInOrders.metadata,
+        restaurantName: dineInRestaurants.name,
+        hotelName: hotels.name,
+      })
+      .from(dineInOrders)
+      .leftJoin(dineInRestaurants, eq(dineInOrders.restaurantId, dineInRestaurants.id))
+      .leftJoin(hotels, eq(dineInOrders.hotelId, hotels.id))
+      .where(whereClause)
+      .orderBy(desc(dineInOrders.createdAt))
+      .limit(100);
+
+    // Fetch payment statuses for all orders
+    const orderIds = orders.map((o) => o.id);
+    const payments = orderIds.length > 0 ? await db
+      .select({
+        id: dineInPayments.id,
+        orderId: dineInPayments.orderId,
+        paymentStatus: dineInPayments.paymentStatus,
+        createdAt: dineInPayments.createdAt,
+      })
+      .from(dineInPayments)
+      .where(inArray(dineInPayments.orderId, orderIds))
+      .orderBy(desc(dineInPayments.createdAt), desc(dineInPayments.id)) : [];
+
+    const latestPaymentByOrderId = new Map<number, string>();
+    for (const p of payments) {
+      if (!latestPaymentByOrderId.has(p.orderId)) {
+        latestPaymentByOrderId.set(p.orderId, p.paymentStatus);
+      }
+    }
+
+    const data = orders.map((o) => {
+      const orderMetadata = o.metadata as Record<string, unknown> | null;
+      return {
+        id: o.id,
+        createdAt: o.createdAt,
+        orderStatus: o.orderStatus,
+        roomNumber: o.roomNumber,
+        totalAmount: o.totalAmount,
+        trackingUrl: (orderMetadata?.['trackingUrl'] as string | undefined) ?? null,
+        restaurantName: o.restaurantName ?? null,
+        hotelName: o.hotelName ?? null,
+        contactEmail: (orderMetadata?.['email'] as string | undefined) ?? null,
+        contactPhone: (orderMetadata?.['phoneNumber'] as string | undefined) ?? null,
+        fullName: (orderMetadata?.['fullName'] as string | undefined) ?? null,
+        errorReason: (orderMetadata?.['errorReason'] as string | undefined) ?? null,
+        botStatus: (orderMetadata?.['botStatus'] as string | undefined) ?? null,
+        botError: (orderMetadata?.['botError'] as string | undefined) ?? null,
+        paymentStatus: latestPaymentByOrderId.get(o.id) ?? null,
+      };
+    });
+
+    return createSuccess(data);
+  } catch (error) {
+    console.error('Get all dine-in orders error:', error);
     return createError('Failed to get orders');
   }
 }

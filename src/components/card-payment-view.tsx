@@ -29,9 +29,9 @@ export function CardPaymentView({ restaurantGuid }: CardPaymentViewProps) {
         
         // Check if this is a valid payment session
         if (parsedDetails.sessionId && parsedDetails.status === 'pending') {
-          // Check if session is not too old (5 minutes)
+          // Check if session is not too old (30 minutes)
           const sessionAge = Date.now() - parsedDetails.timestamp;
-          if (sessionAge > 5 * 60 * 1000) {
+          if (sessionAge > 30 * 60 * 1000) {
             console.log('Payment session expired, redirecting to checkout');
             localStorage.removeItem(`payment-details-${restaurantGuid}`);
             localStorage.removeItem(`payment-session-${restaurantGuid}`);

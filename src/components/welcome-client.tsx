@@ -21,6 +21,12 @@ export default function WelcomeClient({ hotel }: WelcomeClientProps) {
     Analytics.capture(AnalyticsEvents.meetSimonIntroButtonClicked);
     router.push(`/${slug}?voice=true`);
   }, [router, slug]);
+
+  const skipIntro = useCallback(() => {
+    document.cookie = "simon-intro-played=true; path=/";
+    router.push(`/${slug}`);
+    router.refresh();
+  }, [router, slug]);
   
   return (
     <div className="h-dvh w-full bg-gray-50">
@@ -51,12 +57,18 @@ export default function WelcomeClient({ hotel }: WelcomeClientProps) {
             <p className="text-xl font-medium text-gray-700 mb-6">
               Tap to meet Simon
             </p>
-            <Button 
+            <Button
               onClick={meetSimon}
               className="bg-gray-800 text-white hover:bg-gray-900 rounded-lg px-8 py-6 text-base font-medium"
             >
               Meet Simon
             </Button>
+            <button
+              onClick={skipIntro}
+              className="mt-4 text-sm text-gray-500 underline hover:text-gray-700"
+            >
+              Skip to ordering
+            </button>
           </div>
         </div>
       </div>

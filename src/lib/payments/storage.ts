@@ -157,7 +157,7 @@ export function loadPaymentDetails(
 export function markPaymentAsProcessing(
   restaurantGuid: string,
   {
-    maxAgeMs = 5 * 60 * 1000,
+    maxAgeMs = 30 * 60 * 1000,
     maxAttempts = 3,
   }: { maxAgeMs?: number; maxAttempts?: number } = {},
 ): StoredPaymentDetails {

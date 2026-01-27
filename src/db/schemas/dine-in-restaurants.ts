@@ -6,7 +6,7 @@ import { relations } from "drizzle-orm";
 
 export const dineInRestaurants = pgTable("dine_in_restaurants", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
-  hotelId: bigint("hotel_id", { mode: "number" }).notNull().references(() => hotels.id),
+  hotelId: bigint("hotel_id", { mode: "number" }).references(() => hotels.id),
   restaurantGuid: uuid("restaurant_guid").notNull(),
   name: text("name").notNull(),
   description: text("description"),
@@ -23,6 +23,10 @@ export const dineInRestaurants = pgTable("dine_in_restaurants", {
   zipCode: text("zip_code"),
   country: text("country"),
   phoneNumber: text("phone_number"),
+
+  // Coordinates for distance calculation
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
   status: menuStatusEnum("status").default("pending").notNull(),
   deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).notNull().default("5.00"),
   serviceFeePercent: decimal("service_fee_percent", { precision: 5, scale: 2 }).notNull().default("20.00"),
