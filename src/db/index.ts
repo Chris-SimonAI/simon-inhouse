@@ -18,6 +18,9 @@ if (USE_SSL) {
     rejectUnauthorized: true,
     ca: fs.readFileSync(rdsCaCertPath).toString(),
   };
+} else if (process.env.VERCEL) {
+  // Neon Postgres on Vercel requires SSL
+  poolConfig.ssl = true;
 }
 
 export const db = drizzle({
