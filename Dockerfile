@@ -1,18 +1,14 @@
-FROM node:24-alpine3.22 AS base
-
-# Install git and curl (needed for some packages and health checks)
-RUN apk add --no-cache git curl
-
 # ---- Dependencies Stage ----
-FROM base AS deps
+FROM node:24-slim AS deps
 WORKDIR /app
+RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
-# Install all dependencies for build
 RUN npm ci && npm cache clean --force
 
 # ---- Build Stage ----
-FROM base AS builder
+FROM node:24-slim AS builder
 WORKDIR /app
+RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -25,15 +21,6 @@ ARG NEXT_PUBLIC_RUM_APP_MONITOR_ID
 ARG NEXT_PUBLIC_AWS_REGION
 ARG NEXT_PUBLIC_RUM_IDENTITY_POOL_ID
 
-# ✅ Debug: log the build args
-RUN echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"
-RUN echo "NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL"
-RUN echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"
-RUN echo "NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY"
-RUN echo "NEXT_PUBLIC_RUM_APP_MONITOR_ID=$NEXT_PUBLIC_RUM_APP_MONITOR_ID"
-RUN echo "NEXT_PUBLIC_AWS_REGION=$NEXT_PUBLIC_AWS_REGION"
-RUN echo "NEXT_PUBLIC_RUM_IDENTITY_POOL_ID=$NEXT_PUBLIC_RUM_IDENTITY_POOL_ID"
-
 # Set environment variables from build args (needed for Next.js build)
 ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
@@ -43,19 +30,23 @@ ENV NEXT_PUBLIC_RUM_APP_MONITOR_ID=$NEXT_PUBLIC_RUM_APP_MONITOR_ID
 ENV NEXT_PUBLIC_AWS_REGION=$NEXT_PUBLIC_AWS_REGION
 ENV NEXT_PUBLIC_RUM_IDENTITY_POOL_ID=$NEXT_PUBLIC_RUM_IDENTITY_POOL_ID
 
-# Set minimal env vars needed for build (they will be properly validated at runtime)
 ENV NODE_ENV=production
-# Enable Next.js standalone output for smaller production image
 ENV NEXT_OUTPUT=standalone
 RUN npm run build
 
 # ---- Production Stage ----
-FROM base AS runner
+FROM node:24-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-# Uncomment the following line in case you want to disable telemetry during runtime.
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Install Playwright system dependencies + Chromium
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    wget \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -66,8 +57,7 @@ ENV HOME=/home/nextjs
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
+# Copy build output
 COPY --from=builder /app/next.config.ts ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
@@ -78,22 +68,19 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/scripts/migrate.ts ./scripts/migrate.ts
 COPY --from=builder /app/scripts/seed.ts ./scripts/seed.ts
 
-# ✅ Install only production dependencies
+# Install production dependencies (includes playwright)
 COPY --from=builder /app/package-lock.json ./package-lock.json
 RUN npm ci --omit=dev && npm cache clean --force
 
-# ✅ Install pg_isready tool
-RUN apk add --no-cache postgresql-client
+# Install Playwright Chromium browser
+RUN npx playwright install --with-deps chromium
 
 USER nextjs
 
 EXPOSE 3000
 
 ENV PORT=3000
-
-# server.js is created by next build from the standalone output
-# https://nextjs.org/docs/pages/api-reference/next-config-js/output
 ENV HOSTNAME="0.0.0.0"
 
-# Run migrations and seed, then start the server
+# Run migrations then start the server
 CMD ["sh", "-c", "node --experimental-strip-types scripts/migrate.ts && node server.js"]
