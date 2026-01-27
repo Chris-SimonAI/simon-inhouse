@@ -76,7 +76,7 @@ const GOOGLE_PLACES_ENDPOINT = "https://places.googleapis.com/v1";
 async function callPlaces(path: string, init: RequestInit & { fieldMask: string }) {
   const headers = {
     "Content-Type": "application/json",
-    "X-Goog-Api-Key": env.GOOGLE_PLACES_API_KEY,
+    "X-Goog-Api-Key": env.GOOGLE_PLACES_API_KEY ?? "",
     "X-Goog-FieldMask": init.fieldMask,
   };
   const res = await fetch(`${GOOGLE_PLACES_ENDPOINT}${path}`, { ...init, headers });
