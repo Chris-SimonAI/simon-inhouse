@@ -24,6 +24,11 @@ const Env = z.object({
   NODE_ENV: z.enum(["development", "production"])
 });
 
+// Neon Vercel integration uses POSTGRES_URL; normalize to DATABASE_URL
+if (!process.env.DATABASE_URL && process.env.POSTGRES_URL) {
+  process.env.DATABASE_URL = process.env.POSTGRES_URL;
+}
+
 // Only validate environment variables at runtime, not during build
 let env: z.infer<typeof Env>;
 
