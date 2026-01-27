@@ -8,6 +8,8 @@ import { ScrapeRestaurantButton } from "./scrape-restaurant-button";
 import { ToggleRestaurantStatus } from "./toggle-restaurant-status";
 import { DeleteRestaurantButton } from "./delete-restaurant-button";
 
+export const dynamic = 'force-dynamic';
+
 type PageProps = {
   params: Promise<{ hotelId: string }>;
 };

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Building2, Utensils, ShoppingBag } from "lucide-react";
 import { notFound } from "next/navigation";
 
+export const dynamic = 'force-dynamic';
+
 type PageProps = {
   params: Promise<{ hotelSlug: string }>;
 };

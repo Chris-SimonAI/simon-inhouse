@@ -67,6 +67,8 @@ function formatDate(date: Date | string) {
   });
 }
 
+export const dynamic = 'force-dynamic';
+
 export default async function OrdersPage() {
   const result = await getAllDineInOrders();
   const orders = result.ok ? result.data : [];

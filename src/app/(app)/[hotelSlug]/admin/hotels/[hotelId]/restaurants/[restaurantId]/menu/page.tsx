@@ -7,6 +7,8 @@ import Link from "next/link";
 import { ArrowLeft, UtensilsCrossed, ImageOff } from "lucide-react";
 import { RescrapeMenuButton } from "./rescrape-menu-button";
 
+export const dynamic = 'force-dynamic';
+
 type PageProps = {
   params: Promise<{ hotelSlug: string; hotelId: string; restaurantId: string }>;
 };

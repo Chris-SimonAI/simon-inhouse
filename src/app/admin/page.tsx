@@ -6,6 +6,8 @@ import { db } from "@/db";
 import { dineInRestaurants, dineInOrders } from "@/db/schemas";
 import { count } from "drizzle-orm";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminPage() {
   const hotelsResult = await getAllHotels();
   const hotelCount = hotelsResult.ok ? hotelsResult.data!.length : 0;

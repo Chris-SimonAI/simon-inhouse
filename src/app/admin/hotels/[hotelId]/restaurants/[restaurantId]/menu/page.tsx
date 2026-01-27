@@ -6,6 +6,8 @@ import { ArrowLeft } from "lucide-react";
 import { RescrapeMenuButton } from "./rescrape-menu-button";
 import { MenuTable } from "./menu-table";
 
+export const dynamic = 'force-dynamic';
+
 type PageProps = {
   params: Promise<{ hotelId: string; restaurantId: string }>;
 };

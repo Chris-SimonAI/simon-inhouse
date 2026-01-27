@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { DeleteHotelButton } from "./delete-hotel-button";
 
+export const dynamic = 'force-dynamic';
+
 export default async function HotelsPage() {
   const result = await getAllHotels();
   const hotels = result.ok ? result.data! : [];

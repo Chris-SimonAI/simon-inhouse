@@ -6,6 +6,8 @@ import OrdersFilter from "./orders-filter";
 import OrderCard from "@/components/order/order-card";
 import { ORDER_STATUSES, getOrderStatusLabel, type OrderStatus } from "@/constants/orders";
 
+export const dynamic = 'force-dynamic';
+
 type PageProps = {
   params: Promise<{ hotelSlug: string }>;
   searchParams: Promise<{ status?: string }>;

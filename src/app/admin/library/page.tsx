@@ -9,6 +9,8 @@ import { AddRestaurantDialog } from "./add-restaurant-dialog";
 import { CheckStatusButton } from "./check-status-button";
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 export default async function LibraryPage() {
   const result = await getRestaurantLibrary();
   const restaurants = result.ok ? result.data : [];
