@@ -31,7 +31,7 @@ export default async function RestaurantsPage({ params }: PageProps) {
   const hotelResult = await getHotelById(Number(hotelId));
   if (!hotelResult.ok) notFound();
 
-  const hotel = hotelResult.data;
+  const hotel = hotelResult.data!;
   const restaurantsResult = await getRestaurantsForHotel(hotel.id);
   const restaurants = restaurantsResult.ok ? restaurantsResult.data : [];
 

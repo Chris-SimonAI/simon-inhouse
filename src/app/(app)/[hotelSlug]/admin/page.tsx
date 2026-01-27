@@ -32,7 +32,7 @@ export default async function AdminPage({ params }: PageProps) {
     notFound();
   }
 
-  const hotel = hotelResult.data;
+  const hotel = hotelResult.data!;
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-6 space-y-6">

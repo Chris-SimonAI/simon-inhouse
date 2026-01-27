@@ -15,7 +15,6 @@ type AddressInputProps = {
 
 declare global {
   interface Window {
-    google: typeof google;
     initGooglePlaces: () => void;
   }
 }

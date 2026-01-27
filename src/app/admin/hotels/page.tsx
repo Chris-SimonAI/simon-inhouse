@@ -6,7 +6,7 @@ import { DeleteHotelButton } from "./delete-hotel-button";
 
 export default async function HotelsPage() {
   const result = await getAllHotels();
-  const hotels = result.ok ? result.data : [];
+  const hotels = result.ok ? result.data! : [];
 
   return (
     <div className="p-8">

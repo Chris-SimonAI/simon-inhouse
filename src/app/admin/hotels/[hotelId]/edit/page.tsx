@@ -17,7 +17,7 @@ export default async function EditHotelPage({ params }: PageProps) {
     notFound();
   }
 
-  const hotel = result.data;
+  const hotel = result.data!;
 
   return (
     <div className="p-8">

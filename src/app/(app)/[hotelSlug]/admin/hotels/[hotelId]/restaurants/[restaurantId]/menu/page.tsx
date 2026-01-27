@@ -101,7 +101,7 @@ export default async function MenuPage({ params }: PageProps) {
                           </div>
                           <div className="text-right flex-shrink-0">
                             <div className="font-medium">${item.price}</div>
-                            {item.outOfStock && (
+                            {!item.isAvailable && (
                               <Badge variant="destructive" className="text-xs mt-1">
                                 Out of Stock
                               </Badge>
@@ -110,10 +110,10 @@ export default async function MenuPage({ params }: PageProps) {
                         </div>
 
                         {/* Modifiers info */}
-                        {item.modifierGroupIds && item.modifierGroupIds.length > 0 && (
+                        {item.modifierGroupsReferences && item.modifierGroupsReferences.length > 0 && (
                           <div className="mt-2">
                             <Badge variant="outline" className="text-xs">
-                              {item.modifierGroupIds.length} modifier group{item.modifierGroupIds.length > 1 ? 's' : ''}
+                              {item.modifierGroupsReferences.length} modifier group{item.modifierGroupsReferences.length > 1 ? 's' : ''}
                             </Badge>
                           </div>
                         )}

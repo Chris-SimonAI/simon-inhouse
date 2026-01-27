@@ -8,7 +8,7 @@ import { count } from "drizzle-orm";
 
 export default async function AdminPage() {
   const hotelsResult = await getAllHotels();
-  const hotelCount = hotelsResult.ok ? hotelsResult.data.length : 0;
+  const hotelCount = hotelsResult.ok ? hotelsResult.data!.length : 0;
 
   const [restaurantCount] = await db.select({ count: count() }).from(dineInRestaurants);
   const [orderCount] = await db.select({ count: count() }).from(dineInOrders);
