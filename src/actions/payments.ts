@@ -242,7 +242,7 @@ export async function calculateOrderTotal(
       tip,
       total,
       restaurantId: restaurant.id,
-      hotelId: restaurant.hotelId,
+      hotelId: restaurant.hotelId ?? 0,
     });
   } catch (error) {
     console.error('Error calculating order total:', error);
