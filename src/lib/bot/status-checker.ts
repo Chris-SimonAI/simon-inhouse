@@ -14,10 +14,11 @@ export interface RestaurantStatus {
  */
 export async function checkRestaurantStatus(restaurantUrl: string): Promise<RestaurantStatus> {
   const browser = await chromium.launch({
-    headless: true, // Run headless for speed
+    headless: true,
     args: [
       '--disable-blink-features=AutomationControlled',
       '--disable-dev-shm-usage',
+      '--no-sandbox',
     ],
   });
 

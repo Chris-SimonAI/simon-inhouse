@@ -191,10 +191,11 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
   const skipModifiers = options?.skipModifiers ?? false;
 
   const browser = await chromium.launch({
-    headless: false,
+    headless: true,
     args: [
       '--disable-blink-features=AutomationControlled',
       '--disable-dev-shm-usage',
+      '--no-sandbox',
     ],
   });
 

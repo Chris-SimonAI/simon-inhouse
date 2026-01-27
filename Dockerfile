@@ -73,7 +73,8 @@ COPY --from=builder /app/package-lock.json ./package-lock.json
 RUN npm ci --omit=dev && npm cache clean --force
 
 # Install Playwright Chromium browser
-RUN npx playwright install --with-deps chromium
+RUN npx playwright install --with-deps chromium \
+    && chown -R nextjs:nodejs /home/nextjs/.cache
 
 USER nextjs
 
