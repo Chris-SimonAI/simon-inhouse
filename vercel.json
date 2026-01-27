@@ -1,3 +1,0 @@
-{
-  "buildCommand": "npx drizzle-kit migrate && next build --turbopack"
-}
