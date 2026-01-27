@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, ShoppingBag, Utensils, TrendingUp } from "lucide-react";
+import { Building2, ShoppingBag, Utensils } from "lucide-react";
+import Link from "next/link";
 import { getAllHotels } from "@/actions/hotels";
 import { db } from "@/db";
 import { dineInRestaurants, dineInOrders } from "@/db/schemas";
@@ -49,27 +50,27 @@ export default async function AdminPage() {
             <CardTitle className="text-lg">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <a
+            <Link
               href="/admin/hotels/new"
               className="flex items-center gap-3 p-4 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
             >
               <Building2 className="w-5 h-5 text-slate-600" />
               <span className="font-medium">Add New Hotel</span>
-            </a>
-            <a
+            </Link>
+            <Link
               href="/admin/library"
               className="flex items-center gap-3 p-4 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
             >
               <Utensils className="w-5 h-5 text-slate-600" />
               <span className="font-medium">Manage Restaurants</span>
-            </a>
-            <a
+            </Link>
+            <Link
               href="/admin/orders"
               className="flex items-center gap-3 p-4 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
             >
               <ShoppingBag className="w-5 h-5 text-slate-600" />
               <span className="font-medium">View Orders</span>
-            </a>
+            </Link>
           </CardContent>
         </Card>
 
@@ -82,7 +83,7 @@ export default async function AdminPage() {
               <strong>1. Add a hotel</strong> - Create a new location where guests will order from.
             </p>
             <p>
-              <strong>2. Add restaurants</strong> - Scrape menus from Toast using the "Add Restaurant" button.
+              <strong>2. Add restaurants</strong> - Scrape menus from Toast using the &quot;Add Restaurant&quot; button.
             </p>
             <p>
               <strong>3. Approve restaurants</strong> - Review and approve restaurants to make them visible to guests.

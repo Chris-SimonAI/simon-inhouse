@@ -80,7 +80,7 @@ export function LinkRestaurantButton({
           <DialogHeader>
             <DialogTitle>Link Restaurant to Hotel</DialogTitle>
             <DialogDescription>
-              Add "{restaurantName}" to another hotel. Only hotels within delivery distance will be available.
+              Add &quot;{restaurantName}&quot; to another hotel. Only hotels within delivery distance will be available.
             </DialogDescription>
           </DialogHeader>
 

@@ -53,7 +53,7 @@ export function DeleteHotelButton({ hotelId, hotelName }: Props) {
         <DialogHeader>
           <DialogTitle>Delete Hotel</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete "{hotelName}"? This will also delete all associated restaurants, menus, and orders. This action cannot be undone.
+            Are you sure you want to delete &quot;{hotelName}&quot;? This will also delete all associated restaurants, menus, and orders. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

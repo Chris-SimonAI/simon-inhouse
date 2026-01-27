@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, UtensilsCrossed, ImageOff } from "lucide-react";
+import { ArrowLeft, UtensilsCrossed, ImageOff } from "lucide-react";
 import { RescrapeMenuButton } from "./rescrape-menu-button";
 
 type PageProps = {

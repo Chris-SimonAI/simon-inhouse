@@ -480,7 +480,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
           const itemCard = page.locator(`[data-testid="menu-item-card"]:has-text("${item.name}")`).first();
           const cardVisible = await itemCard.isVisible({ timeout: 1000 }).catch(() => false);
 
-          let itemElement = cardVisible ? itemCard : page.locator(`span:has-text("${item.name}")`).first();
+          const itemElement = cardVisible ? itemCard : page.locator(`span:has-text("${item.name}")`).first();
 
           const visible = await itemElement.isVisible({ timeout: 1000 }).catch(() => false);
           if (visible) {
@@ -573,7 +573,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
                     if (!label) return;
 
                     const text = label.textContent || '';
-                    let name = text.replace(/\+?\$[\d.]+/g, '').trim().replace(/\s+/g, ' ');
+                    const name = text.replace(/\+?\$[\d.]+/g, '').trim().replace(/\s+/g, ' ');
 
                     if (!name || name.length < 2 || name.length > 80 || seenOptions.has(name)) return;
                     const lower = name.toLowerCase();
@@ -608,7 +608,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
                   if (!label) return;
 
                   const text = label.textContent || '';
-                  let name = text.replace(/\+?\$[\d.]+/g, '').trim().replace(/\s+/g, ' ');
+                  const name = text.replace(/\+?\$[\d.]+/g, '').trim().replace(/\s+/g, ' ');
 
                   if (!name || name.length < 2 || name.length > 80 || seenOptions.has(name)) return;
                   const lower = name.toLowerCase();
@@ -656,8 +656,8 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
               await page.waitForTimeout(500);
             }
           }
-        } catch (e: any) {
-          console.log(`  Error scraping ${item.name}: ${e.message}`);
+        } catch (e: unknown) {
+          console.log(`  Error scraping ${item.name}: ${e instanceof Error ? e.message : String(e)}`);
           await page.keyboard.press('Escape').catch(() => {});
           await page.waitForTimeout(300);
         }

@@ -74,7 +74,7 @@ export default async function HotelsPage() {
 
         {hotels.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            No hotels yet. Click "Add Hotel" to create one.
+            No hotels yet. Click &quot;Add Hotel&quot; to create one.
           </div>
         )}
       </div>

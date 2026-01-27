@@ -111,7 +111,7 @@ export default async function RestaurantsPage({ params }: PageProps) {
         {restaurants.length === 0 && (
           <div className="text-center py-16 text-slate-500">
             <p className="text-lg font-medium">No restaurants yet</p>
-            <p className="mt-1">Click "Add Restaurant" to scrape a menu from Toast.</p>
+            <p className="mt-1">Click &quot;Add Restaurant&quot; to scrape a menu from Toast.</p>
           </div>
         )}
       </div>

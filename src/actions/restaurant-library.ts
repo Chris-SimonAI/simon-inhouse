@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { dineInRestaurants, hotels, hotelRestaurants } from "@/db/schemas";
-import { eq, sql, ne, and, isNull, or } from "drizzle-orm";
+import { eq, ne, and } from "drizzle-orm";
 import { createError, createSuccess } from "@/lib/utils";
 
 /**
@@ -31,7 +31,7 @@ export async function getRestaurantLibrary() {
       .orderBy(dineInRestaurants.name);
 
     // Get hotel links for each restaurant
-    const restaurantIds = restaurants.map(r => r.id);
+    const _restaurantIds = restaurants.map(r => r.id);
 
     // Get original hotel names
     const hotelNames = await db

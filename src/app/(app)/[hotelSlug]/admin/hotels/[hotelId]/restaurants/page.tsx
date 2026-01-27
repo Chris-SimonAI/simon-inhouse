@@ -127,7 +127,7 @@ export default async function RestaurantsPage({ params }: PageProps) {
           <div className="text-center py-12 text-muted-foreground">
             <Utensils className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p className="text-lg font-medium">No restaurants yet</p>
-            <p className="text-sm mt-1">Click "Add Restaurant" to scrape a menu from Toast</p>
+            <p className="text-sm mt-1">Click &quot;Add Restaurant&quot; to scrape a menu from Toast</p>
           </div>
         )}
       </div>

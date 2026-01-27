@@ -2,7 +2,7 @@ import { getHotelBySlug } from "@/actions/hotels";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Building2, Utensils, ShoppingBag, Settings } from "lucide-react";
+import { Building2, Utensils, ShoppingBag } from "lucide-react";
 import { notFound } from "next/navigation";
 
 type PageProps = {

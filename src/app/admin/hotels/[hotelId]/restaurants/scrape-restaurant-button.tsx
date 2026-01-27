@@ -85,7 +85,7 @@ export function ScrapeRestaurantButton({ hotelId }: Props) {
         <DialogHeader>
           <DialogTitle>Add Restaurant from Toast</DialogTitle>
           <DialogDescription>
-            Enter the Toast online ordering URL for the restaurant. We'll scrape the menu automatically.
+            Enter the Toast online ordering URL for the restaurant. We&apos;ll scrape the menu automatically.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-4">

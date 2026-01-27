@@ -132,7 +132,7 @@ export async function getMenuForRestaurant(restaurantId: number) {
       return createSuccess({ menu, groups: [] });
     }
 
-    const items = await db
+    const _items = await db
       .select()
       .from(menuItems)
       .where(eq(menuItems.menuGroupId, groupIds[0])); // This is simplified

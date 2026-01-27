@@ -46,7 +46,7 @@ export function ToggleRestaurantStatus({ restaurantId, currentStatus }: Props) {
     }
   }
 
-  const currentOption = statusOptions.find(s => s.value === currentStatus);
+  const _currentOption = statusOptions.find(s => s.value === currentStatus);
 
   return (
     <DropdownMenu>

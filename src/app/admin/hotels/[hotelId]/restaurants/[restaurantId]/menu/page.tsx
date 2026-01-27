@@ -19,7 +19,7 @@ export default async function MenuPage({ params }: PageProps) {
   const restaurant = restaurantResult.data;
   const menuResult = await getMenuForRestaurant(restaurant.id);
 
-  const { menu, groups } = menuResult.ok
+  const { menu: _menu, groups } = menuResult.ok
     ? menuResult.data
     : { menu: null, groups: [] };
 
