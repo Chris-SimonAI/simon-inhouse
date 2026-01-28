@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import { API_BASE } from '../config';
 import { DateRangePicker } from '../components/admin/date-range-picker';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../components/ui/collapsible';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 
 interface TimelineEntry {
   status: string;
