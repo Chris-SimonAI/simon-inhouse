@@ -18,6 +18,8 @@ import { getTwilioPhoneNumber } from '@/lib/twilio';
 import { sendOrderConfirmationSMS } from '@/lib/notifications';
 import { AnalyticsEvents } from "@/lib/analytics/events";
 import { PostHogServerClient } from "@/lib/analytics/posthog/server";
+import { getOrCreateGuestProfile, markGuestIntroduced } from "@/actions/guest-profiles";
+import { sendSMS, isTwilioEnabled } from "@/lib/twilio";
 
 export async function POST(req: NextRequest) {
   try {
@@ -425,6 +427,12 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       currency: paymentIntent.currency,
       stripe_status: paymentIntent.status,
     });
+
+    // Auto-create guest profile + send intro SMS (fire-and-forget)
+    autoCreateGuestProfileAndIntro(paymentIntent, order[0].hotelId).catch((err) => {
+      console.error("[stripe-webhook] Guest profile/intro error:", err);
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error handling payment_intent.succeeded:", error);
@@ -760,5 +768,38 @@ async function runInlineBot(
         } as Record<string, unknown>,
       })
       .where(eq(dineInOrders.id, orderId));
+  }
+}
+
+/**
+ * Auto-create guest profile from payment metadata and send intro SMS.
+ * Fire-and-forget from handlePaymentIntentSucceeded.
+ */
+async function autoCreateGuestProfileAndIntro(
+  paymentIntent: Stripe.PaymentIntent,
+  hotelId: number
+): Promise<void> {
+  const meta = paymentIntent.metadata as Record<string, string>;
+  const phone = meta.phoneNumber;
+  if (!phone) return;
+
+  const profile = await getOrCreateGuestProfile(phone, {
+    name: meta.fullName,
+    email: meta.email,
+    hotelId,
+  });
+
+  // Send intro SMS if this is the first time
+  if (!profile.hasBeenIntroduced && isTwilioEnabled()) {
+    const firstName = (profile.name || "").split(" ")[0] || "there";
+    const hotelName = meta.hotelName || "our hotel";
+
+    await sendSMS(
+      phone,
+      `Hi ${firstName}! I'm Simon from ${hotelName}. Text me anytime to order food — I'll remember your favorites! Reply STOP to opt out.`
+    );
+
+    await markGuestIntroduced(phone);
+    console.log("[stripe-webhook] Intro SMS sent to:", phone);
   }
 }

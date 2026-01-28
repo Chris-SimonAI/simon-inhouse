@@ -19,7 +19,6 @@ export const dineInOrders = pgTable('dine_in_orders', {
   hotelId: bigint('hotel_id', { mode: 'number' }).notNull().references(() => hotels.id),
   restaurantId: bigint('restaurant_id', { mode: 'number' }).notNull().references(() => dineInRestaurants.id),
   userId: text('user_id')
-    .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   roomNumber: varchar('room_number', { length: 10 }).notNull(),
   specialInstructions: text('special_instructions'),

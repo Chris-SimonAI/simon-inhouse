@@ -127,6 +127,13 @@
       "when": 1769561608227,
       "tag": "0017_many_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1769575922241,
+      "tag": "0018_illegal_living_tribunal",
+      "breakpoints": true
     }
   ]
 }

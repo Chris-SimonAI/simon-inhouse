@@ -15,3 +15,4 @@ export * from "@/db/schemas/auth";
 export * from "@/db/schemas/hotel-dining-discounts";
 export * from "./hotel-restaurants";
 export * from "./app-settings";
+export * from "./guest-profiles";

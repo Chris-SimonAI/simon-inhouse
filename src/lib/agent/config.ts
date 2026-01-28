@@ -4,7 +4,7 @@ import { ChatOpenAI } from "@langchain/openai";
 
 export const AGENTS = {
   CONCIERGE: "Concierge",
-  // Ready for future agents like DISCOVERY, etc.
+  SMS_CONCIERGE: "SmsConcierge",
 } as const;
 
 export type AgentName = (typeof AGENTS)[keyof typeof AGENTS];
