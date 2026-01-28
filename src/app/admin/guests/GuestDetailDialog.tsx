@@ -100,9 +100,16 @@ export function GuestDetailDialog({ guest, onClose, onUpdate }: GuestDetailDialo
     if (activeTab === 'recommendations' && recommendations.length === 0) {
       fetchRecommendations();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  const handleSave = async (data: any) => {
+  const handleSave = async (data: {
+    dietary_preferences: string;
+    allergies: string;
+    favorite_cuisines: string;
+    dislikes: string;
+    notes: string;
+  }) => {
     try {
       const response = await fetch(`${API_BASE}/api/admin/guests/${guest.id}`, {
         method: 'PUT',
@@ -119,12 +126,6 @@ export function GuestDetailDialog({ guest, onClose, onUpdate }: GuestDetailDialo
       console.error('Failed to update guest:', err);
     }
   };
-
-  const renderBadge = (text: string, colorClass: string) => (
-    <span className={`px-2 py-1 text-xs rounded-full ${colorClass}`}>
-      {text}
-    </span>
-  );
 
   const renderPreferences = (label: string, value: string | null, colorClass: string) => {
     if (!value) return null;
@@ -297,7 +298,7 @@ export function GuestDetailDialog({ guest, onClose, onUpdate }: GuestDetailDialo
                           {(() => {
                             try {
                               const items = JSON.parse(order.items_json);
-                              return items.map((item: any, idx: number) => (
+                              return items.map((item: { quantity: number; name: string }, idx: number) => (
                                 <span key={idx}>
                                   {idx > 0 && ', '}
                                   {item.quantity > 1 && `${item.quantity}x `}{item.name}

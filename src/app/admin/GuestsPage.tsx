@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, RefreshCw, Filter, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, RefreshCw, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { API_BASE } from '../config';
 import { GuestDetailDialog } from './guests/GuestDetailDialog';
 

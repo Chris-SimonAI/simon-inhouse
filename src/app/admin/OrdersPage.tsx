@@ -220,7 +220,7 @@ export function OrdersPage() {
       const updated = await response.json();
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updated } : o));
       fetchChartData();
-    } catch (err) {
+    } catch {
       alert('Failed to update status');
     } finally {
       setUpdatingStatus(null);
@@ -465,7 +465,7 @@ export function OrdersPage() {
                           const items = JSON.parse(order.items_json || '[]');
                           return items.length > 0 ? (
                             <ul className="space-y-1 text-sm">
-                              {items.map((item: any, idx: number) => (
+                              {items.map((item: { quantity: number; name: string; price: number }, idx: number) => (
                                 <li key={idx} className="flex justify-between">
                                   <span>{item.quantity}x {item.name}</span>
                                   {item.price > 0 && <span>${(item.price * item.quantity).toFixed(2)}</span>}

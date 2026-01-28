@@ -93,7 +93,7 @@ async function handleToastStatusUpdate(
     .limit(20);
 
   // Try to match by confirmation number in metadata if we have one
-  let order = activeOrders[0] || null; // Default to most recent
+  const order = activeOrders[0] || null; // Default to most recent
 
   if (!order) {
     console.log("[twilio-webhook] No matching order found");
