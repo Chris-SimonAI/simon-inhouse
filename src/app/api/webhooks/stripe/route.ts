@@ -790,7 +790,7 @@ async function autoCreateGuestProfileAndIntro(
   });
 
   // Send intro SMS if this is the first time
-  if (!profile.hasBeenIntroduced && isTwilioEnabled()) {
+  if (!profile.hasBeenIntroduced && await isTwilioEnabled()) {
     const firstName = (profile.name || "").split(" ")[0] || "there";
     const hotelName = meta.hotelName || "our hotel";
 
