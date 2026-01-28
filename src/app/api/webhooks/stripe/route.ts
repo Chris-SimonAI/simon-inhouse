@@ -793,13 +793,16 @@ async function autoCreateGuestProfileAndIntro(
   if (!profile.hasBeenIntroduced && await isTwilioEnabled()) {
     const firstName = (profile.name || "").split(" ")[0] || "there";
     const hotelName = meta.hotelName || "our hotel";
+    const twilioPhone = await getTwilioPhoneNumber();
 
-    await sendSMS(
-      phone,
-      `Hi ${firstName}! I'm Simon from ${hotelName}. Text me anytime to order food — I'll remember your favorites! Reply STOP to opt out.`
-    );
-
-    await markGuestIntroduced(phone);
-    console.log("[stripe-webhook] Intro SMS sent to:", phone);
+    if (twilioPhone) {
+      await sendSMS(
+        phone,
+        twilioPhone,
+        `Hi ${firstName}! I'm Simon from ${hotelName}. Text me anytime to order food — I'll remember your favorites! Reply STOP to opt out.`
+      );
+      await markGuestIntroduced(phone);
+      console.log("[stripe-webhook] Intro SMS sent to:", phone);
+    }
   }
 }
