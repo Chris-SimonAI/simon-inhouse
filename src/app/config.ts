@@ -1,4 +1,4 @@
 // API configuration
 // For Next.js apps, API routes are relative so API_BASE is empty
 export const API_BASE = '';
-// Deployment trigger 1769640844
+// Deployment trigger 1769641500
