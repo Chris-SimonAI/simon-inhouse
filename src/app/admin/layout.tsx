@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, ShoppingBag, LayoutDashboard, Library, Settings } from "lucide-react";
+import { Building2, ShoppingBag, LayoutDashboard, Library, Settings, Users, BarChart3 } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/hotels", label: "Hotels", icon: Building2 },
   { href: "/admin/library", label: "Library", icon: Library },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/admin/guests", label: "Guests", icon: Users },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

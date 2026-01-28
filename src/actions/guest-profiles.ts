@@ -3,8 +3,8 @@
 import 'server-only';
 
 import { db } from '@/db';
-import { guestProfiles, dineInOrders, dineInOrderItems, dineInRestaurants } from '@/db/schemas';
-import { eq, desc } from 'drizzle-orm';
+import { guestProfiles, dineInOrders, dineInOrderItems, dineInRestaurants, hotels } from '@/db/schemas';
+import { eq, desc, ilike, or, sql, and, isNotNull, count } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -215,4 +215,176 @@ export async function getOrCreateSmsThreadId(phone: string): Promise<string> {
   const threadId = uuidv4();
   await setGuestSmsThreadId(phone, threadId);
   return threadId;
+}
+
+// ============ Admin Query Functions ============
+
+/**
+ * Get all guest profiles with optional filters for admin dashboard.
+ */
+export async function getGuestProfiles(options?: {
+  search?: string;
+  hotelId?: number;
+  hasAllergies?: boolean;
+  hasDietary?: boolean;
+  page?: number;
+  limit?: number;
+}) {
+  const { search, hotelId, hasAllergies, hasDietary, page = 1, limit = 20 } = options || {};
+  const offset = (page - 1) * limit;
+
+  const conditions = [];
+
+  if (search) {
+    conditions.push(
+      or(
+        ilike(guestProfiles.phone, `%${search}%`),
+        ilike(guestProfiles.name, `%${search}%`),
+        ilike(guestProfiles.email, `%${search}%`)
+      )
+    );
+  }
+
+  if (hotelId) {
+    conditions.push(eq(guestProfiles.hotelId, hotelId));
+  }
+
+  if (hasAllergies) {
+    conditions.push(sql`array_length(${guestProfiles.allergies}, 1) > 0`);
+  }
+
+  if (hasDietary) {
+    conditions.push(sql`array_length(${guestProfiles.dietaryPreferences}, 1) > 0`);
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [guests, totalResult] = await Promise.all([
+    db
+      .select({
+        id: guestProfiles.id,
+        phone: guestProfiles.phone,
+        email: guestProfiles.email,
+        name: guestProfiles.name,
+        roomNumber: guestProfiles.roomNumber,
+        dietaryPreferences: guestProfiles.dietaryPreferences,
+        allergies: guestProfiles.allergies,
+        favoriteCuisines: guestProfiles.favoriteCuisines,
+        dislikedFoods: guestProfiles.dislikedFoods,
+        notes: guestProfiles.notes,
+        hotelId: guestProfiles.hotelId,
+        hotelName: hotels.name,
+        hasBeenIntroduced: guestProfiles.hasBeenIntroduced,
+        lastOrderAt: guestProfiles.lastOrderAt,
+        createdAt: guestProfiles.createdAt,
+      })
+      .from(guestProfiles)
+      .leftJoin(hotels, eq(guestProfiles.hotelId, hotels.id))
+      .where(whereClause)
+      .orderBy(desc(guestProfiles.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: count() })
+      .from(guestProfiles)
+      .where(whereClause),
+  ]);
+
+  return {
+    guests,
+    total: totalResult[0]?.count || 0,
+    page,
+    limit,
+    totalPages: Math.ceil((totalResult[0]?.count || 0) / limit),
+  };
+}
+
+/**
+ * Get a single guest profile by ID with order history.
+ */
+export async function getGuestProfileById(id: number) {
+  const [profile] = await db
+    .select({
+      id: guestProfiles.id,
+      phone: guestProfiles.phone,
+      email: guestProfiles.email,
+      name: guestProfiles.name,
+      roomNumber: guestProfiles.roomNumber,
+      dietaryPreferences: guestProfiles.dietaryPreferences,
+      allergies: guestProfiles.allergies,
+      favoriteCuisines: guestProfiles.favoriteCuisines,
+      dislikedFoods: guestProfiles.dislikedFoods,
+      notes: guestProfiles.notes,
+      hotelId: guestProfiles.hotelId,
+      hotelName: hotels.name,
+      hasBeenIntroduced: guestProfiles.hasBeenIntroduced,
+      lastOrderAt: guestProfiles.lastOrderAt,
+      createdAt: guestProfiles.createdAt,
+      updatedAt: guestProfiles.updatedAt,
+    })
+    .from(guestProfiles)
+    .leftJoin(hotels, eq(guestProfiles.hotelId, hotels.id))
+    .where(eq(guestProfiles.id, id))
+    .limit(1);
+
+  if (!profile) return null;
+
+  // Get order history for this guest
+  const orderHistory = await getGuestOrderHistory(profile.phone, 10);
+
+  return {
+    ...profile,
+    orderHistory,
+  };
+}
+
+/**
+ * Update a guest profile from the admin panel.
+ */
+export async function updateGuestProfileAdmin(
+  id: number,
+  updates: {
+    dietaryPreferences?: string[];
+    allergies?: string[];
+    favoriteCuisines?: string[];
+    dislikedFoods?: string[];
+    notes?: string;
+    name?: string;
+    email?: string;
+    roomNumber?: string;
+  }
+) {
+  const updateData: Record<string, unknown> = { updatedAt: new Date() };
+
+  if (updates.dietaryPreferences !== undefined) {
+    updateData.dietaryPreferences = updates.dietaryPreferences;
+  }
+  if (updates.allergies !== undefined) {
+    updateData.allergies = updates.allergies;
+  }
+  if (updates.favoriteCuisines !== undefined) {
+    updateData.favoriteCuisines = updates.favoriteCuisines;
+  }
+  if (updates.dislikedFoods !== undefined) {
+    updateData.dislikedFoods = updates.dislikedFoods;
+  }
+  if (updates.notes !== undefined) {
+    updateData.notes = updates.notes;
+  }
+  if (updates.name !== undefined) {
+    updateData.name = updates.name;
+  }
+  if (updates.email !== undefined) {
+    updateData.email = updates.email;
+  }
+  if (updates.roomNumber !== undefined) {
+    updateData.roomNumber = updates.roomNumber;
+  }
+
+  await db
+    .update(guestProfiles)
+    .set(updateData)
+    .where(eq(guestProfiles.id, id));
+
+  return getGuestProfileById(id);
 }
