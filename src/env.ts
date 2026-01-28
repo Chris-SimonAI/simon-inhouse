@@ -23,6 +23,11 @@ const Env = z.object({
   AWS_SQS_QUEUE_URL: z.string().min(1).optional(),
   AWS_SQS_SCRAPER_QUEUE_URL: z.string().min(1).optional(),
   FULFILLMENT_CALLBACK_SECRET: z.string().min(1).optional(),
+  // Bot payment card for Toast ordering
+  BOT_CARD_NUMBER: z.string().min(1).optional(),
+  BOT_CARD_EXPIRY: z.string().min(1).optional(),
+  BOT_CARD_CVV: z.string().min(1).optional(),
+  BOT_CARD_ZIP: z.string().min(1).optional(),
 });
 
 // Neon Vercel integration uses POSTGRES_URL; normalize to DATABASE_URL

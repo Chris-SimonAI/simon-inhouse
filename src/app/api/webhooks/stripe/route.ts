@@ -9,7 +9,8 @@ import { dineInOrderItems, dineInOrders, dineInPayments, dineInRestaurants, hote
 import { and, eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { createError } from '@/lib/utils';
-import { prepareBotPayload, sendOrderToBot } from '@/lib/sqs';
+import { prepareBotPayload, type BotOrderPayload } from '@/lib/sqs';
+import { placeToastOrder, type OrderRequest } from '@/lib/bot/order-agent';
 import { TIP_PAYMENT_STATUS, type TipPaymentStatus } from '@/constants/payments';
 import { env } from '@/env';
 import { AnalyticsEvents } from "@/lib/analytics/events";
@@ -301,40 +302,30 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
 
     console.log('Bot payload (JSON):', JSON.stringify(botPayload, null, 2));
 
-    // Send order to bot via SQS (use mock in development)
-    console.log('Sending order to bot via SQS...');
-    const botResult = await sendOrderToBot(botPayload);
-    if (!botResult.ok) {
-      console.error('Failed to send order to bot:', botResult.message || 'Unknown error');
-      console.error('Bot result details:', botResult);
-      // Don't fail the payment - just log the error
-      // The order will remain in pending status
-    } else {
-      console.log('Order sent to bot for processing successfully:', {
-        orderIdNum,
-        messageId: botResult.data.messageId,
-      });
+    // Update order status to requested_to_toast
+    await db.update(dineInOrders)
+      .set({
+        orderStatus: 'requested_to_toast',
+        metadata: {
+          ...(order[0].metadata as Record<string, unknown> || {}),
+          botTriggered: true,
+          botStatus: 'processing',
+        } as Record<string, unknown>,
+      })
+      .where(
+        and(
+          eq(dineInOrders.id, orderIdNum),
+          eq(dineInOrders.orderStatus, 'pending')
+        )
+      );
 
-      // Update order status to requested_to_toast and metadata to indicate bot was triggered
-      await db.update(dineInOrders)
-        .set({
-          orderStatus: 'requested_to_toast',
-          metadata: {
-            ...(order[0].metadata as Record<string, unknown> || {}),
-            botTriggered: true,
-            botJobId: botResult.data.messageId,
-            botStatus: 'processing',
-          } as Record<string, unknown>,
-        })
-        .where(
-          and(
-            eq(dineInOrders.id, orderIdNum),
-            eq(dineInOrders.orderStatus, 'pending')
-          )
-        );
-    }
+    console.log('Payment authorized, launching inline bot for order:', orderIdNum);
 
-    console.log('Payment authorized and bot triggered for order:', orderIdNum);
+    // Fire-and-forget: run inline bot asynchronously
+    // Don't await — webhook must return 200 quickly
+    runInlineBot(orderIdNum, botPayload, order[0]).catch(err => {
+      console.error(`[inline-bot] Unhandled error for order ${orderIdNum}:`, err);
+    });
 
     captureStripeAnalytics(paymentIntent, AnalyticsEvents.dineInPaymentAuthorized, {
       order_id: orderIdNum,
@@ -599,5 +590,148 @@ async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) 
     
   } catch (error) {
     console.error("Error handling payment_intent.canceled:", error);
+  }
+}
+
+/**
+ * Run the inline Playwright bot to place an order on Toast, then
+ * capture or cancel the Stripe payment based on the result.
+ * This runs fire-and-forget from the webhook handler.
+ */
+async function runInlineBot(
+  orderId: number,
+  botPayload: BotOrderPayload,
+  order: typeof dineInOrders.$inferSelect,
+) {
+  const { stripe } = await import("@/lib/stripe");
+
+  try {
+    console.log(`[inline-bot] Starting order ${orderId}...`);
+
+    // Convert BotOrderPayload -> OrderRequest
+    const guestName = botPayload.guest?.name || "Guest";
+    const nameParts = guestName.split(" ");
+    const firstName = nameParts[0] || "Guest";
+    const lastName = nameParts.slice(1).join(" ") || "Guest";
+
+    let deliveryAddress: OrderRequest["deliveryAddress"];
+    if (botPayload.deliveryAddress) {
+      const parts = botPayload.deliveryAddress.split(",").map(s => s.trim());
+      const street = parts[0] || "";
+      const city = parts[1] || "";
+      const stateZip = (parts[2] || "").trim().split(/\s+/);
+      const state = stateZip[0] || "";
+      const zip = stateZip[1] || "";
+      deliveryAddress = { street, city, state, zip, apt: botPayload.apartment };
+    }
+
+    const orderRequest: OrderRequest = {
+      restaurantUrl: botPayload.url,
+      items: botPayload.items.map(item => ({
+        name: item.name,
+        quantity: item.quantity ?? 1,
+        modifiers: item.modifiers,
+      })),
+      customer: {
+        firstName,
+        lastName,
+        email: botPayload.guest?.email || "guest@meetsimon.com",
+        phone: botPayload.guest?.phone || "",
+      },
+      payment: {
+        cardNumber: env.BOT_CARD_NUMBER || "",
+        expiry: env.BOT_CARD_EXPIRY || "",
+        cvv: env.BOT_CARD_CVV || "",
+        zip: env.BOT_CARD_ZIP || "",
+      },
+      orderType: deliveryAddress ? "delivery" : "pickup",
+      deliveryAddress,
+      dryRun: !env.BOT_CARD_NUMBER,
+    };
+
+    const result = await placeToastOrder(orderRequest);
+    console.log(`[inline-bot] Order ${orderId} result:`, JSON.stringify(result));
+
+    // Get payment record for this order
+    const [payment] = await db.select().from(dineInPayments).where(eq(dineInPayments.orderId, orderId)).limit(1);
+    if (!payment) {
+      console.error(`[inline-bot] No payment record found for order ${orderId}`);
+      return;
+    }
+
+    if (result.success) {
+      // Bot succeeded — capture payment
+      try {
+        await stripe.paymentIntents.capture(payment.stripePaymentIntentId);
+        await db.update(dineInOrders)
+          .set({
+            metadata: {
+              ...(order.metadata as Record<string, unknown> || {}),
+              botStatus: 'success',
+              trackingUrl: result.confirmation?.trackingUrl,
+              confirmationNumber: result.orderId,
+              botCompletedAt: new Date().toISOString(),
+            } as Record<string, unknown>,
+          })
+          .where(eq(dineInOrders.id, orderId));
+        console.log(`[inline-bot] Payment captured for order ${orderId}`);
+      } catch (captureError) {
+        console.error(`[inline-bot] Failed to capture payment for order ${orderId}:`, captureError);
+        await db.update(dineInOrders)
+          .set({
+            orderStatus: 'toast_ok_capture_failed',
+            metadata: {
+              ...(order.metadata as Record<string, unknown> || {}),
+              botStatus: 'capture_failed',
+              botError: 'Payment capture failed',
+              errorReason: 'Payment capture failed after successful Toast order',
+              botCompletedAt: new Date().toISOString(),
+            } as Record<string, unknown>,
+          })
+          .where(eq(dineInOrders.id, orderId));
+      }
+    } else {
+      // Bot failed — cancel payment
+      try {
+        await stripe.paymentIntents.cancel(payment.stripePaymentIntentId);
+        await db.update(dineInOrders)
+          .set({
+            metadata: {
+              ...(order.metadata as Record<string, unknown> || {}),
+              botStatus: 'failed',
+              botError: result.message,
+              errorReason: result.stage,
+              botCompletedAt: new Date().toISOString(),
+            } as Record<string, unknown>,
+          })
+          .where(eq(dineInOrders.id, orderId));
+        console.log(`[inline-bot] Payment cancelled for failed order ${orderId}`);
+      } catch (cancelError) {
+        console.error(`[inline-bot] Failed to cancel payment for order ${orderId}:`, cancelError);
+        await db.update(dineInOrders)
+          .set({
+            metadata: {
+              ...(order.metadata as Record<string, unknown> || {}),
+              botStatus: 'cancel_failed',
+              botError: 'Payment cancellation failed',
+              errorReason: result.message,
+              botCompletedAt: new Date().toISOString(),
+            } as Record<string, unknown>,
+          })
+          .where(eq(dineInOrders.id, orderId));
+      }
+    }
+  } catch (error) {
+    console.error(`[inline-bot] Unhandled error for order ${orderId}:`, error);
+    await db.update(dineInOrders)
+      .set({
+        metadata: {
+          ...(order.metadata as Record<string, unknown> || {}),
+          botStatus: 'error',
+          botError: error instanceof Error ? error.message : String(error),
+          botCompletedAt: new Date().toISOString(),
+        } as Record<string, unknown>,
+      })
+      .where(eq(dineInOrders.id, orderId));
   }
 }

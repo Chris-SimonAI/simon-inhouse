@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { DeleteHotelButton } from "./delete-hotel-button";
+import { AddHotelDialog } from "@/app/(app)/[hotelSlug]/admin/hotels/add-hotel-dialog";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,12 +18,15 @@ export default async function HotelsPage() {
           <h1 className="text-3xl font-bold text-slate-900">Hotels</h1>
           <p className="text-slate-500 mt-1">{hotels.length} locations</p>
         </div>
-        <Button asChild size="lg">
-          <Link href="/admin/hotels/new">
-            <Plus className="w-5 h-5 mr-2" />
-            Add Hotel
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <AddHotelDialog />
+          <Button asChild size="lg">
+            <Link href="/admin/hotels/new">
+              <Plus className="w-5 h-5 mr-2" />
+              Add Hotel
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Plus, Building2, MapPin, CreditCard } from "lucide-react";
 import { DeleteHotelButton } from "./delete-hotel-button";
+import { AddHotelDialog } from "./add-hotel-dialog";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,12 +19,15 @@ export default async function HotelsPage() {
           <h1 className="text-2xl font-semibold">Hotels / Locations</h1>
           <p className="text-sm text-muted-foreground">{hotels.length} total</p>
         </div>
-        <Button asChild>
-          <Link href="hotels/new">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Hotel
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <AddHotelDialog />
+          <Button asChild>
+            <Link href="hotels/new">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Hotel
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4">
