@@ -1,9 +1,9 @@
 'use server';
 
-import { dineInRestaurants } from "@/db/schemas"; 
-import type { DineInRestaurant } from "@/db/schemas"; 
+import { dineInRestaurants, hotelRestaurants } from "@/db/schemas";
+import type { DineInRestaurant } from "@/db/schemas";
 import { db } from "@/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, inArray } from "drizzle-orm";
 import { createError, createSuccess } from "@/lib/utils";
 import type { CreateError, CreateSuccess } from "@/types/response";
 import { getHotelSession } from "@/actions/sessions";
@@ -16,13 +16,32 @@ export async function getDineInRestaurantsByHotelId(): Promise<CreateSuccess<Din
       return createError("No active hotel session");
     }
     const hotelId = sessionResult.data.hotelId;
+
+    // Get restaurant IDs linked via the hotel_restaurants junction table
+    const linkedRows = await db
+      .select({ restaurantId: hotelRestaurants.restaurantId })
+      .from(hotelRestaurants)
+      .where(
+        and(
+          eq(hotelRestaurants.hotelId, hotelId),
+          eq(hotelRestaurants.isActive, true)
+        )
+      );
+    const linkedIds = linkedRows.map(r => r.restaurantId);
+
+    // Fetch restaurants that are either directly assigned OR linked via junction table
     const restaurantsList = await db
       .select()
       .from(dineInRestaurants)
       .where(
         and(
-          eq(dineInRestaurants.hotelId, hotelId),
-          eq(dineInRestaurants.status, "approved")
+          eq(dineInRestaurants.status, "approved"),
+          linkedIds.length > 0
+            ? or(
+                eq(dineInRestaurants.hotelId, hotelId),
+                inArray(dineInRestaurants.id, linkedIds)
+              )
+            : eq(dineInRestaurants.hotelId, hotelId)
         )
       );
     return createSuccess(restaurantsList);
