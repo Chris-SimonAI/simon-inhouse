@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, ShoppingBag, LayoutDashboard, Library } from "lucide-react";
+import { Building2, ShoppingBag, LayoutDashboard, Library, Settings } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/hotels", label: "Hotels", icon: Building2 },
   { href: "/admin/library", label: "Library", icon: Library },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

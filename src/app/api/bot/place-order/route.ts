@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { placeToastOrder, type OrderRequest } from "@/lib/bot/order-agent";
 import { createError, createSuccess } from "@/lib/utils";
 import type { BotOrderPayload } from "@/lib/sqs";
-import { env } from "@/env";
+import { getPaymentInfo } from "@/lib/bot/get-payment-info";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 min timeout for browser automation
@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
       deliveryAddress = { street, city, state, zip, apt: payload.apartment };
     }
 
+    // Read payment info from DB (falls back to env vars)
+    const payment = await getPaymentInfo();
+
     const orderRequest: OrderRequest = {
       restaurantUrl: payload.url,
       items: payload.items.map(item => ({
@@ -50,15 +53,10 @@ export async function POST(request: NextRequest) {
         email: payload.guest?.email || "guest@meetsimon.com",
         phone: payload.guest?.phone || "",
       },
-      payment: {
-        cardNumber: env.BOT_CARD_NUMBER || "",
-        expiry: env.BOT_CARD_EXPIRY || "",
-        cvv: env.BOT_CARD_CVV || "",
-        zip: env.BOT_CARD_ZIP || "",
-      },
+      payment,
       orderType: deliveryAddress ? "delivery" : "pickup",
       deliveryAddress,
-      dryRun: !env.BOT_CARD_NUMBER,
+      dryRun: !payment.cardNumber,
     };
 
     console.log(`[place-order] Starting order for orderId=${payload.orderId}, url=${payload.url}`);

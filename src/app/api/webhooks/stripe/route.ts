@@ -13,6 +13,7 @@ import { prepareBotPayload, type BotOrderPayload } from '@/lib/sqs';
 import { placeToastOrder, type OrderRequest } from '@/lib/bot/order-agent';
 import { TIP_PAYMENT_STATUS, type TipPaymentStatus } from '@/constants/payments';
 import { env } from '@/env';
+import { getPaymentInfo } from '@/lib/bot/get-payment-info';
 import { AnalyticsEvents } from "@/lib/analytics/events";
 import { PostHogServerClient } from "@/lib/analytics/posthog/server";
 
@@ -625,6 +626,9 @@ async function runInlineBot(
       deliveryAddress = { street, city, state, zip, apt: botPayload.apartment };
     }
 
+    // Read payment info from DB (falls back to env vars)
+    const cardInfo = await getPaymentInfo();
+
     const orderRequest: OrderRequest = {
       restaurantUrl: botPayload.url,
       items: botPayload.items.map(item => ({
@@ -638,15 +642,10 @@ async function runInlineBot(
         email: botPayload.guest?.email || "guest@meetsimon.com",
         phone: botPayload.guest?.phone || "",
       },
-      payment: {
-        cardNumber: env.BOT_CARD_NUMBER || "",
-        expiry: env.BOT_CARD_EXPIRY || "",
-        cvv: env.BOT_CARD_CVV || "",
-        zip: env.BOT_CARD_ZIP || "",
-      },
+      payment: cardInfo,
       orderType: deliveryAddress ? "delivery" : "pickup",
       deliveryAddress,
-      dryRun: !env.BOT_CARD_NUMBER,
+      dryRun: !cardInfo.cardNumber,
     };
 
     const result = await placeToastOrder(orderRequest);
