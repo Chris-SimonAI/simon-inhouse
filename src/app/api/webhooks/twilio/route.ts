@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     }
 
     // This is a guest message — route to SMS agent (async, return 200 immediately)
-    handleGuestMessage(from, body).catch((err) => {
+    handleGuestMessage(from, to, body).catch((err) => {
       console.error("[twilio-webhook] Error handling guest message:", err);
     });
 
@@ -134,7 +134,7 @@ async function handleToastStatusUpdate(
  * Handle a guest SMS message asynchronously.
  * Runs after we've already returned 200 to Twilio.
  */
-async function handleGuestMessage(from: string, body: string): Promise<void> {
+async function handleGuestMessage(from: string, twilioPhone: string, body: string): Promise<void> {
   console.log("[twilio-webhook] Processing guest message:", {
     from,
     body: body.substring(0, 100),
@@ -152,6 +152,7 @@ async function handleGuestMessage(from: string, body: string): Promise<void> {
     console.warn("[twilio-webhook] Guest has no hotelId, cannot route to agent:", from);
     await sendSMS(
       from,
+      twilioPhone,
       "Hi! I'm Simon, your hotel food ordering assistant. It looks like I don't have your hotel on file yet. Please place your first order through the hotel's ordering page, and I'll remember you for next time!"
     );
     return;
@@ -171,11 +172,11 @@ async function handleGuestMessage(from: string, body: string): Promise<void> {
 
   // Twilio SMS limit is 1600 chars. Split if needed.
   if (response.length <= 1600) {
-    await sendSMS(from, response);
+    await sendSMS(from, twilioPhone, response);
   } else {
     const chunks = splitMessage(response, 1600);
     for (const chunk of chunks) {
-      await sendSMS(from, chunk);
+      await sendSMS(from, twilioPhone, chunk);
     }
   }
 }
