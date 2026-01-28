@@ -3,6 +3,7 @@ import { placeToastOrder, type OrderRequest } from "@/lib/bot/order-agent";
 import { createError, createSuccess } from "@/lib/utils";
 import type { BotOrderPayload } from "@/lib/sqs";
 import { getPaymentInfo } from "@/lib/bot/get-payment-info";
+import { getTwilioPhoneNumber } from "@/lib/twilio";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 min timeout for browser automation
@@ -40,6 +41,14 @@ export async function POST(request: NextRequest) {
     // Read payment info from DB (falls back to env vars)
     const payment = await getPaymentInfo();
 
+    // Substitute customer phone with Twilio number so Toast sends SMS updates to us
+    const twilioPhone = await getTwilioPhoneNumber();
+    const originalPhone = payload.guest?.phone || "";
+    const customerPhone = twilioPhone || originalPhone;
+    if (twilioPhone) {
+      console.log(`[place-order] Using Twilio phone ${twilioPhone} on Toast (guest phone: ${originalPhone})`);
+    }
+
     const orderRequest: OrderRequest = {
       restaurantUrl: payload.url,
       items: payload.items.map(item => ({
@@ -51,7 +60,7 @@ export async function POST(request: NextRequest) {
         firstName,
         lastName,
         email: payload.guest?.email || "guest@meetsimon.com",
-        phone: payload.guest?.phone || "",
+        phone: customerPhone,
       },
       payment,
       orderType: deliveryAddress ? "delivery" : "pickup",

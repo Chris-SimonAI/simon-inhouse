@@ -28,6 +28,10 @@ const Env = z.object({
   BOT_CARD_EXPIRY: z.string().min(1).optional(),
   BOT_CARD_CVV: z.string().min(1).optional(),
   BOT_CARD_ZIP: z.string().min(1).optional(),
+  // Twilio SMS integration
+  TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
+  TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
+  TWILIO_PHONE_NUMBER: z.string().min(1).optional(),
 });
 
 // Neon Vercel integration uses POSTGRES_URL; normalize to DATABASE_URL

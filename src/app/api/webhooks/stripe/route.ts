@@ -14,6 +14,8 @@ import { placeToastOrder, type OrderRequest } from '@/lib/bot/order-agent';
 import { TIP_PAYMENT_STATUS, type TipPaymentStatus } from '@/constants/payments';
 import { env } from '@/env';
 import { getPaymentInfo } from '@/lib/bot/get-payment-info';
+import { getTwilioPhoneNumber } from '@/lib/twilio';
+import { sendOrderConfirmationSMS } from '@/lib/notifications';
 import { AnalyticsEvents } from "@/lib/analytics/events";
 import { PostHogServerClient } from "@/lib/analytics/posthog/server";
 
@@ -629,6 +631,14 @@ async function runInlineBot(
     // Read payment info from DB (falls back to env vars)
     const cardInfo = await getPaymentInfo();
 
+    // Substitute customer phone with Twilio number so Toast sends SMS updates to us
+    const twilioPhone = await getTwilioPhoneNumber();
+    const originalPhone = botPayload.guest?.phone || "";
+    const customerPhone = twilioPhone || originalPhone;
+    if (twilioPhone) {
+      console.log(`[inline-bot] Using Twilio phone ${twilioPhone} on Toast (guest phone: ${originalPhone})`);
+    }
+
     const orderRequest: OrderRequest = {
       restaurantUrl: botPayload.url,
       items: botPayload.items.map(item => ({
@@ -640,7 +650,7 @@ async function runInlineBot(
         firstName,
         lastName,
         email: botPayload.guest?.email || "guest@meetsimon.com",
-        phone: botPayload.guest?.phone || "",
+        phone: customerPhone,
       },
       payment: cardInfo,
       orderType: deliveryAddress ? "delivery" : "pickup",
@@ -674,6 +684,24 @@ async function runInlineBot(
           })
           .where(eq(dineInOrders.id, orderId));
         console.log(`[inline-bot] Payment captured for order ${orderId}`);
+
+        // Send confirmation SMS to guest (fire-and-forget)
+        if (originalPhone && twilioPhone) {
+          // Get restaurant name for the SMS
+          const [restaurant] = await db.select({ name: dineInRestaurants.name })
+            .from(dineInRestaurants)
+            .where(eq(dineInRestaurants.id, order.restaurantId))
+            .limit(1);
+
+          sendOrderConfirmationSMS({
+            guestPhone: originalPhone,
+            guestName: firstName,
+            confirmationNumber: result.orderId || result.confirmation?.confirmationNumber,
+            restaurantName: restaurant?.name || 'the restaurant',
+          }).catch(err => {
+            console.error(`[inline-bot] Failed to send confirmation SMS for order ${orderId}:`, err);
+          });
+        }
       } catch (captureError) {
         console.error(`[inline-bot] Failed to capture payment for order ${orderId}:`, captureError);
         await db.update(dineInOrders)
