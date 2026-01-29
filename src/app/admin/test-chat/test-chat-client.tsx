@@ -149,10 +149,9 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
         setConversationId(result.data.id);
 
         // Add Simon's intro message
-        const hotel = hotels.find((h) => h.id === selectedHotelId);
         const introMessage: Message = {
           role: 'assistant',
-          content: `Hey${selectedGuest.name ? ` ${selectedGuest.name.split(' ')[0]}` : ''}! I'm Simon, your food concierge at ${hotel?.name || 'the hotel'}. Hungry? I can help you find something good nearby.`,
+          content: `Hey${selectedGuest.name ? ` ${selectedGuest.name.split(' ')[0]}` : ''}! I'm Simon. I can get you food cheaper than DoorDash or Uber Eats. What sounds good?`,
           timestamp: new Date().toISOString(),
         };
         setMessages([introMessage]);
@@ -307,11 +306,11 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
 
   // Quick reply suggestions
   const quickReplies = [
-    "What's good for Thai food?",
-    "I'm in the mood for pizza",
-    "Show me healthy options",
-    "What's nearby?",
-    "I can't decide, surprise me",
+    "I'm hungry",
+    "maybe thai?",
+    "idk just pick something",
+    "something light",
+    "what's good around here",
   ];
 
   return (
