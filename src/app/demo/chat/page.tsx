@@ -11,13 +11,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  MessageSquare,
   Send,
   Loader2,
   ChevronLeft,
   User,
-  Settings2,
   X,
+  MapPin,
+  Utensils,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -133,7 +133,6 @@ export default function MobileChatPage() {
       if (result.ok) {
         setConversationId(result.data.id);
         setShowSetup(false);
-        // Send intro message
         setMessages([
           {
             role: 'assistant',
@@ -177,7 +176,6 @@ export default function MobileChatPage() {
 
       if (data.ok) {
         setMessages((prev) => [...prev, { role: 'assistant', content: data.data.message }]);
-        // Refresh preferences
         await loadPreferences(selectedGuest.id);
       } else {
         setError(data.error || 'Failed to send message');
@@ -194,6 +192,41 @@ export default function MobileChatPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    }
+  };
+
+  const handleQuickReply = async (reply: string) => {
+    if (!conversationId || !selectedGuest || !selectedHotelId || isLoading) return;
+
+    setMessages((prev) => [...prev, { role: 'user', content: reply }]);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/admin/test-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId,
+          guestId: selectedGuest.id,
+          hotelId: selectedHotelId,
+          message: reply,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        setMessages((prev) => [...prev, { role: 'assistant', content: data.data.message }]);
+        await loadPreferences(selectedGuest.id);
+      } else {
+        setError(data.error || 'Failed to send message');
+      }
+    } catch (err) {
+      setError('Failed to send message');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -238,8 +271,13 @@ export default function MobileChatPage() {
   // Loading state
   if (isLoadingData) {
     return (
-      <div className="h-full bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="h-full bg-gradient-to-b from-blue-600 to-blue-700 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <Utensils className="w-8 h-8 text-blue-600" />
+          </div>
+          <Loader2 className="w-6 h-6 animate-spin text-white mx-auto" />
+        </div>
       </div>
     );
   }
@@ -247,122 +285,135 @@ export default function MobileChatPage() {
   // Setup screen
   if (showSetup) {
     return (
-      <div className="h-full bg-slate-50 flex flex-col">
-        {/* Header */}
-        <div className="bg-blue-600 text-white px-4 py-4 safe-area-top">
-          <h1 className="text-lg font-semibold">Simon Demo</h1>
-          <p className="text-blue-100 text-sm">Test the ordering experience</p>
+      <div className="h-full bg-gradient-to-b from-blue-600 to-blue-700 flex flex-col">
+        {/* Hero Section */}
+        <div className="pt-12 pb-8 px-6 text-center safe-area-top">
+          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <Utensils className="w-10 h-10 text-blue-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-1">Simon</h1>
+          <p className="text-blue-100">Your food concierge</p>
         </div>
 
-        <div className="flex-1 p-4 space-y-6">
-          {/* Hotel Selection */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Hotel Location
-            </label>
-            <Select
-              value={selectedHotelId?.toString() || ''}
-              onValueChange={(val) => setSelectedHotelId(parseInt(val))}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select hotel..." />
-              </SelectTrigger>
-              <SelectContent>
-                {hotels.map((hotel) => (
-                  <SelectItem key={hotel.id} value={hotel.id.toString()}>
-                    {hotel.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* Form Card */}
+        <div className="flex-1 bg-white rounded-t-3xl px-6 pt-8 pb-6">
+          <div className="space-y-6">
+            {/* Hotel Selection */}
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-2">
+                <MapPin className="w-4 h-4" />
+                Hotel Location
+              </label>
+              <Select
+                value={selectedHotelId?.toString() || ''}
+                onValueChange={(val) => setSelectedHotelId(parseInt(val))}
+              >
+                <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-blue-500 focus:border-blue-500">
+                  <SelectValue placeholder="Select your hotel..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {hotels.map((hotel) => (
+                    <SelectItem key={hotel.id} value={hotel.id.toString()}>
+                      {hotel.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Guest Selection */}
+            {selectedHotelId && (
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-2">
+                  <User className="w-4 h-4" />
+                  Guest Profile
+                </label>
+                {!showNewGuest ? (
+                  <>
+                    <Select
+                      value={selectedGuest?.id.toString() || ''}
+                      onValueChange={(val) => {
+                        const guest = guests.find((g) => g.id === parseInt(val));
+                        setSelectedGuest(guest || null);
+                      }}
+                    >
+                      <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-blue-500 focus:border-blue-500">
+                        <SelectValue placeholder="Select guest profile..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {guests.map((guest) => (
+                          <SelectItem key={guest.id} value={guest.id.toString()}>
+                            <div className="flex flex-col items-start">
+                              <span className="font-medium">{guest.name || 'Unnamed Guest'}</span>
+                              <span className="text-xs text-slate-500">
+                                {formatPhone(guest.phone)}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <button
+                      onClick={() => setShowNewGuest(true)}
+                      className="mt-3 text-sm text-blue-600 font-medium hover:text-blue-700"
+                    >
+                      + Create new guest profile
+                    </button>
+                  </>
+                ) : (
+                  <div className="space-y-3 bg-slate-50 p-4 rounded-xl">
+                    <Input
+                      placeholder="Guest name"
+                      value={newGuestName}
+                      onChange={(e) => setNewGuestName(e.target.value)}
+                      className="h-11 rounded-lg border-slate-200"
+                    />
+                    <Input
+                      placeholder="Phone number"
+                      value={newGuestPhone}
+                      onChange={(e) => setNewGuestPhone(e.target.value)}
+                      className="h-11 rounded-lg border-slate-200"
+                    />
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        onClick={createNewGuest}
+                        disabled={!newGuestName || !newGuestPhone || isLoading}
+                        className="flex-1 h-11 rounded-lg bg-blue-600 hover:bg-blue-700"
+                      >
+                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowNewGuest(false)}
+                        className="h-11 rounded-lg"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Guest Selection */}
-          {selectedHotelId && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Guest Profile
-              </label>
-              {!showNewGuest ? (
-                <>
-                  <Select
-                    value={selectedGuest?.id.toString() || ''}
-                    onValueChange={(val) => {
-                      const guest = guests.find((g) => g.id === parseInt(val));
-                      setSelectedGuest(guest || null);
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select guest..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {guests.map((guest) => (
-                        <SelectItem key={guest.id} value={guest.id.toString()}>
-                          <div className="flex flex-col">
-                            <span>{guest.name || 'Unnamed Guest'}</span>
-                            <span className="text-xs text-slate-500">
-                              {formatPhone(guest.phone)}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <button
-                    onClick={() => setShowNewGuest(true)}
-                    className="mt-2 text-sm text-blue-600 font-medium"
-                  >
-                    + Create new guest
-                  </button>
-                </>
-              ) : (
-                <div className="space-y-3 bg-white p-4 rounded-lg border">
-                  <Input
-                    placeholder="Name"
-                    value={newGuestName}
-                    onChange={(e) => setNewGuestName(e.target.value)}
-                  />
-                  <Input
-                    placeholder="Phone"
-                    value={newGuestPhone}
-                    onChange={(e) => setNewGuestPhone(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={createNewGuest}
-                      disabled={!newGuestName || !newGuestPhone}
-                      className="flex-1"
-                    >
-                      Create
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowNewGuest(false)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Start Button */}
+          {/* Start Button - Fixed at bottom */}
           {selectedHotelId && selectedGuest && (
-            <Button
-              onClick={startConversation}
-              disabled={isLoading}
-              className="w-full h-12 text-base bg-blue-600 hover:bg-blue-700"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  <MessageSquare className="w-5 h-5 mr-2" />
-                  Start Chat
-                </>
-              )}
-            </Button>
+            <div className="mt-8">
+              <Button
+                onClick={startConversation}
+                disabled={isLoading}
+                className="w-full h-14 text-base font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/30"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  'Start Chatting'
+                )}
+              </Button>
+              <p className="text-center text-xs text-slate-400 mt-3">
+                Cheaper than DoorDash. No fees.
+              </p>
+            </div>
           )}
         </div>
       </div>
@@ -371,181 +422,160 @@ export default function MobileChatPage() {
 
   // Chat screen
   return (
-    <div className="h-full bg-slate-100 flex flex-col">
+    <div className="h-full bg-slate-50 flex flex-col">
       {/* Header */}
-      <div className="bg-blue-600 text-white px-4 py-3 flex items-center justify-between safe-area-top">
+      <div className="bg-blue-600 text-white px-4 py-3 flex items-center gap-3 safe-area-top">
         <button
           onClick={() => {
             setShowSetup(true);
             setConversationId(null);
             setMessages([]);
           }}
-          className="p-1 -ml-1"
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 -ml-1"
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
-        <div className="flex-1 text-center">
-          <h1 className="font-semibold">Simon</h1>
-          <p className="text-xs text-blue-100">
+        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
+          <Utensils className="w-5 h-5 text-blue-600" />
+        </div>
+        <div className="flex-1">
+          <h1 className="font-semibold leading-tight">Simon</h1>
+          <p className="text-xs text-blue-100 leading-tight">
             {hotels.find((h) => h.id === selectedHotelId)?.name}
           </p>
         </div>
         <button
           onClick={() => setShowPreferences(!showPreferences)}
-          className="p-1 -mr-1"
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10"
         >
           {showPreferences ? (
             <X className="w-5 h-5" />
           ) : (
-            <Settings2 className="w-5 h-5" />
+            <User className="w-5 h-5" />
           )}
         </button>
       </div>
 
       {/* Preferences Drawer */}
       {showPreferences && (
-        <div className="bg-white border-b px-4 py-3 max-h-[40vh] overflow-y-auto">
+        <div className="bg-white border-b border-slate-100 px-4 py-4 max-h-[40vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-medium text-slate-900">Guest Profile</h3>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <User className="w-4 h-4" />
-              {selectedGuest?.name || 'Guest'}
-            </div>
+            <h3 className="font-semibold text-slate-900">Learned Preferences</h3>
+            <span className="text-sm text-slate-500">{selectedGuest?.name}</span>
           </div>
           {preferences.length > 0 ? (
             <div className="space-y-2">
               {preferences.map((pref) => (
                 <div
                   key={pref.id}
-                  className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2"
+                  className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3"
                 >
                   <div>
-                    <Badge variant="outline" className="text-xs mb-1">
+                    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs font-medium mb-1">
                       {pref.preferenceType}
                     </Badge>
-                    <p className="text-sm font-medium">{pref.preferenceValue}</p>
+                    <p className="text-sm font-medium text-slate-900">{pref.preferenceValue}</p>
                   </div>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-sm font-medium text-slate-400">
                     {Math.round(parseFloat(pref.confidence) * 100)}%
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-500">
-              No preferences learned yet. Start chatting!
-            </p>
+            <div className="text-center py-6">
+              <p className="text-sm text-slate-500">No preferences learned yet.</p>
+              <p className="text-xs text-slate-400 mt-1">Simon learns as you chat!</p>
+            </div>
           )}
         </div>
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="space-y-4">
+          {messages.map((message, index) => (
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
-                message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-slate-900 shadow-sm'
-              }`}
+              key={index}
+              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <p className="text-[15px] leading-relaxed">{message.content}</p>
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-white rounded-2xl px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              {message.role === 'assistant' && (
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1">
+                  <Utensils className="w-4 h-4 text-white" />
+                </div>
+              )}
+              <div
+                className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+                  message.role === 'user'
+                    ? 'bg-blue-600 text-white rounded-br-md'
+                    : 'bg-white text-slate-900 shadow-sm rounded-bl-md'
+                }`}
+              >
+                <p className="text-[15px] leading-relaxed">{message.content}</p>
               </div>
             </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
+          ))}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
+                <Utensils className="w-4 h-4 text-white" />
+              </div>
+              <div className="bg-white rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="mx-4 mb-2 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+        <div className="mx-4 mb-2 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-medium">
           {error}
         </div>
       )}
 
       {/* Quick Replies */}
-      {messages.length === 1 && (
-        <div className="px-4 pb-2 flex gap-2 overflow-x-auto">
-          {quickReplies.map((reply) => (
-            <button
-              key={reply}
-              onClick={async () => {
-                if (!conversationId || !selectedGuest || !selectedHotelId || isLoading) return;
-
-                setMessages((prev) => [...prev, { role: 'user', content: reply }]);
-                setIsLoading(true);
-                setError(null);
-
-                try {
-                  const response = await fetch('/api/admin/test-chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      conversationId,
-                      guestId: selectedGuest.id,
-                      hotelId: selectedHotelId,
-                      message: reply,
-                    }),
-                  });
-
-                  const data = await response.json();
-
-                  if (data.ok) {
-                    setMessages((prev) => [...prev, { role: 'assistant', content: data.data.message }]);
-                    await loadPreferences(selectedGuest.id);
-                  } else {
-                    setError(data.error || 'Failed to send message');
-                  }
-                } catch (err) {
-                  setError('Failed to send message');
-                  console.error(err);
-                } finally {
-                  setIsLoading(false);
-                }
-              }}
-              className="flex-shrink-0 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-sm text-slate-700 hover:bg-slate-50"
-            >
-              {reply}
-            </button>
-          ))}
+      {messages.length === 1 && !isLoading && (
+        <div className="px-4 pb-3">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {quickReplies.map((reply) => (
+              <button
+                key={reply}
+                onClick={() => handleQuickReply(reply)}
+                className="flex-shrink-0 px-4 py-2 bg-white border border-slate-200 rounded-full text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
+              >
+                {reply}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Input */}
-      <div className="bg-white border-t px-4 py-3 safe-area-bottom">
-        <div className="flex gap-2">
-          <Input
+      <div className="bg-white border-t border-slate-100 px-4 py-3 safe-area-bottom">
+        <div className="flex gap-3">
+          <input
             ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Message Simon..."
-            className="flex-1 h-11 rounded-full bg-slate-100 border-0 px-4"
             disabled={isLoading}
+            className="flex-1 h-12 rounded-full bg-slate-100 px-5 text-[15px] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all disabled:opacity-50"
           />
-          <Button
+          <button
             onClick={sendMessage}
             disabled={!inputValue.trim() || isLoading}
-            size="icon"
-            className="h-11 w-11 rounded-full bg-blue-600 hover:bg-blue-700"
+            className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
           >
-            <Send className="w-5 h-5" />
-          </Button>
+            <Send className="w-5 h-5 text-white" />
+          </button>
         </div>
       </div>
     </div>
