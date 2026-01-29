@@ -23,7 +23,10 @@ import {
   X,
   Trash2,
   AlertCircle,
+  Smartphone,
+  ExternalLink,
 } from 'lucide-react';
+import Link from 'next/link';
 import type { Hotel } from '@/db/schemas/hotels';
 import type { GuestPreference } from '@/db/schemas';
 import {
@@ -374,6 +377,13 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
 
           {/* Actions - only show when relevant */}
           <div className="flex items-center gap-2">
+            <Link href="/demo/chat" target="_blank">
+              <Button variant="outline" size="sm">
+                <Smartphone className="w-3.5 h-3.5 mr-1.5" />
+                Mobile Demo
+                <ExternalLink className="w-3 h-3 ml-1.5 opacity-50" />
+              </Button>
+            </Link>
             {selectedGuest && !conversationId && (
               <Button
                 variant="outline"
