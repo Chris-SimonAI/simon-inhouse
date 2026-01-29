@@ -292,7 +292,7 @@ export default function MobileChatPage() {
             <Utensils className="w-10 h-10 text-blue-600" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">Simon</h1>
-          <p className="text-blue-100">Your food concierge</p>
+          <p className="text-blue-100">Food, delivered cheaper</p>
         </div>
 
         {/* Form Card */}
