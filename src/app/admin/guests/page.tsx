@@ -35,11 +35,11 @@ export default async function GuestsPage({ searchParams }: PageProps) {
   const hotels = (hotelsResult.ok && hotelsResult.data) ? hotelsResult.data : [];
 
   return (
-    <div className="p-8">
+    <div className="p-8 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Guests</h1>
-        <p className="text-slate-500 mt-1">
-          {guestsResult.total} guest profiles
+        <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Guests</h1>
+        <p className="text-slate-500 mt-0.5 text-sm">
+          {guestsResult.total} guest profile{guestsResult.total !== 1 ? 's' : ''} in system
         </p>
       </div>
 
@@ -58,10 +58,12 @@ export default async function GuestsPage({ searchParams }: PageProps) {
           }}
         />
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border p-16 text-center">
-          <Users className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+        <div className="bg-white rounded-2xl border border-slate-200/60 p-16 text-center shadow-sm">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-slate-100 flex items-center justify-center">
+            <Users className="w-8 h-8 text-slate-400" />
+          </div>
           <p className="text-lg font-medium text-slate-900">No guests yet</p>
-          <p className="text-slate-500 mt-1">
+          <p className="text-slate-500 mt-1 text-sm max-w-sm mx-auto">
             Guest profiles will appear here once they place orders or interact via SMS.
           </p>
         </div>

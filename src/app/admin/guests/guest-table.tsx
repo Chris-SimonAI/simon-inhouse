@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, ChevronLeft, ChevronRight, X, AlertTriangle, Utensils } from "lucide-react";
@@ -92,29 +91,29 @@ export function GuestTable({ guests, hotels, total, page, totalPages, currentFil
   return (
     <>
       {/* Search and Filters */}
-      <div className="bg-white rounded-xl shadow-sm border mb-6 p-4">
-        <div className="flex flex-wrap gap-4 items-center">
+      <div className="bg-white rounded-2xl border border-slate-200/60 mb-6 p-4 shadow-sm">
+        <div className="flex flex-wrap gap-3 items-center">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Search by phone, name, or email..."
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-10 rounded-xl border-slate-200 focus:border-slate-300 focus:ring-slate-200"
             />
           </div>
 
           <Button
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
-            className={showFilters ? "bg-slate-100" : ""}
+            className={`h-10 rounded-xl border-slate-200 ${showFilters ? "bg-slate-50 border-slate-300" : ""}`}
           >
             <Filter className="w-4 h-4 mr-2" />
             Filters
           </Button>
 
           {hasActiveFilters && (
-            <Button variant="ghost" onClick={clearFilters} size="sm">
+            <Button variant="ghost" onClick={clearFilters} size="sm" className="text-slate-500 hover:text-slate-700">
               <X className="w-4 h-4 mr-1" />
               Clear
             </Button>
@@ -122,11 +121,11 @@ export function GuestTable({ guests, hotels, total, page, totalPages, currentFil
         </div>
 
         {showFilters && (
-          <div className="mt-4 pt-4 border-t flex flex-wrap gap-4">
+          <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap gap-4">
             <select
               value={currentFilters.hotelId || ""}
               onChange={(e) => updateFilters({ hotelId: e.target.value || undefined })}
-              className="px-3 py-2 border rounded-lg text-sm"
+              className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:border-slate-300"
             >
               <option value="">All Hotels</option>
               {hotels.map((hotel) => (
@@ -136,22 +135,22 @@ export function GuestTable({ guests, hotels, total, page, totalPages, currentFil
               ))}
             </select>
 
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
               <input
                 type="checkbox"
                 checked={currentFilters.hasAllergies === "true"}
                 onChange={(e) => updateFilters({ hasAllergies: e.target.checked ? "true" : undefined })}
-                className="rounded"
+                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
               Has allergies
             </label>
 
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
               <input
                 type="checkbox"
                 checked={currentFilters.hasDietary === "true"}
                 onChange={(e) => updateFilters({ hasDietary: e.target.checked ? "true" : undefined })}
-                className="rounded"
+                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
               Has dietary preferences
             </label>
@@ -160,22 +159,22 @@ export function GuestTable({ guests, hotels, total, page, totalPages, currentFil
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm">
         <table className="w-full">
-          <thead className="bg-slate-50 border-b">
-            <tr>
-              <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Guest</th>
-              <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Contact</th>
-              <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Hotel</th>
-              <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Preferences</th>
-              <th className="text-left px-6 py-4 text-sm font-semibold text-slate-600">Last Order</th>
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50/50">
+              <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Guest</th>
+              <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
+              <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Hotel</th>
+              <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Preferences</th>
+              <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Order</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody className="divide-y divide-slate-100">
             {guests.map((guest) => (
               <tr
                 key={guest.id}
-                className="hover:bg-slate-50 cursor-pointer"
+                className="hover:bg-slate-50/70 cursor-pointer transition-colors duration-150"
                 onClick={() => setSelectedGuestId(guest.id)}
               >
                 <td className="px-6 py-4">
@@ -183,35 +182,35 @@ export function GuestTable({ guests, hotels, total, page, totalPages, currentFil
                     {guest.name || "Unknown"}
                   </div>
                   {guest.roomNumber && (
-                    <div className="text-xs text-slate-400">Room {guest.roomNumber}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Room {guest.roomNumber}</div>
                   )}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm text-slate-900">{guest.phone}</div>
+                  <div className="text-sm text-slate-700">{guest.phone}</div>
                   {guest.email && (
-                    <div className="text-xs text-slate-500">{guest.email}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">{guest.email}</div>
                   )}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">
-                  {guest.hotelName || "—"}
+                  {guest.hotelName || <span className="text-slate-300">—</span>}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1.5">
                     {guest.allergies && guest.allergies.length > 0 && (
-                      <Badge variant="destructive" className="text-xs">
-                        <AlertTriangle className="w-3 h-3 mr-1" />
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-700 border border-red-100">
+                        <AlertTriangle className="w-3 h-3" />
                         {guest.allergies.length} allerg{guest.allergies.length === 1 ? 'y' : 'ies'}
-                      </Badge>
+                      </span>
                     )}
                     {guest.dietaryPreferences && guest.dietaryPreferences.length > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Utensils className="w-3 h-3 mr-1" />
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                        <Utensils className="w-3 h-3" />
                         {guest.dietaryPreferences.length} dietary
-                      </Badge>
+                      </span>
                     )}
                     {(!guest.allergies || guest.allergies.length === 0) &&
                      (!guest.dietaryPreferences || guest.dietaryPreferences.length === 0) && (
-                      <span className="text-xs text-slate-400">None</span>
+                      <span className="text-xs text-slate-300">—</span>
                     )}
                   </div>
                 </td>
@@ -222,7 +221,7 @@ export function GuestTable({ guests, hotels, total, page, totalPages, currentFil
                         day: "numeric",
                         year: "numeric",
                       })
-                    : "Never"}
+                    : <span className="text-slate-300">Never</span>}
                 </td>
               </tr>
             ))}
@@ -230,7 +229,7 @@ export function GuestTable({ guests, hotels, total, page, totalPages, currentFil
         </table>
 
         {guests.length === 0 && (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-16 text-slate-400">
             No guests match your filters.
           </div>
         )}
@@ -238,9 +237,9 @@ export function GuestTable({ guests, hotels, total, page, totalPages, currentFil
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center justify-between mt-5">
           <p className="text-sm text-slate-500">
-            Showing {(page - 1) * 20 + 1} to {Math.min(page * 20, total)} of {total} guests
+            Showing <span className="font-medium text-slate-700">{(page - 1) * 20 + 1}</span> to <span className="font-medium text-slate-700">{Math.min(page * 20, total)}</span> of <span className="font-medium text-slate-700">{total}</span> guests
           </p>
           <div className="flex gap-2">
             <Button
@@ -248,8 +247,9 @@ export function GuestTable({ guests, hotels, total, page, totalPages, currentFil
               size="sm"
               disabled={page <= 1}
               onClick={() => updateFilters({ page: String(page - 1) })}
+              className="h-9 rounded-lg border-slate-200 disabled:opacity-40"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 mr-1" />
               Previous
             </Button>
             <Button
@@ -257,9 +257,10 @@ export function GuestTable({ guests, hotels, total, page, totalPages, currentFil
               size="sm"
               disabled={page >= totalPages}
               onClick={() => updateFilters({ page: String(page + 1) })}
+              className="h-9 rounded-lg border-slate-200 disabled:opacity-40"
             >
               Next
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
         </div>

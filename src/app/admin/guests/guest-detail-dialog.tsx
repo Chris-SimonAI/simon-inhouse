@@ -5,7 +5,6 @@ import { getGuestProfileById, updateGuestProfileAdmin } from "@/actions/guest-pr
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Loader2, User, Phone, Mail, MapPin, AlertTriangle, Utensils, Heart, ThumbsDown, StickyNote, History, Save, X, Pencil } from "lucide-react";
 
 interface GuestDetailDialogProps {
@@ -124,10 +123,12 @@ export function GuestDetailDialog({ guestId, onClose }: GuestDetailDialogProps) 
 
   return (
     <Dialog open={guestId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
+          <DialogTitle className="flex items-center gap-3 text-lg">
+            <div className="p-2 rounded-xl bg-slate-100">
+              <User className="w-5 h-5 text-slate-600" />
+            </div>
             Guest Profile
           </DialogTitle>
         </DialogHeader>
@@ -193,17 +194,17 @@ export function GuestDetailDialog({ guestId, onClose }: GuestDetailDialogProps) 
               <div className="flex gap-2">
                 {editing ? (
                   <>
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                    <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="text-slate-500 hover:text-slate-700">
                       <X className="w-4 h-4 mr-1" />
                       Cancel
                     </Button>
-                    <Button size="sm" onClick={handleSave} disabled={saving}>
+                    <Button size="sm" onClick={handleSave} disabled={saving} className="rounded-lg bg-slate-900 hover:bg-slate-800">
                       {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
                       Save
                     </Button>
                   </>
                 ) : (
-                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(true)} className="rounded-lg border-slate-200 hover:bg-slate-50">
                     <Pencil className="w-4 h-4 mr-1" />
                     Edit
                   </Button>
@@ -212,10 +213,11 @@ export function GuestDetailDialog({ guestId, onClose }: GuestDetailDialogProps) 
             </div>
 
             {/* Preferences */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <PreferenceSection
                 icon={AlertTriangle}
-                iconColor="text-red-500"
+                iconColor="text-red-600"
+                bgColor="bg-red-100"
                 label="Allergies"
                 items={editing ? undefined : (guest.allergies || [])}
                 editing={editing}
@@ -224,7 +226,8 @@ export function GuestDetailDialog({ guestId, onClose }: GuestDetailDialogProps) 
               />
               <PreferenceSection
                 icon={Utensils}
-                iconColor="text-blue-500"
+                iconColor="text-blue-600"
+                bgColor="bg-blue-100"
                 label="Dietary Preferences"
                 items={editing ? undefined : (guest.dietaryPreferences || [])}
                 editing={editing}
@@ -233,7 +236,8 @@ export function GuestDetailDialog({ guestId, onClose }: GuestDetailDialogProps) 
               />
               <PreferenceSection
                 icon={Heart}
-                iconColor="text-pink-500"
+                iconColor="text-pink-600"
+                bgColor="bg-pink-100"
                 label="Favorite Cuisines"
                 items={editing ? undefined : (guest.favoriteCuisines || [])}
                 editing={editing}
@@ -242,7 +246,8 @@ export function GuestDetailDialog({ guestId, onClose }: GuestDetailDialogProps) 
               />
               <PreferenceSection
                 icon={ThumbsDown}
-                iconColor="text-slate-500"
+                iconColor="text-slate-600"
+                bgColor="bg-slate-200"
                 label="Disliked Foods"
                 items={editing ? undefined : (guest.dislikedFoods || [])}
                 editing={editing}
@@ -252,47 +257,55 @@ export function GuestDetailDialog({ guestId, onClose }: GuestDetailDialogProps) 
             </div>
 
             {/* Notes */}
-            <div className="bg-slate-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <StickyNote className="w-4 h-4 text-slate-500" />
-                <span className="font-medium text-slate-700">Notes</span>
+            <div className="bg-amber-50/50 rounded-xl p-4 border border-amber-100">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 rounded-lg bg-amber-100">
+                  <StickyNote className="w-3.5 h-3.5 text-amber-600" />
+                </div>
+                <span className="text-sm font-medium text-slate-700">Notes</span>
               </div>
               {editing ? (
                 <textarea
                   value={editForm.notes}
                   onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                  className="w-full p-2 border rounded text-sm"
+                  className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-300 focus:ring-1 focus:ring-slate-200"
                   rows={3}
                   placeholder="Add notes about this guest..."
                 />
               ) : (
                 <p className="text-sm text-slate-600 whitespace-pre-wrap">
-                  {guest.notes || "No notes"}
+                  {guest.notes || <span className="text-slate-400 italic">No notes yet</span>}
                 </p>
               )}
             </div>
 
             {/* Order History */}
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <History className="w-4 h-4 text-slate-500" />
-                <span className="font-medium text-slate-700">Order History</span>
-                <Badge variant="secondary">{guest.orderHistory.length}</Badge>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-1.5 rounded-lg bg-slate-100">
+                  <History className="w-3.5 h-3.5 text-slate-600" />
+                </div>
+                <span className="text-sm font-medium text-slate-700">Order History</span>
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                  {guest.orderHistory.length}
+                </span>
               </div>
               {guest.orderHistory.length > 0 ? (
                 <div className="space-y-2">
                   {guest.orderHistory.map((order) => (
-                    <div key={order.id} className="bg-slate-50 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-sm">
+                    <div key={order.id} className="bg-slate-50/70 rounded-xl p-4 border border-slate-100 hover:border-slate-200 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-sm text-slate-900">
                           {order.restaurantName || "Unknown Restaurant"}
                         </span>
-                        <span className="text-sm font-medium">${order.totalAmount}</span>
+                        <span className="text-sm font-semibold text-slate-900">${order.totalAmount}</span>
                       </div>
-                      <div className="text-xs text-slate-500 mb-2">
-                        {formatDate(order.createdAt)} • {order.orderStatus}
+                      <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                        <span>{formatDate(order.createdAt)}</span>
+                        <span className="w-1 h-1 rounded-full bg-slate-300" />
+                        <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">{order.orderStatus}</span>
                       </div>
-                      <div className="text-xs text-slate-600">
+                      <div className="text-xs text-slate-500">
                         {order.items.map((item, i) => (
                           <span key={i}>
                             {item.quantity}x {item.itemName}
@@ -304,14 +317,21 @@ export function GuestDetailDialog({ guestId, onClose }: GuestDetailDialogProps) 
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">No orders yet</p>
+                <p className="text-sm text-slate-400 italic">No orders yet</p>
               )}
             </div>
 
             {/* Meta info */}
-            <div className="text-xs text-slate-400 pt-4 border-t">
-              Created: {formatDate(guest.createdAt)} • Updated: {formatDate(guest.updatedAt)}
-              {guest.hasBeenIntroduced && " • SMS introduced"}
+            <div className="flex items-center gap-3 text-xs text-slate-400 pt-4 border-t border-slate-100">
+              <span>Created {formatDate(guest.createdAt)}</span>
+              <span className="w-1 h-1 rounded-full bg-slate-300" />
+              <span>Updated {formatDate(guest.updatedAt)}</span>
+              {guest.hasBeenIntroduced && (
+                <>
+                  <span className="w-1 h-1 rounded-full bg-slate-300" />
+                  <span className="text-emerald-600">SMS introduced</span>
+                </>
+              )}
             </div>
           </div>
         ) : (
@@ -327,6 +347,7 @@ export function GuestDetailDialog({ guestId, onClose }: GuestDetailDialogProps) 
 function PreferenceSection({
   icon: Icon,
   iconColor,
+  bgColor,
   label,
   items,
   editing,
@@ -335,6 +356,7 @@ function PreferenceSection({
 }: {
   icon: React.ComponentType<{ className?: string }>;
   iconColor: string;
+  bgColor: string;
   label: string;
   items?: string[];
   editing?: boolean;
@@ -342,9 +364,11 @@ function PreferenceSection({
   onChange?: (v: string) => void;
 }) {
   return (
-    <div className="bg-slate-50 rounded-lg p-3">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className={`w-4 h-4 ${iconColor}`} />
+    <div className="bg-slate-50/70 rounded-xl p-4 border border-slate-100">
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`p-1.5 rounded-lg ${bgColor}`}>
+          <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
+        </div>
         <span className="text-sm font-medium text-slate-700">{label}</span>
       </div>
       {editing && onChange !== undefined && value !== undefined ? (
@@ -352,18 +376,18 @@ function PreferenceSection({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={`Enter ${label.toLowerCase()}, comma-separated`}
-          className="text-sm"
+          className="text-sm rounded-lg border-slate-200"
         />
       ) : items && items.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {items.map((item, i) => (
-            <Badge key={i} variant="outline" className="text-xs">
+            <span key={i} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-600">
               {item}
-            </Badge>
+            </span>
           ))}
         </div>
       ) : (
-        <span className="text-xs text-slate-400">None</span>
+        <span className="text-xs text-slate-400">None specified</span>
       )}
     </div>
   );

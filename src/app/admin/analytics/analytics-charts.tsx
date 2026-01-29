@@ -29,9 +29,9 @@ interface AnalyticsChartsProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  delivered: "#22c55e",
+  delivered: "#10b981",
   confirmed: "#3b82f6",
-  pending: "#eab308",
+  pending: "#f59e0b",
   cancelled: "#ef4444",
   failed: "#dc2626",
   requested_to_toast: "#6366f1",
@@ -39,7 +39,7 @@ const STATUS_COLORS: Record<string, string> = {
   toast_ok_capture_failed: "#f97316",
 };
 
-const CHART_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f97316", "#22c55e", "#06b6d4", "#eab308", "#ef4444"];
+const CHART_COLORS = ["#6366f1", "#8b5cf6", "#ec4899", "#f97316", "#10b981", "#06b6d4", "#3b82f6", "#f59e0b"];
 
 export function AnalyticsCharts({
   timeSeries,
@@ -54,10 +54,10 @@ export function AnalyticsCharts({
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Orders Over Time */}
-      <div className="bg-white rounded-xl shadow-sm border p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Orders Over Time</h3>
+      <div className="bg-white rounded-2xl border border-slate-200/60 p-6 shadow-sm">
+        <h3 className="text-base font-semibold text-slate-900 mb-5">Orders Over Time</h3>
         {timeSeries.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={timeSeries}>
@@ -108,10 +108,10 @@ export function AnalyticsCharts({
       </div>
 
       {/* Two Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Orders by Status */}
-        <div className="bg-white rounded-xl shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Orders by Status</h3>
+        <div className="bg-white rounded-2xl border border-slate-200/60 p-6 shadow-sm">
+          <h3 className="text-base font-semibold text-slate-900 mb-5">Orders by Status</h3>
           {statusData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
@@ -145,8 +145,8 @@ export function AnalyticsCharts({
         </div>
 
         {/* Guest Distribution */}
-        <div className="bg-white rounded-xl shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Guest Types</h3>
+        <div className="bg-white rounded-2xl border border-slate-200/60 p-6 shadow-sm">
+          <h3 className="text-base font-semibold text-slate-900 mb-5">Guest Types</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <ResponsiveContainer width="100%" height={200}>
@@ -188,8 +188,8 @@ export function AnalyticsCharts({
       </div>
 
       {/* Top Restaurants */}
-      <div className="bg-white rounded-xl shadow-sm border p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Top Restaurants</h3>
+      <div className="bg-white rounded-2xl border border-slate-200/60 p-6 shadow-sm">
+        <h3 className="text-base font-semibold text-slate-900 mb-5">Top Restaurants</h3>
         {topRestaurants.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={topRestaurants} layout="vertical">
@@ -219,8 +219,8 @@ export function AnalyticsCharts({
       </div>
 
       {/* Top Menu Items */}
-      <div className="bg-white rounded-xl shadow-sm border p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Top Menu Items</h3>
+      <div className="bg-white rounded-2xl border border-slate-200/60 p-6 shadow-sm">
+        <h3 className="text-base font-semibold text-slate-900 mb-5">Top Menu Items</h3>
         {topItems.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={topItems} layout="vertical">
