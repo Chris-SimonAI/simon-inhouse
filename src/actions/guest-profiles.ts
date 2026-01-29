@@ -4,7 +4,7 @@ import 'server-only';
 
 import { db } from '@/db';
 import { guestProfiles, dineInOrders, dineInOrderItems, dineInRestaurants, hotels } from '@/db/schemas';
-import { eq, desc, ilike, or, sql, and, isNotNull, count } from 'drizzle-orm';
+import { eq, desc, ilike, or, sql, and, count } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 /**

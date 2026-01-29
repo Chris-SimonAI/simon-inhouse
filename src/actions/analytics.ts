@@ -3,8 +3,8 @@
 import 'server-only';
 
 import { db } from '@/db';
-import { dineInOrders, dineInOrderItems, dineInRestaurants, guestProfiles, hotels } from '@/db/schemas';
-import { eq, sql, gte, lte, and, count, sum, desc } from 'drizzle-orm';
+import { dineInOrders, dineInOrderItems, dineInRestaurants, guestProfiles } from '@/db/schemas';
+import { eq, sql, gte, lte, and, count, desc } from 'drizzle-orm';
 
 export interface AnalyticsSummary {
   totalOrders: number;
