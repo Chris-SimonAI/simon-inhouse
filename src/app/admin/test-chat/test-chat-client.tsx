@@ -23,7 +23,6 @@ import {
   X,
   Trash2,
   AlertCircle,
-  Phone,
 } from 'lucide-react';
 import type { Hotel } from '@/db/schemas/hotels';
 import type { GuestPreference } from '@/db/schemas';
@@ -302,8 +301,6 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
       console.error('Failed to delete preference:', err);
     }
   };
-
-  const selectedHotel = hotels.find((h) => h.id === selectedHotelId);
 
   // Format phone for display
   const formatPhone = (phone: string) => {
