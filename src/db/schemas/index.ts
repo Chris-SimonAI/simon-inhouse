@@ -16,3 +16,5 @@ export * from "@/db/schemas/hotel-dining-discounts";
 export * from "./hotel-restaurants";
 export * from "./app-settings";
 export * from "./guest-profiles";
+export * from "./guest-preferences";
+export * from "./chat-conversations";

@@ -15,6 +15,7 @@ const Env = z.object({
   GOOGLE_API_KEY: z.string().min(1).optional(),
   GOOGLE_PLACES_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   APP_API_KEY: z.string().min(1).optional(),
