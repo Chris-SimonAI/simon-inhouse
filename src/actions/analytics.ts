@@ -103,15 +103,25 @@ export async function getOrdersTimeSeries(options: {
 }): Promise<OrdersTimeSeries[]> {
   const { startDate, endDate, granularity = 'day' } = options;
 
-  const dateFormat = granularity === 'month'
-    ? 'YYYY-MM'
-    : granularity === 'week'
-    ? 'IYYY-IW'
-    : 'YYYY-MM-DD';
+  // Build the appropriate SQL based on granularity
+  // Using sql.raw for the format string since TO_CHAR requires a literal
+  let dateExpr;
+  let groupByExpr;
+
+  if (granularity === 'month') {
+    dateExpr = sql<string>`TO_CHAR(${dineInOrders.createdAt}, 'YYYY-MM')`;
+    groupByExpr = sql`TO_CHAR(${dineInOrders.createdAt}, 'YYYY-MM')`;
+  } else if (granularity === 'week') {
+    dateExpr = sql<string>`TO_CHAR(${dineInOrders.createdAt}, 'IYYY-IW')`;
+    groupByExpr = sql`TO_CHAR(${dineInOrders.createdAt}, 'IYYY-IW')`;
+  } else {
+    dateExpr = sql<string>`TO_CHAR(${dineInOrders.createdAt}, 'YYYY-MM-DD')`;
+    groupByExpr = sql`TO_CHAR(${dineInOrders.createdAt}, 'YYYY-MM-DD')`;
+  }
 
   const result = await db
     .select({
-      date: sql<string>`TO_CHAR(${dineInOrders.createdAt}, ${dateFormat})`,
+      date: dateExpr,
       orders: count(),
       revenue: sql<number>`COALESCE(SUM(CAST(${dineInOrders.totalAmount} AS DECIMAL)), 0)`,
     })
@@ -120,8 +130,8 @@ export async function getOrdersTimeSeries(options: {
       gte(dineInOrders.createdAt, startDate),
       lte(dineInOrders.createdAt, endDate)
     ))
-    .groupBy(sql`TO_CHAR(${dineInOrders.createdAt}, ${dateFormat})`)
-    .orderBy(sql`TO_CHAR(${dineInOrders.createdAt}, ${dateFormat})`);
+    .groupBy(groupByExpr)
+    .orderBy(groupByExpr);
 
   return result.map(r => ({
     date: r.date,
@@ -301,7 +311,8 @@ export async function getGuestMetrics(options?: {
   });
 
   // Build frequency distribution
-  const maxOrders = Math.min(Math.max(...Array.from(freqMap.keys()), 0), 10);
+  const freqKeys = Array.from(freqMap.keys());
+  const maxOrders = freqKeys.length > 0 ? Math.min(Math.max(...freqKeys), 10) : 0;
   for (let i = 1; i <= maxOrders; i++) {
     frequencyDistribution.push({
       orderCount: i === 10 ? '10+' : String(i),
