@@ -287,16 +287,16 @@ export default function MobileChatPage() {
     return (
       <div className="h-full bg-gradient-to-b from-blue-600 to-blue-700 flex flex-col">
         {/* Hero Section */}
-        <div className="pt-12 pb-8 px-6 text-center safe-area-top">
+        <div className="pt-16 pb-10 px-6 text-center safe-area-top">
           <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <Utensils className="w-10 h-10 text-blue-600" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">Simon</h1>
-          <p className="text-blue-100">Food, delivered cheaper</p>
+          <p className="text-blue-200 text-sm">Internal Demo</p>
         </div>
 
         {/* Form Card */}
-        <div className="flex-1 bg-white rounded-t-3xl px-6 pt-8 pb-6">
+        <div className="flex-1 bg-white rounded-t-3xl px-6 pt-8 pb-6 overflow-auto">
           <div className="space-y-6">
             {/* Hotel Selection */}
             <div>
@@ -308,7 +308,7 @@ export default function MobileChatPage() {
                 value={selectedHotelId?.toString() || ''}
                 onValueChange={(val) => setSelectedHotelId(parseInt(val))}
               >
-                <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-blue-500 focus:border-blue-500">
+                <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 data-[state=open]:ring-2 data-[state=open]:ring-blue-500 data-[state=open]:border-blue-500">
                   <SelectValue placeholder="Select your hotel..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -337,7 +337,7 @@ export default function MobileChatPage() {
                         setSelectedGuest(guest || null);
                       }}
                     >
-                      <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-blue-500 focus:border-blue-500">
+                      <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 data-[state=open]:ring-2 data-[state=open]:ring-blue-500 data-[state=open]:border-blue-500">
                         <SelectValue placeholder="Select guest profile..." />
                       </SelectTrigger>
                       <SelectContent>
