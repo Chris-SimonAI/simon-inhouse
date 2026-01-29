@@ -584,36 +584,6 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
                         }`}
                       >
                         <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                        {message.preferencesDetected && message.preferencesDetected.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-blue-500/30 flex flex-wrap gap-1">
-                            {message.preferencesDetected.map((pref, i) => (
-                              <Badge
-                                key={i}
-                                variant="secondary"
-                                className="bg-blue-500/20 text-blue-100 text-[10px]"
-                              >
-                                {pref.type}: {pref.value}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        {message.orderIntent && (
-                          <div className="mt-2 pt-2 border-t border-blue-500/30">
-                            <p className="text-[10px] text-blue-200 uppercase font-medium mb-1">
-                              Order Intent
-                            </p>
-                            {message.orderIntent.items.map((item, i) => (
-                              <div key={i} className="text-xs text-blue-100">
-                                {item.quantity}x {item.name} - ${item.price.toFixed(2)}
-                              </div>
-                            ))}
-                            {message.orderIntent.readyToConfirm && (
-                              <Badge className="mt-1 bg-green-500 text-white text-[10px]">
-                                Ready to confirm
-                              </Badge>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))}
