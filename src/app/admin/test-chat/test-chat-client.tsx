@@ -23,6 +23,7 @@ import {
   X,
   Trash2,
   AlertCircle,
+  Phone,
 } from 'lucide-react';
 import type { Hotel } from '@/db/schemas/hotels';
 import type { GuestPreference } from '@/db/schemas';
@@ -304,6 +305,15 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
 
   const selectedHotel = hotels.find((h) => h.id === selectedHotelId);
 
+  // Format phone for display
+  const formatPhone = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    }
+    return phone;
+  };
+
   // Quick reply suggestions
   const quickReplies = [
     "I'm hungry",
@@ -313,43 +323,95 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
     "what's good around here",
   ];
 
+  // Determine empty state
+  const getEmptyState = () => {
+    if (!selectedHotelId) {
+      return {
+        icon: MapPin,
+        title: 'Select a Hotel',
+        description: 'Choose a hotel location to get started',
+        action: null,
+      };
+    }
+    if (!selectedGuest) {
+      return {
+        icon: User,
+        title: 'Select a Guest',
+        description: 'Choose an existing guest or create a new one',
+        action: (
+          <Button onClick={() => setShowNewGuestForm(true)} className="mt-4">
+            <Plus className="w-4 h-4 mr-2" />
+            Create Test Guest
+          </Button>
+        ),
+      };
+    }
+    return {
+      icon: MessageSquare,
+      title: 'Ready to Chat',
+      description: `Test Simon's ordering experience as ${selectedGuest.name || 'Guest'}`,
+      action: (
+        <Button onClick={startConversation} disabled={isLoading} size="lg" className="mt-4">
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <MessageSquare className="w-4 h-4 mr-2" />
+          )}
+          Start Conversation
+        </Button>
+      ),
+    };
+  };
+
+  const emptyState = getEmptyState();
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-slate-200 bg-white">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Test Chat</h1>
-            <p className="text-slate-500 text-sm mt-0.5">
-              Test the conversational ordering experience
-            </p>
+      <div className="px-6 py-4 border-b border-slate-200 bg-white">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <h1 className="text-xl font-semibold text-slate-900">Test Chat</h1>
+            <p className="text-slate-500 text-sm">Simulate the guest ordering experience</p>
           </div>
-          {selectedGuest && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowPreferencesSidebar(!showPreferencesSidebar)}
-            >
-              {showPreferencesSidebar ? 'Hide' : 'Show'} Preferences
-            </Button>
-          )}
+
+          {/* Actions - only show when relevant */}
+          <div className="flex items-center gap-2">
+            {selectedGuest && !conversationId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetGuest}
+                disabled={isLoading}
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                Reset Guest
+              </Button>
+            )}
+            {selectedGuest && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPreferencesSidebar(!showPreferencesSidebar)}
+              >
+                {showPreferencesSidebar ? 'Hide' : 'Show'} Preferences
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Selectors */}
-        <div className="flex flex-wrap gap-3">
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-xs font-medium text-slate-500 mb-1.5 block">Hotel Location</label>
+        {/* Selectors - cleaner layout */}
+        <div className="flex gap-3 mt-4">
+          <div className="w-64">
+            <label className="text-xs font-medium text-slate-500 mb-1.5 block">Hotel</label>
             <Select value={selectedHotelId?.toString() || ''} onValueChange={handleSelectHotel}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a hotel..." />
+              <SelectTrigger>
+                <SelectValue placeholder="Select hotel..." />
               </SelectTrigger>
               <SelectContent>
                 {hotels.map((hotel) => (
                   <SelectItem key={hotel.id} value={hotel.id.toString()}>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3 h-3 text-slate-400" />
-                      {hotel.name}
-                    </div>
+                    {hotel.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -357,22 +419,28 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
           </div>
 
           {selectedHotelId && (
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Test Guest</label>
+            <div className="w-72">
+              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Guest</label>
               <div className="flex gap-2">
                 <Select
                   value={selectedGuest?.id.toString() || ''}
                   onValueChange={handleSelectGuest}
                 >
                   <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select or create guest..." />
+                    <SelectValue placeholder="Select guest...">
+                      {selectedGuest && (
+                        <span className="truncate">
+                          {selectedGuest.name || formatPhone(selectedGuest.phone)}
+                        </span>
+                      )}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {guests.map((guest) => (
                       <SelectItem key={guest.id} value={guest.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <User className="w-3 h-3 text-slate-400" />
-                          {guest.name || guest.phone}
+                        <div className="flex flex-col">
+                          <span className="font-medium">{guest.name || 'Unnamed'}</span>
+                          <span className="text-xs text-slate-500">{formatPhone(guest.phone)}</span>
                         </div>
                       </SelectItem>
                     ))}
@@ -382,35 +450,11 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
                   variant="outline"
                   size="icon"
                   onClick={() => setShowNewGuestForm(true)}
-                  title="Create new test guest"
+                  title="Create new guest"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
-            </div>
-          )}
-
-          {selectedGuest && (
-            <div className="flex items-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleResetGuest}
-                disabled={isLoading}
-              >
-                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                Reset
-              </Button>
-              {!conversationId && (
-                <Button onClick={startConversation} disabled={isLoading}>
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                  )}
-                  Start Chat
-                </Button>
-              )}
             </div>
           )}
         </div>
@@ -419,7 +463,7 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
       {/* Error Banner */}
       {error && (
         <div className="px-6 py-3 bg-red-50 border-b border-red-100 flex items-center gap-2 text-red-700 text-sm">
-          <AlertCircle className="w-4 h-4" />
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
           <button onClick={() => setError(null)} className="ml-auto text-red-500 hover:text-red-700">
             <X className="w-4 h-4" />
@@ -432,7 +476,7 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Create Test Guest</h2>
+              <h2 className="text-lg font-semibold text-slate-900">New Test Guest</h2>
               <button
                 onClick={() => setShowNewGuestForm(false)}
                 className="text-slate-400 hover:text-slate-600"
@@ -447,6 +491,7 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
                   value={newGuestName}
                   onChange={(e) => setNewGuestName(e.target.value)}
                   placeholder="John Smith"
+                  autoFocus
                 />
               </div>
               <div>
@@ -457,22 +502,24 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
                   placeholder="512-555-1234"
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">Email</label>
-                <Input
-                  type="email"
-                  value={newGuestEmail}
-                  onChange={(e) => setNewGuestEmail(e.target.value)}
-                  placeholder="john@example.com"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">Room Number</label>
-                <Input
-                  value={newGuestRoom}
-                  onChange={(e) => setNewGuestRoom(e.target.value)}
-                  placeholder="101"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Room</label>
+                  <Input
+                    value={newGuestRoom}
+                    onChange={(e) => setNewGuestRoom(e.target.value)}
+                    placeholder="101"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Email</label>
+                  <Input
+                    type="email"
+                    value={newGuestEmail}
+                    onChange={(e) => setNewGuestEmail(e.target.value)}
+                    placeholder="john@email.com"
+                  />
+                </div>
               </div>
               <div className="flex gap-3 pt-2">
                 <Button
@@ -487,7 +534,7 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
                   onClick={handleCreateGuest}
                   disabled={!newGuestName || !newGuestPhone || isLoading}
                 >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Guest'}
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create'}
                 </Button>
               </div>
             </div>
@@ -500,25 +547,26 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
         {/* Chat Area */}
         <div className="flex-1 flex flex-col bg-slate-50">
           {!conversationId ? (
+            // Empty state - clickable to start
             <div className="flex-1 flex items-center justify-center p-8">
-              <div className="text-center max-w-md">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-100 flex items-center justify-center">
-                  <MessageSquare className="w-8 h-8 text-blue-600" />
+              <div
+                className={`text-center max-w-sm ${selectedGuest ? 'cursor-pointer' : ''}`}
+                onClick={selectedGuest ? startConversation : undefined}
+              >
+                <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center ${
+                  selectedGuest ? 'bg-blue-100' : 'bg-slate-100'
+                }`}>
+                  <emptyState.icon className={`w-8 h-8 ${
+                    selectedGuest ? 'text-blue-600' : 'text-slate-400'
+                  }`} />
                 </div>
-                <h2 className="text-lg font-semibold text-slate-900 mb-2">
-                  {!selectedHotelId
-                    ? 'Select a Hotel'
-                    : !selectedGuest
-                    ? 'Select or Create a Guest'
-                    : 'Ready to Chat'}
+                <h2 className="text-lg font-semibold text-slate-900 mb-1">
+                  {emptyState.title}
                 </h2>
                 <p className="text-slate-500 text-sm">
-                  {!selectedHotelId
-                    ? 'Choose a hotel location to see available restaurants and menus.'
-                    : !selectedGuest
-                    ? 'Select an existing guest or create a new test guest profile.'
-                    : 'Click "Start Chat" to begin testing the conversational ordering experience.'}
+                  {emptyState.description}
                 </p>
+                {emptyState.action}
               </div>
             </div>
           ) : (
@@ -644,7 +692,7 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
 
         {/* Preferences Sidebar */}
         {showPreferencesSidebar && selectedGuest && (
-          <div className="w-80 border-l border-slate-200 bg-white flex flex-col">
+          <div className="w-72 border-l border-slate-200 bg-white flex flex-col">
             <div className="p-4 border-b border-slate-200">
               <h3 className="font-semibold text-slate-900">Guest Preferences</h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -659,7 +707,7 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
                   </div>
                   <p className="text-sm text-slate-500">No preferences yet</p>
                   <p className="text-xs text-slate-400 mt-1">
-                    Preferences will appear as Simon learns from the conversation
+                    Preferences appear as Simon learns from chat
                   </p>
                 </div>
               ) : (
@@ -683,7 +731,7 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
                             {pref.preferenceValue}
                           </p>
                           <p className="text-[10px] text-slate-400 mt-0.5 capitalize">
-                            Source: {pref.source}
+                            {pref.source}
                           </p>
                         </div>
                         <button
@@ -702,23 +750,21 @@ export function TestChatClient({ hotels, initialGuests }: TestChatClientProps) {
             {/* Guest Info */}
             <div className="p-4 border-t border-slate-200 bg-slate-50">
               <h4 className="text-xs font-medium text-slate-500 mb-2">Guest Info</h4>
-              <div className="space-y-1 text-sm">
+              <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Name</span>
-                  <span className="text-slate-900">{selectedGuest.name || '-'}</span>
+                  <span className="text-slate-900 font-medium">{selectedGuest.name || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Phone</span>
-                  <span className="text-slate-900">{selectedGuest.phone}</span>
+                  <span className="text-slate-900">{formatPhone(selectedGuest.phone)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Room</span>
-                  <span className="text-slate-900">{selectedGuest.roomNumber || '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Hotel</span>
-                  <span className="text-slate-900">{selectedHotel?.name || '-'}</span>
-                </div>
+                {selectedGuest.roomNumber && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Room</span>
+                    <span className="text-slate-900">{selectedGuest.roomNumber}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
