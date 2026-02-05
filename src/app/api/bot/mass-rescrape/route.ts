@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
 
         let itemSortOrder = 0;
         for (const item of categoryItems) {
-          await db.insert(menuItems).values({
+          const [createdItem] = await db.insert(menuItems).values({
             menuGroupId: group.id,
             menuItemGuid: uuidv4(),
             name: item.name,
@@ -123,8 +123,36 @@ export async function POST(request: NextRequest) {
             sortOrder: itemSortOrder++,
             isAvailable: true,
             status: "approved",
-          });
+          }).returning();
           totalItemsCreated++;
+
+          // Save modifier groups and options
+          if (item.modifierGroups && item.modifierGroups.length > 0) {
+            for (const modGroup of item.modifierGroups) {
+              const [createdModGroup] = await db.insert(modifierGroups).values({
+                menuItemId: createdItem.id,
+                modifierGroupGuid: uuidv4(),
+                name: modGroup.name,
+                isRequired: modGroup.required,
+                minSelections: modGroup.minSelections,
+                maxSelections: modGroup.maxSelections,
+                isMultiSelect: modGroup.maxSelections > 1,
+                status: "approved",
+              }).returning();
+
+              for (const option of modGroup.options) {
+                await db.insert(modifierOptions).values({
+                  modifierGroupId: createdModGroup.id,
+                  modifierOptionGuid: uuidv4(),
+                  name: option.name,
+                  price: option.price.toFixed(2),
+                  isDefault: false,
+                  isAvailable: true,
+                  status: "approved",
+                });
+              }
+            }
+          }
         }
       }
 
