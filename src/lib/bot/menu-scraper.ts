@@ -221,6 +221,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 800 },
     locale: 'en-US',
+    ignoreHTTPSErrors: !!proxyUrl,
   });
 
   // Hide automation signals from Cloudflare
