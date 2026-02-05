@@ -207,7 +207,12 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
 
   if (proxyUrl) {
     console.log('  Using residential proxy for scraping');
-    launchOptions.proxy = { server: proxyUrl };
+    const parsed = new URL(proxyUrl);
+    launchOptions.proxy = {
+      server: `${parsed.protocol}//${parsed.host}`,
+      username: decodeURIComponent(parsed.username),
+      password: decodeURIComponent(parsed.password),
+    };
   }
 
   const browser = await chromium.launch(launchOptions);
