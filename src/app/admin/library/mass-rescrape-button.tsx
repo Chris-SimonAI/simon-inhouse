@@ -95,7 +95,7 @@ export function MassRescrapeButton() {
           itemCount: result.itemCount,
         });
         setResults([...newResults]);
-      } catch (error) {
+      } catch (_error) {
         newResults.push({
           restaurantId: restaurant.id,
           restaurantName: restaurant.name,
