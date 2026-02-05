@@ -11,7 +11,7 @@ export const maxDuration = 300; // 5 minutes max per request
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { restaurantId, skipModifiers = true } = body;
+    const { restaurantId, skipModifiers = false } = body;
 
     // Get the restaurant
     const [restaurant] = await db
