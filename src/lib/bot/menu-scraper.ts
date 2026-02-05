@@ -196,12 +196,25 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
       '--disable-blink-features=AutomationControlled',
       '--disable-dev-shm-usage',
       '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-gpu',
+      '--disable-web-security',
+      '--disable-features=VizDisplayCompositor',
     ],
   });
 
   const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    viewport: { width: 1280, height: 800 },
+    locale: 'en-US',
   });
+
+  // Hide automation signals from Cloudflare
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    (window as Record<string, unknown>).chrome = { runtime: {} };
+  });
+
   const page = await context.newPage();
 
   try {
@@ -212,17 +225,40 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
       timeout: 60000
     });
 
-    await page.waitForTimeout(3000);
+    // Wait for page to fully render - longer wait for server environments
+    await page.waitForTimeout(5000);
 
     // Handle Cloudflare challenge
-    const cfChallenge = await page.locator('text="Verify you are human"').isVisible({ timeout: 2000 }).catch(() => false);
-    if (cfChallenge) {
-      console.log('  Cloudflare challenge detected, attempting to solve...');
+    const cfChallenge = await page.locator('text="Verify you are human"').isVisible({ timeout: 3000 }).catch(() => false);
+    const cfTurnstile = await page.locator('iframe[src*="challenges.cloudflare.com"]').isVisible({ timeout: 1000 }).catch(() => false);
+
+    if (cfChallenge || cfTurnstile) {
+      console.log('  Cloudflare challenge detected, waiting for resolution...');
+      // Try clicking the checkbox/turnstile
       const checkbox = page.locator('input[type="checkbox"]').first();
       if (await checkbox.isVisible({ timeout: 2000 }).catch(() => false)) {
         await checkbox.click();
       }
-      await page.waitForTimeout(10000);
+      // Wait longer for challenge to resolve
+      await page.waitForTimeout(15000);
+
+      // Check if we're still on a challenge page
+      const stillBlocked = await page.locator('text="Verify you are human"').isVisible({ timeout: 2000 }).catch(() => false);
+      if (stillBlocked) {
+        console.log('  Cloudflare challenge still present, waiting more...');
+        await page.waitForTimeout(10000);
+      }
+    }
+
+    // Check if we got a Cloudflare block page instead of the menu
+    const pageTitle = await page.title();
+    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
+      console.log('  Cloudflare block page detected, retrying with networkidle...');
+      await page.goto(restaurantUrl, {
+        waitUntil: 'networkidle',
+        timeout: 60000
+      });
+      await page.waitForTimeout(5000);
     }
 
     await dismissPopups(page);
@@ -316,7 +352,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
     await page.evaluate(() => window.scrollTo(0, 500));
     await page.waitForTimeout(2000);
 
-    // Wait for menu items
+    // Wait for menu items with retry logic
     const menuSelectors = [
       '[data-testid="menu-item-card"]',
       'li.item',
@@ -329,20 +365,40 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
     ];
 
     let menuFound = false;
-    for (const selector of menuSelectors) {
-      try {
-        const count = await page.locator(selector).count();
-        if (count > 0) {
-          menuFound = true;
-          console.log(`  Found ${count} menu items with: ${selector}`);
-          break;
+    let foundSelector = '';
+
+    // Try multiple times with increasing waits for slow-loading pages
+    for (let attempt = 0; attempt < 3 && !menuFound; attempt++) {
+      if (attempt > 0) {
+        console.log(`  Retry ${attempt}: waiting for menu items to load...`);
+        await page.waitForTimeout(3000);
+      }
+
+      for (const selector of menuSelectors) {
+        try {
+          // Wait for at least one element to appear
+          const locator = page.locator(selector).first();
+          await locator.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+
+          const count = await page.locator(selector).count();
+          if (count > 0) {
+            menuFound = true;
+            foundSelector = selector;
+            console.log(`  Found ${count} menu items with: ${selector}`);
+            break;
+          }
+        } catch {
+          // Try next
         }
-      } catch {
-        // Try next
       }
     }
 
     if (!menuFound) {
+      // Log page info for debugging
+      const pageTitle = await page.title();
+      const pageUrl = page.url();
+      console.log(`  Page title: ${pageTitle}`);
+      console.log(`  Page URL: ${pageUrl}`);
       throw new Error('Could not find menu items on page');
     }
 
@@ -504,7 +560,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
 
             // Scrape modifiers from the modal
             const { modifierGroups, flatModifiers } = await page.evaluate((args: { itemName: string; isAddDisabled: boolean }) => {
-              const { itemName, isAddDisabled } = args;
+              const { itemName } = args;
               const groups: Array<{
                 name: string;
                 required: boolean;
@@ -515,61 +571,163 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
               const flatModifiers: Array<{ name: string; price: number; groupName?: string }> = [];
               const seenOptions = new Set<string>();
 
-              const wordToNum: Record<string, string> = {
-                'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
-                'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
-              };
+              const modal = document.querySelector('[role="dialog"]');
+              if (!modal) return { modifierGroups: groups, flatModifiers };
 
-              const pageText = document.body.innerText || '';
-              const hasRequiredAnywhere = /\bRequired\b/i.test(pageText);
-              const radioInputs = document.querySelectorAll('input[type="radio"]');
-              const hasRadiosAnywhere = radioInputs.length > 0;
-              const ariaRequired = document.querySelectorAll('[aria-required="true"]').length > 0;
-              const dataRequired = document.querySelectorAll('[data-required="true"]').length > 0;
+              // Toast-specific: Find modifier sections using their class names
+              const modSections = modal.querySelectorAll('.modSection');
 
-              const modal = document.querySelector('[role="dialog"], [class*="modal" i], [class*="drawer" i]');
-              const modalText = modal?.textContent || '';
-              const hasRequiredInModal = /\bRequired\b/i.test(modalText);
+              if (modSections.length > 0) {
+                modSections.forEach((section) => {
+                  // Get group name from .modSectionTitle
+                  const titleEl = section.querySelector('.modSectionTitle');
+                  let groupName = titleEl?.textContent?.trim() || 'Options';
+                  // Remove "Required" text that might be appended
+                  groupName = groupName.replace(/Required$/i, '').trim();
 
-              let normalizedText = pageText.toLowerCase();
-              Object.entries(wordToNum).forEach(([word, num]) => {
-                normalizedText = normalizedText.replace(new RegExp('\\b' + word + '\\b', 'g'), num);
-              });
+                  // Get selection rules from .modSectionSubtitle
+                  const subtitleEl = section.querySelector('.modSectionSubtitle');
+                  const subtitleText = subtitleEl?.textContent?.toLowerCase() || '';
 
-              let minSelections = 0;
-              let maxSelections = 10;
+                  // Determine if required
+                  const titleContainer = section.querySelector('.modSectionTitleContainer');
+                  const hasRequiredBadge = titleContainer?.textContent?.includes('Required') || false;
+                  const hasRadios = section.querySelectorAll('input[type="radio"]').length > 0;
+                  const isRequired = hasRequiredBadge || hasRadios;
 
-              const atLeastMatch = normalizedText.match(/select\s*at\s*least\s*(\d+)/);
-              if (atLeastMatch) minSelections = parseInt(atLeastMatch[1]);
+                  // Parse selection counts from subtitle
+                  let minSelections = 0;
+                  let maxSelections = 10;
 
-              const upToMatch = normalizedText.match(/(?:up\s*to|max(?:imum)?)\s*(\d+)/);
-              if (upToMatch) maxSelections = parseInt(upToMatch[1]);
+                  // "Select 1" -> min=1, max=1
+                  const exactMatch = subtitleText.match(/select\s+(\d+)$/);
+                  if (exactMatch) {
+                    minSelections = parseInt(exactMatch[1]);
+                    maxSelections = parseInt(exactMatch[1]);
+                  }
 
-              const exactMatch = normalizedText.match(/(?:choose|select|pick)\s*(\d+)(?!\s*(?:at|up|or|to))/);
-              if (exactMatch && !atLeastMatch && !upToMatch) {
-                minSelections = parseInt(exactMatch[1]);
-                maxSelections = parseInt(exactMatch[1]);
-              }
+                  // "Select 1 to 2" -> min=1, max=2
+                  const rangeMatch = subtitleText.match(/select\s+(\d+)\s+to\s+(\d+)/);
+                  if (rangeMatch) {
+                    minSelections = parseInt(rangeMatch[1]);
+                    maxSelections = parseInt(rangeMatch[2]);
+                  }
 
-              const isRequired = hasRequiredAnywhere || hasRequiredInModal || isAddDisabled || hasRadiosAnywhere || ariaRequired || dataRequired;
-              if (isRequired && minSelections === 0) minSelections = 1;
-              if (hasRadiosAnywhere) maxSelections = 1;
+                  // "Select up to 3" -> min=0, max=3
+                  const upToMatch = subtitleText.match(/(?:up\s+to|max(?:imum)?)\s+(\d+)/);
+                  if (upToMatch) {
+                    maxSelections = parseInt(upToMatch[1]);
+                  }
 
-              // Find modifier groups by looking for fieldsets or labeled sections
-              const modifierSections = document.querySelectorAll('fieldset, [class*="modifierGroup"], [class*="ModifierGroup"], [class*="modifier-group"]');
+                  // "Optional" -> min=0
+                  if (subtitleText.includes('optional')) {
+                    minSelections = 0;
+                  }
 
-              if (modifierSections.length > 0) {
-                // Parse each modifier section
-                modifierSections.forEach((section) => {
-                  const legend = section.querySelector('legend, h3, h4, [class*="groupName"], [class*="header"]');
-                  const groupName = legend?.textContent?.replace(/\s*\(.*\)/, '').trim() || 'Options';
+                  // If required but no min set, default to 1
+                  if (isRequired && minSelections === 0) {
+                    minSelections = 1;
+                  }
 
-                  const sectionText = section.textContent?.toLowerCase() || '';
-                  const groupRequired = /required/i.test(sectionText) || section.querySelectorAll('input[type="radio"]').length > 0;
+                  // If radio buttons, max is 1
+                  if (hasRadios) {
+                    maxSelections = 1;
+                  }
 
+                  // Get options from .option elements
                   const options: Array<{ name: string; price: number }> = [];
+                  const optionEls = section.querySelectorAll('.option');
 
-                  section.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(input => {
+                  optionEls.forEach((optionEl) => {
+                    // Get modifier name from .modifierText or similar
+                    const nameEl = optionEl.querySelector('.modifierText, .modifierTextContent, [class*="modifierText"]');
+                    let name = nameEl?.textContent?.trim() || '';
+
+                    // Fallback: try getting text from label or the option itself
+                    if (!name) {
+                      const label = optionEl.querySelector('label');
+                      name = label?.textContent?.replace(/\+?\$[\d.]+/g, '').trim() || '';
+                    }
+
+                    // Clean up name
+                    name = name.replace(/\+?\$[\d.]+/g, '').replace(/\s+/g, ' ').trim();
+
+                    if (!name || name.length < 2 || name.length > 80 || seenOptions.has(name)) return;
+                    const lower = name.toLowerCase();
+                    if (lower.includes('add to') || lower.includes('cart') || lower.includes('quantity') ||
+                        lower.includes('special instruction') || lower.includes('subscribe') ||
+                        lower.includes('marketing') || name === itemName) return;
+
+                    // Get price
+                    let price = 0;
+                    const optionText = optionEl.textContent || '';
+                    const priceMatch = optionText.match(/\+?\$(\d+\.?\d*)/);
+                    if (priceMatch) price = parseFloat(priceMatch[1]);
+
+                    seenOptions.add(name);
+                    options.push({ name, price });
+                    flatModifiers.push({ name, price, groupName });
+                  });
+
+                  if (options.length > 0) {
+                    groups.push({
+                      name: groupName,
+                      required: isRequired,
+                      minSelections,
+                      maxSelections,
+                      options
+                    });
+                  }
+                });
+              } else {
+                // Fallback for non-Toast sites or different layouts
+                const fallbackSections = modal.querySelectorAll('fieldset, [class*="modifierGroup"], [class*="ModifierGroup"]');
+
+                if (fallbackSections.length > 0) {
+                  fallbackSections.forEach((section) => {
+                    const legend = section.querySelector('legend, h3, h4, [class*="groupName"], [class*="header"]');
+                    const groupName = legend?.textContent?.replace(/\s*\(.*\)/, '').replace(/Required$/i, '').trim() || 'Options';
+                    const sectionText = section.textContent?.toLowerCase() || '';
+                    const groupRequired = /required/i.test(sectionText) || section.querySelectorAll('input[type="radio"]').length > 0;
+
+                    const options: Array<{ name: string; price: number }> = [];
+
+                    section.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(input => {
+                      const label = (input as HTMLInputElement).closest('label') || input.parentElement;
+                      if (!label) return;
+
+                      const text = label.textContent || '';
+                      const name = text.replace(/\+?\$[\d.]+/g, '').trim().replace(/\s+/g, ' ');
+
+                      if (!name || name.length < 2 || name.length > 80 || seenOptions.has(name)) return;
+                      const lower = name.toLowerCase();
+                      if (lower.includes('add to') || lower.includes('cart') || lower.includes('quantity') ||
+                          lower.includes('special instruction') || lower.includes('subscribe') ||
+                          lower.includes('marketing') || name === itemName) return;
+
+                      let price = 0;
+                      const priceMatch = text.match(/\+?\$(\d+\.?\d*)/);
+                      if (priceMatch) price = parseFloat(priceMatch[1]);
+
+                      seenOptions.add(name);
+                      options.push({ name, price });
+                      flatModifiers.push({ name, price, groupName });
+                    });
+
+                    if (options.length > 0) {
+                      groups.push({
+                        name: groupName,
+                        required: groupRequired,
+                        minSelections: groupRequired ? 1 : 0,
+                        maxSelections: section.querySelectorAll('input[type="radio"]').length > 0 ? 1 : 10,
+                        options
+                      });
+                    }
+                  });
+                } else {
+                  // Last resort: collect all checkboxes/radios
+                  const options: Array<{ name: string; price: number }> = [];
+                  modal.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(input => {
                     const label = (input as HTMLInputElement).closest('label') || input.parentElement;
                     if (!label) return;
 
@@ -588,52 +746,18 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
 
                     seenOptions.add(name);
                     options.push({ name, price });
-                    flatModifiers.push({ name, price, groupName });
+                    flatModifiers.push({ name, price });
                   });
 
                   if (options.length > 0) {
                     groups.push({
-                      name: groupName,
-                      required: groupRequired,
-                      minSelections: groupRequired ? 1 : 0,
-                      maxSelections: section.querySelectorAll('input[type="radio"]').length > 0 ? 1 : 10,
+                      name: 'Customizations',
+                      required: false,
+                      minSelections: 0,
+                      maxSelections: 10,
                       options
                     });
                   }
-                });
-              } else {
-                // Fallback: collect all modifiers without group structure
-                const options: Array<{ name: string; price: number }> = [];
-                document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(input => {
-                  const label = (input as HTMLInputElement).closest('label') || input.parentElement;
-                  if (!label) return;
-
-                  const text = label.textContent || '';
-                  const name = text.replace(/\+?\$[\d.]+/g, '').trim().replace(/\s+/g, ' ');
-
-                  if (!name || name.length < 2 || name.length > 80 || seenOptions.has(name)) return;
-                  const lower = name.toLowerCase();
-                  if (lower.includes('add to') || lower.includes('cart') || lower.includes('quantity') ||
-                      lower.includes('special instruction') || lower.includes('subscribe') ||
-                      lower.includes('marketing') || name === itemName) return;
-
-                  let price = 0;
-                  const priceMatch = text.match(/\+?\$(\d+\.?\d*)/);
-                  if (priceMatch) price = parseFloat(priceMatch[1]);
-
-                  seenOptions.add(name);
-                  options.push({ name, price });
-                  flatModifiers.push({ name, price, groupName: isRequired ? 'Selection Required' : undefined });
-                });
-
-                if (options.length > 0) {
-                  groups.push({
-                    name: isRequired ? 'Selection Required' : 'Customizations',
-                    required: isRequired,
-                    minSelections,
-                    maxSelections,
-                    options
-                  });
                 }
               }
 

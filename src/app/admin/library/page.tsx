@@ -7,6 +7,7 @@ import { ToggleRestaurantStatus } from "./toggle-restaurant-status";
 import { RescrapeMenuButton } from "./rescrape-menu-button";
 import { AddRestaurantDialog } from "./add-restaurant-dialog";
 import { CheckStatusButton } from "./check-status-button";
+import { MassRescrapeButton } from "./mass-rescrape-button";
 import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,10 @@ export default async function LibraryPage() {
             {restaurants.length} restaurants · Link restaurants to multiple hotels
           </p>
         </div>
-        <AddRestaurantDialog />
+        <div className="flex items-center gap-3">
+          <MassRescrapeButton />
+          <AddRestaurantDialog />
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
