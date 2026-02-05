@@ -190,7 +190,9 @@ async function scrapeHours(page: Page): Promise<RestaurantHours | undefined> {
 export async function scrapeMenu(restaurantUrl: string, options?: { skipModifiers?: boolean }): Promise<ScrapedMenu> {
   const skipModifiers = options?.skipModifiers ?? false;
 
-  const browser = await chromium.launch({
+  // Use residential proxy if configured (bypasses Cloudflare datacenter IP blocking)
+  const proxyUrl = process.env.SCRAPER_PROXY_URL;
+  const launchOptions: Parameters<typeof chromium.launch>[0] = {
     headless: true,
     args: [
       '--disable-blink-features=AutomationControlled',
@@ -201,7 +203,14 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
       '--disable-web-security',
       '--disable-features=VizDisplayCompositor',
     ],
-  });
+  };
+
+  if (proxyUrl) {
+    console.log('  Using residential proxy for scraping');
+    launchOptions.proxy = { server: proxyUrl };
+  }
+
+  const browser = await chromium.launch(launchOptions);
 
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
