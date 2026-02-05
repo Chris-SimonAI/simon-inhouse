@@ -817,7 +817,6 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
               await page.keyboard.press('Escape');
               await page.waitForTimeout(500);
             }
-          }
         } catch (e: unknown) {
           console.log(`  Error scraping ${item.name}: ${e instanceof Error ? e.message : String(e)}`);
           await page.keyboard.press('Escape').catch(() => {});
