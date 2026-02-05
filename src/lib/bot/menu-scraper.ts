@@ -548,24 +548,20 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
       let modalOpenFailures = 0;
       let clickFailures = 0;
 
-      for (let i = 0; i < Math.min(items.length, 50); i++) {
+      // Get all clickable item cards by index (avoids name-matching and visibility issues)
+      const allItemCards = page.locator('[data-testid="menu-item-card"]');
+      const totalCards = await allItemCards.count();
+      console.log(`  Found ${totalCards} clickable item cards`);
+
+      for (let i = 0; i < Math.min(totalCards, 50); i++) {
         const item = items[i];
+        if (!item) continue;
         itemsAttempted++;
         try {
-          // Click on the item to open modal - escape special regex chars in name
-          const safeName = item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const itemCard = page.locator(`[data-testid="menu-item-card"]:has-text("${safeName}")`).first();
-          const cardVisible = await itemCard.isVisible({ timeout: 2000 }).catch(() => false);
-
-          const itemElement = cardVisible ? itemCard : page.locator(`li.item:has-text("${safeName}")`).first();
-
-          const visible = await itemElement.isVisible({ timeout: 2000 }).catch(() => false);
-          if (!visible) {
-            clickFailures++;
-            continue;
-          }
-
-          await itemElement.click();
+          // Click by index - Playwright auto-scrolls into view
+          const card = allItemCards.nth(i);
+          await card.scrollIntoViewIfNeeded().catch(() => {});
+          await card.click({ timeout: 5000 });
 
           // Wait for modal to appear - longer timeout for proxy
           const addButton = page.locator('button:has-text("Add")').first();
@@ -578,7 +574,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
             continue;
           }
 
-          // Wait longer for modifier sections to render
+          // Wait for modifier sections to render
           await page.waitForTimeout(1000);
 
             // Check if Add button is disabled (indicates required selection)
