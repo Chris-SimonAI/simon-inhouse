@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeMenu } from "@/lib/bot/menu-scraper";
 import { db } from "@/db";
 import { dineInRestaurants, menus, menuGroups, menuItems, modifierGroups, modifierOptions } from "@/db/schemas";
-import { eq, isNotNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 
 export const runtime = "nodejs";

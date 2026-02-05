@@ -365,7 +365,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
     ];
 
     let menuFound = false;
-    let foundSelector = '';
+
 
     // Try multiple times with increasing waits for slow-loading pages
     for (let attempt = 0; attempt < 3 && !menuFound; attempt++) {
@@ -383,7 +383,6 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
           const count = await page.locator(selector).count();
           if (count > 0) {
             menuFound = true;
-            foundSelector = selector;
             console.log(`  Found ${count} menu items with: ${selector}`);
             break;
           }

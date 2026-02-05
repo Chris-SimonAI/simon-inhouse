@@ -56,8 +56,7 @@ export function MassRescrapeButton() {
         toast.error("Failed to fetch restaurants");
         setPhase('idle');
       }
-    } catch (error) {
-      console.error("Error fetching restaurants:", error);
+    } catch (_error) {
       toast.error("Failed to fetch restaurants");
       setPhase('idle');
     }
@@ -152,7 +151,7 @@ export function MassRescrapeButton() {
           <DialogHeader>
             <DialogTitle>Mass Rescrape All Menus</DialogTitle>
             <DialogDescription>
-              Re-scrape all restaurant menus from Toast to ensure they're up to date.
+              Re-scrape all restaurant menus from Toast to ensure they&apos;re up to date.
               This helps catch website changes before they affect orders.
             </DialogDescription>
           </DialogHeader>
