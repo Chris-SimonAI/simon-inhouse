@@ -212,7 +212,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
   // Hide automation signals from Cloudflare
   await context.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    (window as Record<string, unknown>).chrome = { runtime: {} };
+    (window as unknown as Record<string, unknown>).chrome = { runtime: {} };
   });
 
   const page = await context.newPage();
