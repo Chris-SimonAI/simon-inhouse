@@ -542,32 +542,44 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
 
     // Scrape modifiers by clicking each item
     if (!skipModifiers) {
-      console.log('Scraping modifiers for each item...');
+      console.log(`Scraping modifiers for ${Math.min(items.length, 50)} items...`);
+      let itemsAttempted = 0;
+      let itemsWithModifiers = 0;
+      let modalOpenFailures = 0;
+      let clickFailures = 0;
 
       for (let i = 0; i < Math.min(items.length, 50); i++) {
         const item = items[i];
+        itemsAttempted++;
         try {
-          // Click on the item to open modal
-          const itemCard = page.locator(`[data-testid="menu-item-card"]:has-text("${item.name}")`).first();
-          const cardVisible = await itemCard.isVisible({ timeout: 1000 }).catch(() => false);
+          // Click on the item to open modal - escape special regex chars in name
+          const safeName = item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const itemCard = page.locator(`[data-testid="menu-item-card"]:has-text("${safeName}")`).first();
+          const cardVisible = await itemCard.isVisible({ timeout: 2000 }).catch(() => false);
 
-          const itemElement = cardVisible ? itemCard : page.locator(`span:has-text("${item.name}")`).first();
+          const itemElement = cardVisible ? itemCard : page.locator(`li.item:has-text("${safeName}")`).first();
 
-          const visible = await itemElement.isVisible({ timeout: 1000 }).catch(() => false);
-          if (visible) {
-            await itemElement.click();
+          const visible = await itemElement.isVisible({ timeout: 2000 }).catch(() => false);
+          if (!visible) {
+            clickFailures++;
+            continue;
+          }
 
-            // Wait for modal to appear
-            const addButton = page.locator('button:has-text("Add")').first();
-            const modalOpened = await addButton.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false);
+          await itemElement.click();
 
-            if (!modalOpened) {
-              await page.keyboard.press('Escape').catch(() => {});
-              await page.waitForTimeout(300);
-              continue;
-            }
+          // Wait for modal to appear - longer timeout for proxy
+          const addButton = page.locator('button:has-text("Add")').first();
+          const modalOpened = await addButton.waitFor({ state: 'visible', timeout: 8000 }).then(() => true).catch(() => false);
 
+          if (!modalOpened) {
+            modalOpenFailures++;
+            await page.keyboard.press('Escape').catch(() => {});
             await page.waitForTimeout(500);
+            continue;
+          }
+
+          // Wait longer for modifier sections to render
+          await page.waitForTimeout(1000);
 
             // Check if Add button is disabled (indicates required selection)
             const addButtonDisabled = await addButton.evaluate(el => (el as HTMLButtonElement).disabled).catch(() => false);
@@ -781,15 +793,26 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
             if (flatModifiers.length > 0) {
               item.modifiers = flatModifiers;
               item.modifierGroups = modifierGroups;
+              itemsWithModifiers++;
               const requiredGroups = modifierGroups.filter(g => g.required).length;
-              console.log(`  ${item.name}: ${flatModifiers.length} modifiers (${requiredGroups} required groups)`);
+              console.log(`  ${item.name}: ${flatModifiers.length} modifiers in ${modifierGroups.length} groups (${requiredGroups} required)`);
+            } else {
+              // Debug: check what's in the modal
+              const debugInfo = await page.evaluate(() => {
+                const modal = document.querySelector('[role="dialog"]');
+                if (!modal) return 'NO MODAL FOUND';
+                const modSections = modal.querySelectorAll('.modSection');
+                const allClasses = Array.from(modal.querySelectorAll('*')).slice(0, 50).map(el => el.className).filter(Boolean);
+                return `modal found, ${modSections.length} .modSection elements, sample classes: ${allClasses.slice(0, 10).join(', ')}`;
+              });
+              console.log(`  ${item.name}: no modifiers found (${debugInfo})`);
             }
 
             // Close the modal
             await page.keyboard.press('Escape');
-            await page.waitForTimeout(800);
+            await page.waitForTimeout(1000);
 
-            const stillVisible = await addButton.isVisible({ timeout: 300 }).catch(() => false);
+            const stillVisible = await addButton.isVisible({ timeout: 500 }).catch(() => false);
             if (stillVisible) {
               await page.keyboard.press('Escape');
               await page.waitForTimeout(500);
@@ -798,9 +821,10 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
         } catch (e: unknown) {
           console.log(`  Error scraping ${item.name}: ${e instanceof Error ? e.message : String(e)}`);
           await page.keyboard.press('Escape').catch(() => {});
-          await page.waitForTimeout(300);
+          await page.waitForTimeout(500);
         }
       }
+      console.log(`Modifier scraping complete: ${itemsAttempted} attempted, ${itemsWithModifiers} had modifiers, ${clickFailures} click failures, ${modalOpenFailures} modal failures`);
     }
 
     const slugMatch = restaurantUrl.match(/\/order\/([^\\/\\?]+)/);
