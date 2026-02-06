@@ -250,7 +250,28 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     currentStage = 'page_load';
     console.log('\nStep 1: Loading restaurant page...');
     await page.goto(request.restaurantUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(5000);
+    await page.waitForTimeout(3000);
+
+    // Check for Cloudflare challenge
+    const pageTitle = await page.title().catch(() => '');
+    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
+      console.log('  Cloudflare challenge detected, waiting...');
+      await page.waitForTimeout(8000);
+    }
+
+    // Dismiss any popups
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // Wait for Toast menu items to render (SPA needs time)
+    console.log('  Waiting for menu items to render...');
+    try {
+      await page.waitForSelector('[data-testid="menu-item-card"], li.item, [class*="menuItem"]', { timeout: 30000 });
+      console.log('  Menu items found');
+    } catch {
+      console.log('  Warning: Menu item selectors not found, continuing anyway...');
+      await page.waitForTimeout(5000);
+    }
 
     // Step 2: Add items to cart
     currentStage = 'add_to_cart';
