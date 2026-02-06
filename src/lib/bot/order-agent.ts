@@ -336,56 +336,77 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       }
 
       // Handle required modifier groups - auto-select first option if needed
-      const addBtn = page.locator('button:has-text("Add")').first();
+      const addBtn = page.locator('[data-testid="menu-item-cart-cta"], button:has-text("Add")').first();
       const isDisabled = await addBtn.evaluate(el => (el as HTMLButtonElement).disabled).catch(() => false);
 
       if (isDisabled) {
         console.log(`  Add button disabled - checking for required modifiers...`);
 
-        const requiredGroups = await page.evaluate(() => {
-          const groups: string[] = [];
+        // Toast uses .modSection with "Required" text in .modSectionTitleContainer
+        const requiredInfo = await page.evaluate(() => {
+          const info: Array<{ groupName: string; firstOptionId: string }> = [];
 
-          const containers = document.querySelectorAll('fieldset, [role="group"], [class*="modifier"]');
-          containers.forEach(container => {
-            const text = container.textContent || '';
-            const hasRequired = /required/i.test(text);
-            const hasRadios = container.querySelectorAll('input[type="radio"]').length > 0;
-            const hasChecked = container.querySelector('input:checked') !== null;
+          // Toast-specific: find .modSection groups marked as Required
+          const sections = document.querySelectorAll('.modSection, [role="group"], fieldset');
+          sections.forEach(section => {
+            const titleContainer = section.querySelector('.modSectionTitleContainer, legend, [class*="title"]');
+            const titleText = titleContainer?.textContent || '';
+            const isRequired = /required/i.test(titleText);
+            const hasChecked = section.querySelector('input:checked') !== null;
 
-            if ((hasRequired || hasRadios) && !hasChecked) {
-              const firstLabel = container.querySelector('label');
-              if (firstLabel) {
-                groups.push(firstLabel.textContent?.replace(/\+?\$[\d.]+/g, '').trim() || '');
+            if (isRequired && !hasChecked) {
+              // Find the first option's input to click
+              const firstInput = section.querySelector('input[type="radio"], input[type="checkbox"]');
+              if (firstInput) {
+                info.push({
+                  groupName: section.querySelector('.modSectionTitle, [class*="sectionTitle"]')?.textContent?.trim() || 'Unknown',
+                  firstOptionId: firstInput.id || '',
+                });
               }
             }
           });
 
-          const unselectedRadioGroups = document.querySelectorAll('input[type="radio"]:not(:checked)');
-          const radioGroupNames = new Set<string>();
-          unselectedRadioGroups.forEach(radio => {
-            const name = (radio as HTMLInputElement).name;
-            if (name && !radioGroupNames.has(name)) {
-              radioGroupNames.add(name);
-              const label = document.querySelector(`label[for="${radio.id}"]`) || (radio as HTMLInputElement).closest('label');
-              if (label) {
-                groups.push(label.textContent?.replace(/\+?\$[\d.]+/g, '').trim() || '');
-              }
-            }
-          });
-
-          return [...new Set(groups)];
+          return info;
         });
 
-        for (const optionName of requiredGroups) {
-          if (optionName) {
-            console.log(`    Auto-selecting required: ${optionName}`);
-            const optionElement = page.locator(`label:has-text("${optionName}"), text="${optionName}"`).first();
-            if (await optionElement.isVisible({ timeout: 1000 }).catch(() => false)) {
-              await optionElement.click();
+        console.log(`  Found ${requiredInfo.length} required groups needing selection`);
+
+        for (const group of requiredInfo) {
+          console.log(`    Auto-selecting first option in: ${group.groupName}`);
+          if (group.firstOptionId) {
+            const input = page.locator(`#${CSS.escape(group.firstOptionId)}`);
+            if (await input.isVisible({ timeout: 1000 }).catch(() => false)) {
+              await input.click({ force: true });
               await page.waitForTimeout(300);
+            } else {
+              // Try clicking the parent label/row
+              const label = page.locator(`label[for="${group.firstOptionId}"]`).first();
+              if (await label.isVisible({ timeout: 1000 }).catch(() => false)) {
+                await label.click();
+                await page.waitForTimeout(300);
+              }
             }
           }
         }
+
+        // Fallback: click any unchecked radio in a required group
+        const stillDisabledAfter = await addBtn.evaluate(el => (el as HTMLButtonElement).disabled).catch(() => false);
+        if (stillDisabledAfter) {
+          console.log('  Still disabled, trying fallback radio click...');
+          const uncheckedRadios = page.locator('.modSection input[type="radio"]:not(:checked)');
+          const radioCount = await uncheckedRadios.count();
+          if (radioCount > 0) {
+            await uncheckedRadios.first().click({ force: true });
+            await page.waitForTimeout(500);
+          }
+          // Also try unchecked checkboxes in required sections
+          const uncheckedCheckboxes = page.locator('.modSection:has(.modSectionTitleContainer:has-text("Required")) input[type="checkbox"]:not(:checked)');
+          if (await uncheckedCheckboxes.count() > 0) {
+            await uncheckedCheckboxes.first().click({ force: true });
+            await page.waitForTimeout(500);
+          }
+        }
+
         await page.waitForTimeout(500);
       }
 
@@ -394,10 +415,11 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
         const stillDisabled = await addBtn.evaluate(el => (el as HTMLButtonElement).disabled).catch(() => false);
         if (!stillDisabled) break;
 
-        console.log(`  Attempt ${attempt + 1}: Add still disabled, trying to find missing selection...`);
-        const firstRadio = page.locator('input[type="radio"]:not(:checked)').first();
-        if (await firstRadio.isVisible({ timeout: 500 }).catch(() => false)) {
-          await firstRadio.click();
+        console.log(`  Attempt ${attempt + 1}: Add still disabled, clicking first available option...`);
+        // Try any unchecked input in the modal
+        const anyInput = page.locator('.modSection input:not(:checked)').first();
+        if (await anyInput.isVisible({ timeout: 500 }).catch(() => false)) {
+          await anyInput.click({ force: true });
           await page.waitForTimeout(500);
         }
       }
