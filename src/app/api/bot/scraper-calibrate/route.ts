@@ -52,8 +52,10 @@ export async function POST(request: NextRequest) {
 
   try {
     console.log(`[Calibrate] Opening ${url}...`);
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(5000);
+    await page.goto(url, { waitUntil: 'commit', timeout: 90000 });
+    // Wait for page to render - longer timeout for proxy
+    await page.waitForTimeout(8000);
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
 
     const initialUrl = page.url();
 
