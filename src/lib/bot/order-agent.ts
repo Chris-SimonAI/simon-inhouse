@@ -211,17 +211,32 @@ async function scrapeConfirmationPage(page: Page): Promise<ConfirmationData> {
 export async function placeToastOrder(request: OrderRequest): Promise<OrderResult> {
   let currentStage = 'init';
 
-  const browser = await chromium.launch({
+  // Use residential proxy if configured (bypasses Cloudflare)
+  const proxyUrl = process.env.SCRAPER_PROXY_URL;
+  const launchOptions: Parameters<typeof chromium.launch>[0] = {
     headless: true,
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
       '--disable-blink-features=AutomationControlled',
     ],
-  });
+  };
+
+  if (proxyUrl) {
+    console.log('  Using residential proxy for ordering');
+    const parsed = new URL(proxyUrl);
+    launchOptions.proxy = {
+      server: `${parsed.protocol}//${parsed.host}`,
+      username: decodeURIComponent(parsed.username),
+      password: decodeURIComponent(parsed.password),
+    };
+  }
+
+  const browser = await chromium.launch(launchOptions);
 
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    ignoreHTTPSErrors: !!proxyUrl, // Required for proxy SSL interception
   });
   const page = await context.newPage();
 
