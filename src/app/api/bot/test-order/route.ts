@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
   // Default test values - can be overridden in request body
   const restaurantUrl = body.url || "https://www.toasttab.com/local/order/uncle-paulies-sunset-1411-west-sunset-boulevard";
-  const itemName = body.itemName || "Pastrami Sandwich"; // Pick a common item
+  const itemName = body.itemName || "Bacon, Egg & Cheese";
 
   const orderRequest: OrderRequest = {
     restaurantUrl,
@@ -69,7 +69,7 @@ export async function GET() {
     usage: "POST with optional body: { url, itemName, modifiers[] }",
     defaults: {
       url: "https://www.toasttab.com/local/order/uncle-paulies-sunset-1411-west-sunset-boulevard",
-      itemName: "Pastrami Sandwich",
+      itemName: "Bacon, Egg & Cheese",
     },
     description: "Tests the bot order flow up to payment decline with test card 4000000000000002",
   });
