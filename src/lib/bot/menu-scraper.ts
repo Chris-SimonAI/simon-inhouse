@@ -235,10 +235,27 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
   try {
     console.log(`Scraping menu from ${restaurantUrl}...`);
 
-    await page.goto(restaurantUrl, {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000
-    });
+    // Try initial navigation with retry logic for proxy/Cloudflare issues
+    let navigationSuccess = false;
+    for (let attempt = 1; attempt <= 3 && !navigationSuccess; attempt++) {
+      try {
+        console.log(`  Navigation attempt ${attempt}/3...`);
+        // Use 'commit' first (faster), fall back to 'domcontentloaded'
+        await page.goto(restaurantUrl, {
+          waitUntil: attempt === 1 ? 'commit' : 'domcontentloaded',
+          timeout: attempt === 1 ? 45000 : 60000
+        });
+        navigationSuccess = true;
+      } catch (navError) {
+        const msg = navError instanceof Error ? navError.message : String(navError);
+        console.log(`  Navigation attempt ${attempt} failed: ${msg}`);
+        if (attempt === 3) {
+          throw navError; // Re-throw on final attempt
+        }
+        // Wait before retry
+        await page.waitForTimeout(2000);
+      }
+    }
 
     // Wait for page to fully render - longer wait for server environments
     await page.waitForTimeout(5000);
