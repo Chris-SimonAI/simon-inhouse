@@ -273,38 +273,121 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       await page.waitForTimeout(5000);
     }
 
-    // Step 1b: Select order type (Toast requires this before adding items)
+    // Step 1b: Select order type and enter delivery address (Toast requires this before adding items)
     console.log(`  Selecting order type: ${request.orderType}...`);
-    const orderTypeSelectors = request.orderType === 'delivery'
-      ? ['button:has-text("Delivery")', '[data-testid*="delivery"]', '[role="tab"]:has-text("Delivery")']
-      : ['button:has-text("Pickup")', '[data-testid*="pickup"]', '[role="tab"]:has-text("Pickup")', 'button:has-text("Pick up")'];
 
+    // Debug: capture what fulfillment elements are on the page
+    const fulfillmentDebug = await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll('button, a, [role="tab"]')).slice(0, 40).map(el => ({
+        tag: el.tagName,
+        text: (el as HTMLElement).innerText?.trim().slice(0, 60) || '',
+        class: el.className?.toString().slice(0, 60) || '',
+        testId: el.getAttribute('data-testid') || '',
+        role: el.getAttribute('role') || '',
+      }));
+      return buttons.filter(b => b.text);
+    });
+    console.log('  Page elements:', JSON.stringify(fulfillmentDebug, null, 2));
+
+    // Try fulfillment selectors (Toast uses tabs, buttons, or links for Delivery/Pickup)
+    const orderTypeSelectors = request.orderType === 'delivery'
+      ? [
+          'button:has-text("Delivery")', '[role="tab"]:has-text("Delivery")',
+          'a:has-text("Delivery")', '[data-testid*="delivery"]',
+          '[data-testid*="fulfillment"] button:has-text("Delivery")',
+        ]
+      : [
+          'button:has-text("Pickup")', '[role="tab"]:has-text("Pickup")',
+          'button:has-text("Pick up")', 'a:has-text("Pickup")',
+          '[data-testid*="pickup"]',
+        ];
+
+    let orderTypeSelected = false;
     for (const selector of orderTypeSelectors) {
       const el = page.locator(selector).first();
       if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
         await el.click();
         console.log(`  Selected order type via: ${selector}`);
-        await page.waitForTimeout(1500);
+        orderTypeSelected = true;
+        await page.waitForTimeout(2000);
         break;
       }
     }
 
-    // Handle any "Start Order" / "ASAP" / time selection dialogs
-    const startOrderSelectors = [
-      'button:has-text("Start Order")',
-      'button:has-text("ASAP")',
-      'button:has-text("Continue")',
-      'button:has-text("Start")',
-      '[data-testid*="fulfill-cta"]',
-      '[data-testid*="start-order"]',
-    ];
-    for (const selector of startOrderSelectors) {
-      const el = page.locator(selector).first();
-      if (await el.isVisible({ timeout: 1500 }).catch(() => false)) {
-        await el.click();
-        console.log(`  Clicked: ${selector}`);
-        await page.waitForTimeout(1500);
-        break;
+    if (!orderTypeSelected) {
+      console.log('  No order type selector found, trying to click fulfillment area...');
+      // Toast sometimes has a fulfillment bar you need to click to open the selector
+      const fulfillmentBar = page.locator('[class*="fulfillment"], [class*="orderType"], [data-testid*="fulfillment"]').first();
+      if (await fulfillmentBar.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await fulfillmentBar.click();
+        console.log('  Clicked fulfillment bar');
+        await page.waitForTimeout(2000);
+        // Now try again to find delivery/pickup
+        for (const selector of orderTypeSelectors) {
+          const el = page.locator(selector).first();
+          if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await el.click();
+            console.log(`  Selected order type via: ${selector}`);
+            orderTypeSelected = true;
+            await page.waitForTimeout(2000);
+            break;
+          }
+        }
+      }
+    }
+
+    // If delivery, enter address now (Toast requires address before menu is enabled)
+    if (request.orderType === 'delivery' && request.deliveryAddress) {
+      console.log('  Entering delivery address upfront...');
+      const fullAddress = `${request.deliveryAddress.street}, ${request.deliveryAddress.city}, ${request.deliveryAddress.state} ${request.deliveryAddress.zip}`;
+
+      const addressSelectors = [
+        'input[placeholder*="address" i]',
+        'input[placeholder*="Address" i]',
+        'input[placeholder*="Enter delivery" i]',
+        'input[name*="address" i]',
+        'input[data-testid*="address"]',
+        'input[aria-label*="address" i]',
+        'input[type="search"]',
+      ];
+
+      for (const selector of addressSelectors) {
+        const addressInput = page.locator(selector).first();
+        if (await addressInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await addressInput.click();
+          await addressInput.fill(fullAddress);
+          console.log(`  Entered address via: ${selector}`);
+          await page.waitForTimeout(2000);
+
+          // Select first autocomplete suggestion
+          const suggestion = page.locator('[class*="suggestion"], [class*="autocomplete"] li, [role="option"], [class*="pac-item"]').first();
+          if (await suggestion.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await suggestion.click();
+            console.log('  Selected address suggestion');
+            await page.waitForTimeout(1500);
+          }
+          break;
+        }
+      }
+
+      // Confirm address / start order
+      const confirmSelectors = [
+        'button:has-text("Start Order")',
+        'button:has-text("Confirm")',
+        'button:has-text("Continue")',
+        'button:has-text("Save")',
+        'button:has-text("ASAP")',
+        '[data-testid*="fulfill-cta"]',
+        '[data-testid*="start-order"]',
+      ];
+      for (const selector of confirmSelectors) {
+        const el = page.locator(selector).first();
+        if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await el.click();
+          console.log(`  Confirmed via: ${selector}`);
+          await page.waitForTimeout(2000);
+          break;
+        }
       }
     }
 
