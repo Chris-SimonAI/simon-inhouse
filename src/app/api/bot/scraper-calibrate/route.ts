@@ -75,7 +75,25 @@ export async function POST(request: NextRequest) {
     await page.waitForTimeout(8000);
     await page.waitForLoadState('domcontentloaded').catch(() => {});
 
-    const initialUrl = page.url();
+    // Check if page is still valid after navigation
+    let initialUrl: string;
+    try {
+      initialUrl = page.url();
+    } catch {
+      await browser.close();
+      return NextResponse.json({ ok: false, message: "Page closed after navigation" }, { status: 500 });
+    }
+
+    // Check for Cloudflare block
+    const pageTitle = await page.title().catch(() => '');
+    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
+      await browser.close();
+      return NextResponse.json({
+        ok: false,
+        message: `Cloudflare blocked: "${pageTitle}"`,
+        url: initialUrl,
+      });
+    }
 
     // Dismiss popups
     await page.keyboard.press('Escape').catch(() => {});
@@ -83,7 +101,13 @@ export async function POST(request: NextRequest) {
 
     // Wait for menu items
     const menuCards = page.locator('[data-testid="menu-item-card"]');
-    const cardCount = await menuCards.count();
+    let cardCount: number;
+    try {
+      cardCount = await menuCards.count();
+    } catch {
+      await browser.close();
+      return NextResponse.json({ ok: false, message: "Page closed while counting menu items" }, { status: 500 });
+    }
     console.log(`[Calibrate] Found ${cardCount} menu item cards`);
 
     if (cardCount === 0) {
