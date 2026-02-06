@@ -552,7 +552,25 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
         await page.waitForTimeout(500);
       }
 
-      await addBtn.click({ timeout: 10000 });
+      // Wait for React to settle after modifier selection, then click Add via DOM
+      await page.waitForTimeout(1000);
+      const addClicked = await page.evaluate(() => {
+        // Re-query the button fresh (avoids stale React DOM references)
+        const btn = document.querySelector('[data-testid="menu-item-cart-cta"]') as HTMLButtonElement
+          || document.querySelector('button.modalButton') as HTMLButtonElement;
+        if (btn && !btn.disabled) {
+          btn.click();
+          return 'clicked';
+        }
+        return btn ? `disabled=${btn.disabled}` : 'not_found';
+      });
+      console.log(`  Add button result: ${addClicked}`);
+
+      if (addClicked !== 'clicked') {
+        // Final attempt: force click via Playwright with fresh locator
+        const freshAddBtn = page.locator('[data-testid="menu-item-cart-cta"]').first();
+        await freshAddBtn.click({ force: true, timeout: 5000 });
+      }
       console.log(`  Added to cart`);
       await page.waitForTimeout(1500);
 
