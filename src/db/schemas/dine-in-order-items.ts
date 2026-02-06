@@ -5,7 +5,7 @@ import { menuItems } from './menu-items';
 export const dineInOrderItems = pgTable('dine_in_order_items', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
   orderId: bigint('order_id', { mode: 'number' }).notNull().references(() => dineInOrders.id),
-  menuItemId: bigint('menu_item_id', { mode: 'number' }).notNull().references(() => menuItems.id),
+  menuItemId: bigint('menu_item_id', { mode: 'number' }).references(() => menuItems.id, { onDelete: 'set null' }),
   menuItemGuid: uuid('menu_item_guid').notNull(),
   itemName: varchar('item_name', { length: 255 }).notNull(),
   itemDescription: text('item_description'),
