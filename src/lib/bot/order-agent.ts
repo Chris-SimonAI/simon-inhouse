@@ -570,10 +570,15 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
         break;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (attempt === 3 || !message.toLowerCase().includes('execution context was destroyed')) {
-          throw error;
+        if (!message.toLowerCase().includes('execution context was destroyed')) {
+          console.log(`  Fulfillment debug skipped: ${message}`);
+          break;
         }
         console.log(`  Fulfillment debug retry ${attempt}/3 after navigation race...`);
+        if (attempt === 3) {
+          console.log('  Fulfillment debug unavailable after retries, continuing...');
+          break;
+        }
         await page.waitForTimeout(1200);
       }
     }
