@@ -6,7 +6,8 @@ export const maxDuration = 120;
 
 /**
  * Calibration endpoint to discover Toast's current HTML structure for modifiers.
- * Opens a Toast URL, clicks an item, and captures the full modal HTML.
+ * Opens a Toast URL, clicks an item, and captures the page structure.
+ * Note: Toast may either open a modal OR navigate to a new page for item details.
  */
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -54,6 +55,8 @@ export async function POST(request: NextRequest) {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(5000);
 
+    const initialUrl = page.url();
+
     // Dismiss popups
     await page.keyboard.press('Escape').catch(() => {});
     await page.waitForTimeout(1000);
@@ -81,62 +84,33 @@ export async function POST(request: NextRequest) {
     console.log(`[Calibrate] Clicking item ${targetIndex}: ${itemName}`);
 
     await card.scrollIntoViewIfNeeded();
-    await card.click({ timeout: 5000, noWaitAfter: true });
 
-    // Wait for modal using multiple possible indicators
-    await page.waitForTimeout(3000); // Give page time to open modal
+    // Click and wait for either navigation or modal
+    await Promise.all([
+      page.waitForURL((u) => u.toString() !== initialUrl, { timeout: 10000 }).catch(() => {}),
+      card.click({ timeout: 5000, noWaitAfter: true }),
+    ]);
 
-    // Check for various modal indicators
-    const modalDialog = page.locator('[role="dialog"]').first();
-    const addButton = page.locator('button:has-text("Add")').first();
-    const itemModal = page.locator('[class*="itemModal"], [class*="ItemModal"], .modal').first();
+    // Wait for page to stabilize
+    await page.waitForTimeout(3000);
 
-    const modalOpened = await Promise.race([
-      modalDialog.waitFor({ state: 'visible', timeout: 8000 }).then(() => 'dialog'),
-      addButton.waitFor({ state: 'visible', timeout: 8000 }).then(() => 'addButton'),
-      itemModal.waitFor({ state: 'visible', timeout: 8000 }).then(() => 'itemModal'),
-    ]).catch(() => false);
+    const currentUrl = page.url();
+    const wasNavigation = currentUrl !== initialUrl;
 
-    if (!modalOpened) {
-      // Even if we don't find a modal, capture what's on the page
-      const pageState = await page.evaluate(() => {
-        const body = document.body;
-        const allDialogs = document.querySelectorAll('[role="dialog"]');
-        const allModals = document.querySelectorAll('[class*="modal" i]');
-        const allOverlays = document.querySelectorAll('[class*="overlay" i]');
-        return {
-          hasDialogs: allDialogs.length,
-          hasModals: allModals.length,
-          hasOverlays: allOverlays.length,
-          bodyClasses: body.className,
-          sampleModalClasses: Array.from(allModals).slice(0, 3).map(m => m.className),
-        };
-      });
+    console.log(`[Calibrate] Navigation occurred: ${wasNavigation}, URL: ${currentUrl}`);
 
-      await browser.close();
-      return NextResponse.json({
-        ok: false,
-        message: "Modal did not open after clicking item",
-        itemName,
-        pageState,
-      });
-    }
-
-    console.log(`[Calibrate] Modal found via: ${modalOpened}`);
-
-    // Wait for content to render
-    await page.waitForTimeout(2000);
-
-    // Capture comprehensive modal structure
+    // Analyze the current page (either item detail page or page with modal)
     const analysis = await page.evaluate(() => {
+      // Look for modal first
       const modal = document.querySelector('[role="dialog"]');
-      if (!modal) return { error: "No modal found" };
+      const targetElement = modal || document.body;
+      const isModal = !!modal;
 
-      // Get full modal HTML (trimmed for size)
-      const fullHtml = modal.outerHTML;
+      // Get page/modal HTML (trimmed)
+      const fullHtml = targetElement.outerHTML;
 
-      // Find all unique class names in the modal
-      const allElements = modal.querySelectorAll('*');
+      // Find all unique class names
+      const allElements = targetElement.querySelectorAll('*');
       const classSet = new Set<string>();
       allElements.forEach(el => {
         if (el.className && typeof el.className === 'string') {
@@ -148,70 +122,94 @@ export async function POST(request: NextRequest) {
       const allClasses = Array.from(classSet).sort();
 
       // Find all input elements
-      const inputs = Array.from(modal.querySelectorAll('input')).map(input => ({
+      const inputs = Array.from(targetElement.querySelectorAll('input')).map(input => ({
         type: input.type,
         name: input.name,
         className: input.className,
         id: input.id,
         parentClass: input.parentElement?.className || '',
+        labelText: input.closest('label')?.textContent?.trim()?.slice(0, 50) || '',
       }));
 
-      // Find all elements with "option", "modifier", "choice", "selection" in class name
-      const relevantSelectors = ['option', 'modifier', 'choice', 'selection', 'customize', 'group', 'section'];
-      const relevantElements: Array<{ selector: string; count: number; sampleClasses: string[] }> = [];
+      // Find all buttons that might be modifier options
+      const buttons = Array.from(targetElement.querySelectorAll('button')).slice(0, 30).map(btn => ({
+        text: btn.textContent?.trim().slice(0, 50) || '',
+        className: btn.className,
+        type: btn.type,
+        role: btn.getAttribute('role') || '',
+        ariaPressed: btn.getAttribute('aria-pressed'),
+      }));
+
+      // Find clickable elements that might be options
+      const clickables = Array.from(targetElement.querySelectorAll('[role="radio"], [role="checkbox"], [role="option"], [tabindex="0"]')).slice(0, 30).map(el => ({
+        tag: el.tagName,
+        role: el.getAttribute('role') || '',
+        className: el.className,
+        text: (el as HTMLElement).innerText?.slice(0, 50) || '',
+        ariaChecked: el.getAttribute('aria-checked'),
+      }));
+
+      // Find elements with relevant class names
+      const relevantSelectors = ['option', 'modifier', 'choice', 'selection', 'customize', 'group', 'section', 'radio', 'checkbox'];
+      const relevantElements: Array<{ selector: string; count: number; sampleClasses: string[]; sampleTexts: string[] }> = [];
 
       relevantSelectors.forEach(keyword => {
-        const matches = modal.querySelectorAll(`[class*="${keyword}" i]`);
+        const matches = targetElement.querySelectorAll(`[class*="${keyword}" i]`);
         if (matches.length > 0) {
-          const sampleClasses = Array.from(matches).slice(0, 3).map(el => el.className);
+          const sampleClasses = Array.from(matches).slice(0, 5).map(el => el.className);
+          const sampleTexts = Array.from(matches).slice(0, 5).map(el => (el as HTMLElement).innerText?.slice(0, 100) || '');
           relevantElements.push({
             selector: `[class*="${keyword}"]`,
             count: matches.length,
             sampleClasses,
+            sampleTexts,
           });
         }
       });
 
-      // Find div/section structures that might contain modifiers
-      const potentialContainers = Array.from(modal.querySelectorAll('div, section, fieldset')).filter(el => {
-        // Look for containers with multiple child elements that might be options
-        const children = el.children;
-        if (children.length < 2) return false;
-        // Check if children have similar structure (likely options)
-        const childClasses = Array.from(children).map(c => c.className);
-        const uniqueClasses = new Set(childClasses);
-        return uniqueClasses.size <= 3 && children.length >= 2;
-      }).slice(0, 10).map(el => ({
-        tagName: el.tagName,
-        className: el.className,
-        childCount: el.children.length,
-        sampleChildClasses: Array.from(el.children).slice(0, 3).map(c => c.className),
-        firstChildText: (el.children[0] as HTMLElement)?.innerText?.slice(0, 100) || '',
-      }));
-
-      // Look for text that indicates modifier sections (like "Choose your size", "Add toppings")
+      // Look for text indicating modifier sections
       const textNodes: string[] = [];
-      const walker = document.createTreeWalker(modal, NodeFilter.SHOW_TEXT, null);
+      const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT, null);
       let node;
       while ((node = walker.nextNode())) {
         const text = node.textContent?.trim() || '';
-        if (text.length > 3 && text.length < 100 && !text.includes('$') &&
+        if (text.length > 3 && text.length < 100 &&
             (text.toLowerCase().includes('choose') || text.toLowerCase().includes('select') ||
              text.toLowerCase().includes('add') || text.toLowerCase().includes('required') ||
-             text.toLowerCase().includes('optional') || text.toLowerCase().includes('pick'))) {
+             text.toLowerCase().includes('optional') || text.toLowerCase().includes('pick') ||
+             text.toLowerCase().includes('size') || text.toLowerCase().includes('side') ||
+             text.toLowerCase().includes('protein') || text.toLowerCase().includes('topping'))) {
           textNodes.push(text);
         }
       }
 
+      // Find all h2, h3, h4 headings that might be group names
+      const headings = Array.from(targetElement.querySelectorAll('h2, h3, h4, [class*="header" i], [class*="title" i]')).slice(0, 20).map(el => ({
+        tag: el.tagName,
+        className: el.className,
+        text: (el as HTMLElement).innerText?.slice(0, 100) || '',
+      }));
+
       return {
-        modalFound: true,
+        isModal,
         htmlLength: fullHtml.length,
-        htmlPreview: fullHtml.slice(0, 5000),
-        allClasses,
+        htmlPreview: fullHtml.slice(0, 8000),
+        totalClasses: allClasses.length,
+        relevantClasses: allClasses.filter(c =>
+          c.toLowerCase().includes('mod') ||
+          c.toLowerCase().includes('option') ||
+          c.toLowerCase().includes('select') ||
+          c.toLowerCase().includes('group') ||
+          c.toLowerCase().includes('choice') ||
+          c.toLowerCase().includes('radio') ||
+          c.toLowerCase().includes('check')
+        ),
         inputs,
+        buttons,
+        clickables,
         relevantElements,
-        potentialContainers,
         modifierHintTexts: [...new Set(textNodes)],
+        headings,
       };
     });
 
@@ -220,6 +218,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       url,
+      currentUrl,
+      wasNavigation,
       itemName,
       itemIndex: targetIndex,
       totalItems: cardCount,
@@ -229,6 +229,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     await browser.close();
     const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[Calibrate] Error: ${message}`);
     return NextResponse.json({ ok: false, message }, { status: 500 });
   }
 }
