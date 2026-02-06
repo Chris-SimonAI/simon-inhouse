@@ -263,53 +263,63 @@ async function resolveFulfillmentPrompts(page: Page): Promise<string[]> {
   const clickedButtons: string[] = [];
 
   for (let attempt = 0; attempt < 6; attempt++) {
-    const clickedText = await page.evaluate(() => {
-      const promptKeywords = [
-        'schedule your order for later',
-        'schedule order',
-        'start order',
-        'as soon as possible',
-        'asap',
-        'select time',
-        'choose time',
-        'continue',
-        'save',
-        'confirm',
-        'done',
-        'next',
-      ];
+    let clickedText: string | null = null;
+    try {
+      clickedText = await page.evaluate(() => {
+        const promptKeywords = [
+          'schedule your order for later',
+          'schedule order',
+          'start order',
+          'as soon as possible',
+          'asap',
+          'select time',
+          'choose time',
+          'continue',
+          'save',
+          'confirm',
+          'done',
+          'next',
+        ];
 
-      const nodes = Array.from(document.querySelectorAll('button, a')) as HTMLButtonElement[];
-      for (const node of nodes) {
-        const text = node.textContent?.toLowerCase().trim() || '';
-        if (!text) {
-          continue;
-        }
-        if (text.includes('sign in')) {
-          continue;
-        }
-        if (!promptKeywords.some((keyword) => text.includes(keyword))) {
-          continue;
+        const nodes = Array.from(document.querySelectorAll('button, a')) as HTMLButtonElement[];
+        for (const node of nodes) {
+          const text = node.textContent?.toLowerCase().trim() || '';
+          if (!text) {
+            continue;
+          }
+          if (text.includes('sign in')) {
+            continue;
+          }
+          if (!promptKeywords.some((keyword) => text.includes(keyword))) {
+            continue;
+          }
+
+          const disabled = node.hasAttribute('disabled') || node.getAttribute('aria-disabled') === 'true';
+          if (disabled) {
+            continue;
+          }
+
+          const style = window.getComputedStyle(node);
+          const hidden = style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
+          if (hidden) {
+            continue;
+          }
+
+          node.scrollIntoView({ block: 'center' });
+          node.click();
+          return text;
         }
 
-        const disabled = node.hasAttribute('disabled') || node.getAttribute('aria-disabled') === 'true';
-        if (disabled) {
-          continue;
-        }
-
-        const style = window.getComputedStyle(node);
-        const hidden = style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
-        if (hidden) {
-          continue;
-        }
-
-        node.scrollIntoView({ block: 'center' });
-        node.click();
-        return text;
+        return null;
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.toLowerCase().includes('execution context was destroyed')) {
+        throw error;
       }
-
-      return null;
-    });
+      await page.waitForTimeout(1000);
+      continue;
+    }
 
     if (!clickedText) {
       break;
