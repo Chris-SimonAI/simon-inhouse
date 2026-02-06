@@ -33,6 +33,10 @@ const Env = z.object({
   TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
   TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
   TWILIO_PHONE_NUMBER: z.string().min(1).optional(),
+  // Bright Data + proxy scraping
+  BRIGHTDATA_API_KEY: z.string().min(1).optional(),
+  BRIGHTDATA_WEB_UNLOCKER_ZONE: z.string().min(1).optional(),
+  SCRAPER_PROXY_URL: z.string().url().optional(),
 });
 
 // Neon Vercel integration uses POSTGRES_URL; normalize to DATABASE_URL

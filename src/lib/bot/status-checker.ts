@@ -1,4 +1,13 @@
-import { chromium } from 'playwright';
+import { chromium } from "playwright";
+import {
+  applyAutomationInitScript,
+  BOT_USER_AGENT,
+  buildChromiumLaunchOptions,
+  ensureNoCloudflareBlock,
+  getScraperProxyUrl,
+  stabilizePage,
+} from "@/lib/bot/browser-automation";
+import { logBotRunTelemetry } from "@/lib/bot/bot-telemetry";
 
 export interface RestaurantStatus {
   isOpen: boolean;
@@ -13,39 +22,34 @@ export interface RestaurantStatus {
  * Much faster than full menu scrape (~5-10 seconds vs minutes)
  */
 export async function checkRestaurantStatus(restaurantUrl: string): Promise<RestaurantStatus> {
-  const browser = await chromium.launch({
-    headless: true,
-    args: [
-      '--disable-blink-features=AutomationControlled',
-      '--disable-dev-shm-usage',
-      '--no-sandbox',
-    ],
-  });
+  const startedAt = Date.now();
+  let stage = "init";
+  let cfDetected = false;
+  let failReason: string | undefined;
+  const proxyUrl = getScraperProxyUrl();
+  const browser = await chromium.launch(buildChromiumLaunchOptions(proxyUrl));
 
   const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    userAgent: BOT_USER_AGENT,
+    ignoreHTTPSErrors: Boolean(proxyUrl),
   });
+  await applyAutomationInitScript(context);
   const page = await context.newPage();
 
   try {
+    stage = "navigation";
     console.log(`Checking status for ${restaurantUrl}...`);
 
     await page.goto(restaurantUrl, {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000,
+      waitUntil: "domcontentloaded",
+      timeout: 45000,
     });
 
-    // Wait for page to settle
-    await page.waitForTimeout(2000);
-
-    // Handle Cloudflare if needed
-    const cfChallenge = await page.locator('text="Verify you are human"').isVisible({ timeout: 1000 }).catch(() => false);
-    if (cfChallenge) {
-      console.log('  Cloudflare challenge detected...');
-      await page.waitForTimeout(5000);
-    }
+    await stabilizePage(page);
+    cfDetected = cfDetected || (await ensureNoCloudflareBlock(page, "status_check"));
 
     // Check status and ETAs
+    stage = "parse_status";
     const status = await page.evaluate(() => {
       const pageText = document.body.innerText || '';
 
@@ -110,10 +114,12 @@ export async function checkRestaurantStatus(restaurantUrl: string): Promise<Rest
     // If no delivery ETA found in initial view, try clicking Delivery tab
     if (!status.deliveryEta && status.isOpen) {
       try {
+        stage = "delivery_eta_check";
         const deliveryTab = page.locator('button:has-text("Delivery"), [role="tab"]:has-text("Delivery")').first();
         if (await deliveryTab.isVisible({ timeout: 1000 }).catch(() => false)) {
           await deliveryTab.click();
-          await page.waitForTimeout(1500);
+          await stabilizePage(page);
+          cfDetected = cfDetected || (await ensureNoCloudflareBlock(page, "status_check_delivery_tab"));
 
           // Re-check for delivery ETA
           const deliveryEta = await page.evaluate(() => {
@@ -138,7 +144,23 @@ export async function checkRestaurantStatus(restaurantUrl: string): Promise<Rest
       ...status,
       checkedAt: new Date().toISOString(),
     };
+  } catch (error) {
+    failReason = error instanceof Error ? error.message : String(error);
+    throw error;
   } finally {
+    logBotRunTelemetry({
+      runType: "status-check",
+      success: failReason === undefined,
+      stage,
+      cfDetected,
+      proxyUsed: Boolean(proxyUrl),
+      unlockerUsed: false,
+      durationMs: Date.now() - startedAt,
+      failReason,
+      metadata: {
+        url: restaurantUrl,
+      },
+    });
     await browser.close();
   }
 }

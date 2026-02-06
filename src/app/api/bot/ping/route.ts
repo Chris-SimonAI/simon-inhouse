@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { env } from "@/env";
 
 export const runtime = "nodejs";
 
@@ -7,7 +8,7 @@ export async function GET() {
     ok: true,
     time: new Date().toISOString(),
     hasPlaywright: false,
-    proxyConfigured: !!process.env.SCRAPER_PROXY_URL,
+    proxyConfigured: !!env.SCRAPER_PROXY_URL,
   });
 }
 

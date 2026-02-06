@@ -1,4 +1,13 @@
-import { chromium, Page } from 'playwright';
+import { chromium, type Page } from 'playwright';
+import {
+  applyAutomationInitScript,
+  BOT_USER_AGENT,
+  buildChromiumLaunchOptions,
+  delay,
+  ensureNoCloudflareBlock,
+  getScraperProxyUrl,
+} from '@/lib/bot/browser-automation';
+import { logBotRunTelemetry } from '@/lib/bot/bot-telemetry';
 
 export interface OrderItem {
   name: string;
@@ -56,6 +65,28 @@ export interface OrderResult {
 
 // Test card that will be declined
 const TEST_CARD = '4000000000000002';
+const ORDER_PAGE_LOAD_MAX_ATTEMPTS = 3;
+
+async function navigateToRestaurantPage(page: Page, url: string): Promise<boolean> {
+  let lastError = 'Unknown navigation error';
+
+  for (let attempt = 1; attempt <= ORDER_PAGE_LOAD_MAX_ATTEMPTS; attempt++) {
+    try {
+      console.log(`  Navigation attempt ${attempt}/${ORDER_PAGE_LOAD_MAX_ATTEMPTS}...`);
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
+      await delay(2500);
+      return await ensureNoCloudflareBlock(page, `page_load_attempt_${attempt}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+      console.log(`  Navigation attempt ${attempt} failed: ${lastError}`);
+      if (attempt < ORDER_PAGE_LOAD_MAX_ATTEMPTS) {
+        await delay(attempt * 1500);
+      }
+    }
+  }
+
+  throw new Error(`Failed to load Toast page after retries: ${lastError}`);
+}
 
 // Scrape confirmation page for order details
 async function scrapeConfirmationPage(page: Page): Promise<ConfirmationData> {
@@ -209,36 +240,37 @@ async function scrapeConfirmationPage(page: Page): Promise<ConfirmationData> {
 }
 
 export async function placeToastOrder(request: OrderRequest): Promise<OrderResult> {
+  const startedAt = Date.now();
   let currentStage = 'init';
+  let cfDetected = false;
+  let failReason: string | undefined;
+  let didSucceed = false;
+
+  const finish = (result: OrderResult, reason?: string): OrderResult => {
+    didSucceed = result.success;
+    failReason = reason;
+    return result;
+  };
 
   // Use residential proxy if configured (bypasses Cloudflare)
-  const proxyUrl = process.env.SCRAPER_PROXY_URL;
-  const launchOptions: Parameters<typeof chromium.launch>[0] = {
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-blink-features=AutomationControlled',
-      '--ignore-certificate-errors',
-    ],
-  };
+  const proxyUrl = getScraperProxyUrl();
+  const launchOptions = buildChromiumLaunchOptions(proxyUrl);
 
   if (proxyUrl) {
     console.log('  Using residential proxy for ordering');
-    const parsed = new URL(proxyUrl);
-    launchOptions.proxy = {
-      server: `${parsed.protocol}//${parsed.host}`,
-      username: decodeURIComponent(parsed.username),
-      password: decodeURIComponent(parsed.password),
-    };
+  } else {
+    console.log('  Warning: SCRAPER_PROXY_URL is not configured; Cloudflare pass rate may be low.');
   }
 
   const browser = await chromium.launch(launchOptions);
 
   const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    userAgent: BOT_USER_AGENT,
     ignoreHTTPSErrors: !!proxyUrl, // Required for proxy SSL interception
   });
+
+  await applyAutomationInitScript(context);
+
   const page = await context.newPage();
 
   try {
@@ -249,15 +281,7 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     // Step 1: Navigate to restaurant
     currentStage = 'page_load';
     console.log('\nStep 1: Loading restaurant page...');
-    await page.goto(request.restaurantUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(3000);
-
-    // Check for Cloudflare challenge
-    const pageTitle = await page.title().catch(() => '');
-    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
-      console.log('  Cloudflare challenge detected, waiting...');
-      await page.waitForTimeout(8000);
-    }
+    cfDetected = cfDetected || (await navigateToRestaurantPage(page, request.restaurantUrl));
 
     // Dismiss any popups
     await page.keyboard.press('Escape').catch(() => {});
@@ -272,6 +296,7 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       console.log('  Warning: Menu item selectors not found, continuing anyway...');
       await page.waitForTimeout(5000);
     }
+    cfDetected = cfDetected || (await ensureNoCloudflareBlock(page, 'menu_render'));
 
     // Step 1b: Select order type and enter delivery address (Toast requires this before adding items)
     console.log(`  Selecting order type: ${request.orderType}...`);
@@ -394,6 +419,7 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     // Dismiss any remaining modals
     await page.keyboard.press('Escape').catch(() => {});
     await page.waitForTimeout(1000);
+    cfDetected = cfDetected || (await ensureNoCloudflareBlock(page, 'before_add_to_cart'));
 
     // Step 2: Add items to cart
     currentStage = 'add_to_cart';
@@ -613,6 +639,7 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     // Step 3: Go to checkout
     currentStage = 'checkout';
     console.log('\nStep 3: Going to checkout...');
+    cfDetected = cfDetected || (await ensureNoCloudflareBlock(page, 'checkout_start'));
 
     await page.keyboard.press('Escape');
     await page.waitForTimeout(1000);
@@ -775,6 +802,7 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     // Step 7: Submit order
     currentStage = 'submit';
     console.log('\nStep 7: Submitting order...');
+    cfDetected = cfDetected || (await ensureNoCloudflareBlock(page, 'before_submit'));
 
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(1000);
@@ -837,30 +865,54 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
 
     if (request.dryRun && declined) {
       console.log('\nDry run complete - card was declined as expected');
-      return { success: true, message: 'Dry run successful - order reached payment stage', stage: 'complete' };
+      return finish(
+        { success: true, message: 'Dry run successful - order reached payment stage', stage: 'complete' },
+      );
     }
 
     if (declined) {
-      return { success: false, message: 'Payment was declined', stage: 'payment' };
+      return finish(
+        { success: false, message: 'Payment was declined', stage: 'payment' },
+        'payment_declined',
+      );
     }
 
     // Scrape confirmation page for tracking info
     console.log('\nStep 8: Scraping confirmation page...');
     const confirmation = await scrapeConfirmationPage(page);
 
-    return {
+    return finish({
       success: true,
       message: 'Order submitted successfully',
       stage: 'complete',
       orderId: confirmation.confirmationNumber,
       confirmation
-    };
+    });
 
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error('\nOrder agent error:', msg);
-    return { success: false, message: `Order failed: ${msg}`, stage: currentStage };
+    return finish(
+      { success: false, message: `Order failed: ${msg}`, stage: currentStage },
+      msg,
+    );
   } finally {
+    logBotRunTelemetry({
+      runType: 'toast-order',
+      success: didSucceed,
+      stage: currentStage,
+      cfDetected,
+      proxyUsed: Boolean(proxyUrl),
+      unlockerUsed: false,
+      durationMs: Date.now() - startedAt,
+      failReason,
+      metadata: {
+        url: request.restaurantUrl,
+        orderType: request.orderType,
+        itemCount: request.items.length,
+        dryRun: Boolean(request.dryRun),
+      },
+    });
     await page.waitForTimeout(2000);
     await browser.close();
   }

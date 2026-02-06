@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chromium } from "playwright";
+import {
+  applyAutomationInitScript,
+  BOT_USER_AGENT,
+  buildChromiumLaunchOptions,
+  ensureNoCloudflareBlock,
+  getScraperProxyUrl,
+  stabilizePage,
+} from "@/lib/bot/browser-automation";
+import { logBotRunTelemetry } from "@/lib/bot/bot-telemetry";
 
 export const runtime = "nodejs";
 export const maxDuration = 180; // 3 minutes
@@ -10,6 +19,10 @@ export const maxDuration = 180; // 3 minutes
  * Note: Toast may either open a modal OR navigate to a new page for item details.
  */
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
+  let stage = "init";
+  let cfDetected = false;
+  let failReason: string | undefined;
   const body = await request.json();
   const { url, itemIndex = 0 } = body;
 
@@ -17,41 +30,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, message: "URL required" }, { status: 400 });
   }
 
-  const proxyUrl = process.env.SCRAPER_PROXY_URL;
-  const launchOptions: Parameters<typeof chromium.launch>[0] = {
-    headless: true,
-    args: [
-      '--disable-blink-features=AutomationControlled',
-      '--disable-dev-shm-usage',
-      '--no-sandbox',
-      '--ignore-certificate-errors',
-    ],
-  };
-
-  if (proxyUrl) {
-    const parsed = new URL(proxyUrl);
-    launchOptions.proxy = {
-      server: `${parsed.protocol}//${parsed.host}`,
-      username: decodeURIComponent(parsed.username),
-      password: decodeURIComponent(parsed.password),
-    };
-  }
+  const proxyUrl = getScraperProxyUrl();
+  const launchOptions = buildChromiumLaunchOptions(proxyUrl);
 
   const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    userAgent: BOT_USER_AGENT,
     viewport: { width: 1280, height: 800 },
     ignoreHTTPSErrors: !!proxyUrl,
   });
-
-  await context.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    (window as unknown as Record<string, unknown>).chrome = { runtime: {} };
-  });
+  await applyAutomationInitScript(context);
 
   const page = await context.newPage();
 
   try {
+    stage = "navigation";
     console.log(`[Calibrate] Opening ${url}...`);
 
     // Retry navigation up to 3 times
@@ -73,31 +66,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Wait for page to render
-    await page.waitForTimeout(5000);
-    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    await stabilizePage(page);
 
     // Check if page is still valid after navigation
     let initialUrl: string;
     try {
       initialUrl = page.url();
     } catch {
-      await browser.close();
       return NextResponse.json({ ok: false, message: "Page closed after navigation" }, { status: 500 });
     }
 
-    // Check for Cloudflare challenge
-    const pageTitle = await page.title().catch(() => '');
-    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
-      console.log(`[Calibrate] Cloudflare challenge detected, waiting...`);
-      await page.waitForTimeout(5000);
-
-      // Try clicking turnstile checkbox
-      const checkbox = page.locator('input[type="checkbox"]').first();
-      if (await checkbox.isVisible({ timeout: 1000 }).catch(() => false)) {
-        await checkbox.click().catch(() => {});
-        await page.waitForTimeout(3000);
-      }
-    }
+    cfDetected = cfDetected || (await ensureNoCloudflareBlock(page, "calibrate_initial_page"));
 
     // Dismiss popups
     await page.keyboard.press('Escape').catch(() => {});
@@ -109,7 +88,6 @@ export async function POST(request: NextRequest) {
     try {
       cardCount = await menuCards.count();
     } catch {
-      await browser.close();
       return NextResponse.json({ ok: false, message: "Page closed while counting menu items" }, { status: 500 });
     }
     console.log(`[Calibrate] Found ${cardCount} menu item cards`);
@@ -127,7 +105,6 @@ export async function POST(request: NextRequest) {
         };
       }).catch((e) => ({ error: String(e) }));
 
-      await browser.close();
       return NextResponse.json({
         ok: false,
         message: "No menu items found",
@@ -153,9 +130,9 @@ export async function POST(request: NextRequest) {
     ]);
 
     // Wait for page to stabilize after click/navigation
-    await page.waitForTimeout(3000);
-    await page.waitForLoadState('domcontentloaded').catch(() => {});
-    await page.waitForTimeout(2000);
+    stage = "analyze_item";
+    await stabilizePage(page);
+    cfDetected = cfDetected || (await ensureNoCloudflareBlock(page, "calibrate_after_click"));
 
     const currentUrl = page.url();
     const wasNavigation = currentUrl !== initialUrl;
@@ -286,8 +263,6 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    await browser.close();
-
     return NextResponse.json({
       ok: true,
       url,
@@ -300,9 +275,25 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    await browser.close();
     const message = error instanceof Error ? error.message : "Unknown error";
+    failReason = message;
     console.error(`[Calibrate] Error: ${message}`);
     return NextResponse.json({ ok: false, message }, { status: 500 });
+  } finally {
+    await browser.close().catch(() => {});
+    logBotRunTelemetry({
+      runType: "scraper-calibrate",
+      success: failReason === undefined,
+      stage,
+      cfDetected,
+      proxyUsed: Boolean(proxyUrl),
+      unlockerUsed: false,
+      durationMs: Date.now() - startedAt,
+      failReason,
+      metadata: {
+        url,
+        itemIndex,
+      },
+    });
   }
 }

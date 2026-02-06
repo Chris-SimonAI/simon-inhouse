@@ -1,4 +1,16 @@
 import * as cheerio from 'cheerio';
+import { chromium } from 'playwright';
+import { env } from '@/env';
+import {
+  applyAutomationInitScript,
+  BOT_USER_AGENT,
+  buildChromiumLaunchOptions,
+  delay,
+  ensureNoCloudflareBlock,
+  getScraperProxyUrl,
+  stabilizePage,
+} from '@/lib/bot/browser-automation';
+import { logBotRunTelemetry } from '@/lib/bot/bot-telemetry';
 
 export interface ModifierOption {
   name: string;
@@ -54,27 +66,61 @@ export interface ScrapedMenu {
   deliveryEta?: string;
 }
 
+const WEB_UNLOCKER_URL = 'https://api.brightdata.com/request';
+const WEB_UNLOCKER_ZONE = env.BRIGHTDATA_WEB_UNLOCKER_ZONE || 'web_unlocker1';
+const WEB_UNLOCKER_MAX_ATTEMPTS = 2;
+const PLAYWRIGHT_FETCH_MAX_ATTEMPTS = 2;
+
+interface FetchTelemetryContext {
+  cfDetected: boolean;
+  unlockerUsed: boolean;
+}
+
+function hasToastMenuSignals(html: string): boolean {
+  return (
+    html.includes('data-testid="menu-item-card"') ||
+    html.includes('data-testid=\\"menu-item-card\\"') ||
+    html.includes('menu-item-card')
+  );
+}
+
+function isCloudflareBlockedHtml(html: string): boolean {
+  const lower = html.toLowerCase();
+  const blockedSignals = [
+    'just a moment',
+    'attention required',
+    'checking your browser',
+    'verify you are human',
+    'cf-browser-verification',
+    'cloudflare',
+    'cf-ray',
+  ];
+
+  return blockedSignals.some((signal) => lower.includes(signal));
+}
+
 /**
  * Fetch a URL using Bright Data's Web Unlocker API
  * Handles Cloudflare and other anti-bot protections automatically
  */
-async function fetchWithWebUnlocker(url: string): Promise<string> {
-  const apiKey = process.env.BRIGHTDATA_API_KEY;
+async function fetchWithWebUnlocker(url: string, telemetry: FetchTelemetryContext): Promise<string> {
+  const apiKey = env.BRIGHTDATA_API_KEY;
   if (!apiKey) {
     throw new Error('BRIGHTDATA_API_KEY environment variable is not set');
   }
+  telemetry.unlockerUsed = true;
 
   console.log(`  Fetching via Web Unlocker: ${url}`);
 
-  const response = await fetch('https://api.brightdata.com/request', {
+  const response = await fetch(WEB_UNLOCKER_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      zone: 'web_unlocker1',
-      url: url,
+      zone: WEB_UNLOCKER_ZONE,
+      url,
       format: 'raw',
     }),
   });
@@ -85,6 +131,90 @@ async function fetchWithWebUnlocker(url: string): Promise<string> {
   }
 
   return response.text();
+}
+
+async function fetchWithPlaywrightProxy(
+  url: string,
+  contextLabel: string,
+  telemetry: FetchTelemetryContext,
+): Promise<string> {
+  const proxyUrl = getScraperProxyUrl();
+  const launchOptions = buildChromiumLaunchOptions(proxyUrl);
+
+  const browser = await chromium.launch(launchOptions);
+
+  try {
+    const context = await browser.newContext({
+      userAgent: BOT_USER_AGENT,
+      viewport: { width: 1280, height: 900 },
+      ignoreHTTPSErrors: Boolean(proxyUrl),
+    });
+
+    await applyAutomationInitScript(context);
+
+    const page = await context.newPage();
+
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await stabilizePage(page);
+    const blocked = await ensureNoCloudflareBlock(page, contextLabel);
+    telemetry.cfDetected = telemetry.cfDetected || blocked;
+    return await page.content();
+  } finally {
+    await browser.close();
+  }
+}
+
+async function fetchMenuHtmlResilient(url: string, telemetry: FetchTelemetryContext): Promise<string> {
+  const errors: string[] = [];
+
+  for (let attempt = 1; attempt <= WEB_UNLOCKER_MAX_ATTEMPTS; attempt++) {
+    try {
+      const html = await fetchWithWebUnlocker(url, telemetry);
+      if (isCloudflareBlockedHtml(html)) {
+        telemetry.cfDetected = true;
+        const message = `Web Unlocker attempt ${attempt} returned Cloudflare block page`;
+        errors.push(message);
+        console.log(`  ${message}`);
+        await delay(attempt * 1200);
+        continue;
+      }
+      if (!hasToastMenuSignals(html)) {
+        const message = `Web Unlocker attempt ${attempt} did not return Toast menu markup`;
+        errors.push(message);
+        console.log(`  ${message}`);
+        await delay(attempt * 1200);
+        continue;
+      }
+      return html;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`Web Unlocker attempt ${attempt} failed: ${message}`);
+      await delay(attempt * 1200);
+    }
+  }
+
+  for (let attempt = 1; attempt <= PLAYWRIGHT_FETCH_MAX_ATTEMPTS; attempt++) {
+    try {
+      console.log(`  Falling back to Playwright fetch (attempt ${attempt})...`);
+      const html = await fetchWithPlaywrightProxy(url, `menu-fetch-${attempt}`, telemetry);
+      if (isCloudflareBlockedHtml(html) || !hasToastMenuSignals(html)) {
+        if (isCloudflareBlockedHtml(html)) {
+          telemetry.cfDetected = true;
+        }
+        const message = `Playwright fallback attempt ${attempt} still returned blocked/non-menu markup`;
+        errors.push(message);
+        await delay(attempt * 1500);
+        continue;
+      }
+      return html;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`Playwright fallback attempt ${attempt} failed: ${message}`);
+      await delay(attempt * 1500);
+    }
+  }
+
+  throw new Error(`Unable to fetch Toast menu page. ${errors.join(' | ')}`);
 }
 
 /**
@@ -262,153 +392,204 @@ function parseModifiers($: cheerio.CheerioAPI, itemName: string): { modifierGrou
 }
 
 export async function scrapeMenu(restaurantUrl: string, options?: { skipModifiers?: boolean }): Promise<ScrapedMenu> {
+  const startedAt = Date.now();
   const skipModifiers = options?.skipModifiers ?? false;
+  const telemetry: FetchTelemetryContext = {
+    cfDetected: false,
+    unlockerUsed: false,
+  };
+  let stage = 'init';
+  let failReason: string | undefined;
 
   console.log(`Scraping menu from ${restaurantUrl}...`);
 
-  // Fetch the main menu page
-  const html = await fetchWithWebUnlocker(restaurantUrl);
-  const $ = cheerio.load(html);
+  // Fetch the main menu page with fallback strategy (Web Unlocker -> Playwright proxy)
+  try {
+    stage = 'fetch_menu_html';
+    const html = await fetchMenuHtmlResilient(restaurantUrl, telemetry);
+    const $ = cheerio.load(html);
 
-  // Get restaurant name
-  const restaurantName = $('h1').first().text().trim() || $('title').text().split('|')[0]?.trim() || 'Restaurant';
-  console.log(`  Restaurant: ${restaurantName}`);
+    // Get restaurant name
+    stage = 'parse_restaurant';
+    const restaurantName = $('h1').first().text().trim() || $('title').text().split('|')[0]?.trim() || 'Restaurant';
+    console.log(`  Restaurant: ${restaurantName}`);
 
-  // Get page text for address/ETA extraction
-  const pageText = $('body').text();
+    // Get page text for address/ETA extraction
+    const pageText = $('body').text();
 
-  // Extract address
-  const address = extractAddress(pageText);
-  if (address?.addressLine1) {
-    console.log(`  Address: ${address.addressLine1}, ${address.city || ''}, ${address.state || ''}`);
-  }
-
-  // Extract delivery ETA
-  const deliveryEta = extractDeliveryEta(pageText);
-  if (deliveryEta) {
-    console.log(`  Delivery ETA: ${deliveryEta}`);
-  }
-
-  // Get hero image
-  let heroImage: string | undefined;
-  $('img').each((_, img) => {
-    const src = $(img).attr('src') || '';
-    if (src.includes('cloudinary') && !src.includes('logo')) {
-      heroImage = src;
-      return false; // break
-    }
-  });
-
-  // Get menu items
-  const items: MenuItem[] = [];
-  let currentCategory = 'Menu';
-
-  $('[data-testid="menu-item-card"], li.item, [class*="menuItem"]').each((index, el) => {
-    const $item = $(el);
-
-    // Try to find category from parent group
-    const $group = $item.closest('[data-testid^="menu-group-"], [class*="menuGroup"]');
-    if ($group.length) {
-      const header = $group.find('h2, h3, [class*="categoryHeader"]').first().text().trim();
-      if (header) currentCategory = header;
+    // Extract address
+    const address = extractAddress(pageText);
+    if (address?.addressLine1) {
+      console.log(`  Address: ${address.addressLine1}, ${address.city || ''}, ${address.state || ''}`);
     }
 
-    const name = $item.find('.itemName, [class*="itemName"], h3, h4, strong').first().text().trim();
-    const description = $item.find('.itemDescription, [class*="itemDescription"], p').first().text().trim();
-    const priceText = $item.find('.itemPrice, [class*="itemPrice"], [class*="price"]').first().text().trim();
-    const image = $item.find('img').first().attr('src');
-
-    if (name && name.length > 0) {
-      const priceMatch = priceText.match(/[\d.]+/);
-      const price = priceMatch ? parseFloat(priceMatch[0]) : 0;
-
-      items.push({
-        id: `item-${index}`,
-        name,
-        description,
-        price,
-        category: currentCategory,
-        image: image || undefined,
-        modifiers: []
-      });
+    // Extract delivery ETA
+    const deliveryEta = extractDeliveryEta(pageText);
+    if (deliveryEta) {
+      console.log(`  Delivery ETA: ${deliveryEta}`);
     }
-  });
 
-  console.log(`  Found ${items.length} menu items`);
-
-  // Scrape modifiers by fetching each item's detail page
-  if (!skipModifiers && items.length > 0) {
-    console.log(`Scraping modifiers for up to 25 items...`);
-    let itemsWithModifiers = 0;
-
-    // Get item detail URLs from the page
-    const itemLinks: string[] = [];
-    $('[data-testid="menu-item-card"] a, li.item a').each((_, el) => {
-      const href = $(el).attr('href');
-      if (href) {
-        // Convert relative URLs to absolute
-        const fullUrl = href.startsWith('http') ? href : `https://www.toasttab.com${href}`;
-        itemLinks.push(fullUrl);
+    // Get hero image
+    let heroImage: string | undefined;
+    $('img').each((_, img) => {
+      const src = $(img).attr('src') || '';
+      if (src.includes('cloudinary') && !src.includes('logo')) {
+        heroImage = src;
+        return false; // break
       }
     });
 
-    for (let i = 0; i < Math.min(items.length, 25); i++) {
-      const item = items[i];
-      if (!item) continue;
+    // Get menu items
+    stage = 'parse_menu_items';
+    const items: MenuItem[] = [];
+    let currentCategory = 'Menu';
 
-      try {
-        // Try to find a link for this item
-        const itemUrl = itemLinks[i];
-        if (!itemUrl) {
-          // Toast URLs have item GUIDs, skip items without direct links
-          continue;
-        }
+    $('[data-testid="menu-item-card"], li.item, [class*="menuItem"]').each((index, el) => {
+      const $item = $(el);
 
-        console.log(`  Fetching modifiers for: ${item.name}`);
-        const itemHtml = await fetchWithWebUnlocker(itemUrl);
-        const $item = cheerio.load(itemHtml);
-
-        const { modifierGroups, flatModifiers } = parseModifiers($item, item.name);
-
-        if (flatModifiers.length > 0) {
-          item.modifiers = flatModifiers;
-          item.modifierGroups = modifierGroups;
-          itemsWithModifiers++;
-          const requiredGroups = modifierGroups.filter(g => g.required).length;
-          console.log(`    ${flatModifiers.length} modifiers in ${modifierGroups.length} groups (${requiredGroups} required)`);
-        }
-
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (e) {
-        console.log(`    Error fetching modifiers for ${item.name}: ${e instanceof Error ? e.message : String(e)}`);
+      // Try to find category from parent group
+      const $group = $item.closest('[data-testid^="menu-group-"], [class*="menuGroup"]');
+      if ($group.length) {
+        const header = $group.find('h2, h3, [class*="categoryHeader"]').first().text().trim();
+        if (header) currentCategory = header;
       }
+
+      const name = $item.find('.itemName, [class*="itemName"], h3, h4, strong').first().text().trim();
+      const description = $item.find('.itemDescription, [class*="itemDescription"], p').first().text().trim();
+      const priceText = $item.find('.itemPrice, [class*="itemPrice"], [class*="price"]').first().text().trim();
+      const image = $item.find('img').first().attr('src');
+
+      if (name && name.length > 0) {
+        const priceMatch = priceText.match(/[\d.]+/);
+        const price = priceMatch ? parseFloat(priceMatch[0]) : 0;
+
+        items.push({
+          id: `item-${index}`,
+          name,
+          description,
+          price,
+          category: currentCategory,
+          image: image || undefined,
+          modifiers: []
+        });
+      }
+    });
+
+    console.log(`  Found ${items.length} menu items`);
+    if (items.length === 0) {
+      throw new Error('No menu items were parsed from Toast. Blocking rules or DOM structure likely changed.');
     }
 
-    console.log(`Modifier scraping complete: ${itemsWithModifiers} items had modifiers`);
+    // Scrape modifiers by fetching each item's detail page
+    if (!skipModifiers && items.length > 0) {
+      stage = 'parse_modifiers';
+      console.log(`Scraping modifiers for up to 25 items...`);
+      let itemsWithModifiers = 0;
+
+      // Get item detail URLs from the page
+      const itemLinks: string[] = [];
+      $('[data-testid="menu-item-card"] a, li.item a').each((_, el) => {
+        const href = $(el).attr('href');
+        if (href) {
+          // Convert relative URLs to absolute
+          const fullUrl = href.startsWith('http') ? href : `https://www.toasttab.com${href}`;
+          itemLinks.push(fullUrl);
+        }
+      });
+
+      for (let i = 0; i < Math.min(items.length, 25); i++) {
+        const item = items[i];
+        if (!item) continue;
+
+        try {
+          // Try to find a link for this item
+          const itemUrl = itemLinks[i];
+          if (!itemUrl) {
+            // Toast URLs have item GUIDs, skip items without direct links
+            continue;
+          }
+
+          console.log(`  Fetching modifiers for: ${item.name}`);
+          const itemHtml = await fetchWithWebUnlocker(itemUrl, telemetry);
+          if (isCloudflareBlockedHtml(itemHtml)) {
+            telemetry.cfDetected = true;
+            throw new Error('Modifier page returned Cloudflare challenge');
+          }
+          const $item = cheerio.load(itemHtml);
+
+          const { modifierGroups, flatModifiers } = parseModifiers($item, item.name);
+
+          if (flatModifiers.length > 0) {
+            item.modifiers = flatModifiers;
+            item.modifierGroups = modifierGroups;
+            itemsWithModifiers++;
+            const requiredGroups = modifierGroups.filter(g => g.required).length;
+            console.log(`    ${flatModifiers.length} modifiers in ${modifierGroups.length} groups (${requiredGroups} required)`);
+          }
+
+          // Small delay to avoid rate limiting
+          await delay(500);
+        } catch (e) {
+          console.log(`    Error fetching modifiers for ${item.name}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+
+      console.log(`Modifier scraping complete: ${itemsWithModifiers} items had modifiers`);
+    }
+
+    // Extract slug from URL
+    stage = 'finalize';
+    const slugMatch = restaurantUrl.match(/\/order\/([^\\/\\?]+)/);
+    const restaurantSlug = slugMatch ? slugMatch[1] : 'unknown';
+
+    // Get unique categories
+    const uniqueCategories = [...new Set(items.map(i => i.category))];
+
+    const menu: ScrapedMenu = {
+      restaurantName,
+      restaurantSlug,
+      url: restaurantUrl,
+      items,
+      categories: uniqueCategories.length > 0 ? uniqueCategories : ['Menu'],
+      scrapedAt: new Date().toISOString(),
+      heroImage,
+      address,
+      deliveryEta,
+    };
+
+    console.log(`Scraped ${items.length} items from ${menu.restaurantName}`);
+    console.log(`Categories: ${menu.categories.join(', ')}`);
+
+    logBotRunTelemetry({
+      runType: 'menu-scrape',
+      success: true,
+      stage,
+      cfDetected: telemetry.cfDetected,
+      proxyUsed: Boolean(getScraperProxyUrl()),
+      unlockerUsed: telemetry.unlockerUsed,
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        url: restaurantUrl,
+        itemCount: items.length,
+      },
+    });
+
+    return menu;
+  } catch (error) {
+    failReason = error instanceof Error ? error.message : String(error);
+    logBotRunTelemetry({
+      runType: 'menu-scrape',
+      success: false,
+      stage,
+      cfDetected: telemetry.cfDetected,
+      proxyUsed: Boolean(getScraperProxyUrl()),
+      unlockerUsed: telemetry.unlockerUsed,
+      durationMs: Date.now() - startedAt,
+      failReason,
+      metadata: {
+        url: restaurantUrl,
+      },
+    });
+    throw error;
   }
-
-  // Extract slug from URL
-  const slugMatch = restaurantUrl.match(/\/order\/([^\\/\\?]+)/);
-  const restaurantSlug = slugMatch ? slugMatch[1] : 'unknown';
-
-  // Get unique categories
-  const uniqueCategories = [...new Set(items.map(i => i.category))];
-
-  const menu: ScrapedMenu = {
-    restaurantName,
-    restaurantSlug,
-    url: restaurantUrl,
-    items,
-    categories: uniqueCategories.length > 0 ? uniqueCategories : ['Menu'],
-    scrapedAt: new Date().toISOString(),
-    heroImage,
-    address,
-    deliveryEta,
-  };
-
-  console.log(`Scraped ${items.length} items from ${menu.restaurantName}`);
-  console.log(`Categories: ${menu.categories.join(', ')}`);
-
-  return menu;
 }
