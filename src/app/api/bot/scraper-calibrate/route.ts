@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { chromium } from "playwright";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 180; // 3 minutes
 
 /**
  * Calibration endpoint to discover Toast's current HTML structure for modifiers.
@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Wait for page to render - longer timeout for proxy
-    await page.waitForTimeout(8000);
+    // Wait for page to render
+    await page.waitForTimeout(5000);
     await page.waitForLoadState('domcontentloaded').catch(() => {});
 
     // Check if page is still valid after navigation
@@ -84,29 +84,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, message: "Page closed after navigation" }, { status: 500 });
     }
 
-    // Check for Cloudflare challenge and wait for it to resolve
+    // Check for Cloudflare challenge
     const pageTitle = await page.title().catch(() => '');
-    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required') || pageTitle === '') {
-      console.log(`[Calibrate] Possible Cloudflare challenge, waiting longer...`);
-      // Wait for Cloudflare challenge to resolve
-      await page.waitForTimeout(10000);
+    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
+      console.log(`[Calibrate] Cloudflare challenge detected, waiting...`);
+      await page.waitForTimeout(5000);
 
-      // Try clicking any checkbox (Cloudflare turnstile)
+      // Try clicking turnstile checkbox
       const checkbox = page.locator('input[type="checkbox"]').first();
-      if (await checkbox.isVisible({ timeout: 2000 }).catch(() => false)) {
+      if (await checkbox.isVisible({ timeout: 1000 }).catch(() => false)) {
         await checkbox.click().catch(() => {});
-        await page.waitForTimeout(5000);
-      }
-
-      // Check again
-      const newTitle = await page.title().catch(() => '');
-      if (newTitle.includes('Just a moment') || newTitle.includes('Attention Required')) {
-        await browser.close();
-        return NextResponse.json({
-          ok: false,
-          message: `Cloudflare blocked: "${newTitle}"`,
-          url: initialUrl,
-        });
+        await page.waitForTimeout(3000);
       }
     }
 
