@@ -36,7 +36,13 @@ export async function POST(request: NextRequest) {
       cvv: "123",
       zip: "90210",
     },
-    orderType: "pickup",
+    orderType: "delivery",
+    deliveryAddress: body.deliveryAddress || {
+      street: "1463 W Sunset Blvd",
+      city: "Los Angeles",
+      state: "CA",
+      zip: "90026",
+    },
     dryRun: true, // This tells the agent we expect the card to be declined
   };
 
