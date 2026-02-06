@@ -84,15 +84,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, message: "Page closed after navigation" }, { status: 500 });
     }
 
-    // Check for Cloudflare block
+    // Check for Cloudflare challenge and wait for it to resolve
     const pageTitle = await page.title().catch(() => '');
-    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
-      await browser.close();
-      return NextResponse.json({
-        ok: false,
-        message: `Cloudflare blocked: "${pageTitle}"`,
-        url: initialUrl,
-      });
+    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required') || pageTitle === '') {
+      console.log(`[Calibrate] Possible Cloudflare challenge, waiting longer...`);
+      // Wait for Cloudflare challenge to resolve
+      await page.waitForTimeout(10000);
+
+      // Try clicking any checkbox (Cloudflare turnstile)
+      const checkbox = page.locator('input[type="checkbox"]').first();
+      if (await checkbox.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await checkbox.click().catch(() => {});
+        await page.waitForTimeout(5000);
+      }
+
+      // Check again
+      const newTitle = await page.title().catch(() => '');
+      if (newTitle.includes('Just a moment') || newTitle.includes('Attention Required')) {
+        await browser.close();
+        return NextResponse.json({
+          ok: false,
+          message: `Cloudflare blocked: "${newTitle}"`,
+          url: initialUrl,
+        });
+      }
     }
 
     // Dismiss popups
@@ -111,18 +126,24 @@ export async function POST(request: NextRequest) {
     console.log(`[Calibrate] Found ${cardCount} menu item cards`);
 
     if (cardCount === 0) {
-      const pageTitle = await page.title().catch(() => 'unknown');
-      const bodySnippet = await page.evaluate(() => {
-        if (!document.body) return 'NO BODY';
-        return document.body.innerText?.substring(0, 500) || 'EMPTY';
-      }).catch(() => 'EVAL FAILED');
+      const debugInfo = await page.evaluate(() => {
+        return {
+          hasBody: !!document.body,
+          bodyText: document.body?.innerText?.substring(0, 500) || 'NO TEXT',
+          title: document.title || 'NO TITLE',
+          html: document.documentElement?.outerHTML?.substring(0, 2000) || 'NO HTML',
+          readyState: document.readyState,
+          scripts: document.querySelectorAll('script').length,
+          iframes: document.querySelectorAll('iframe').length,
+        };
+      }).catch((e) => ({ error: String(e) }));
+
       await browser.close();
       return NextResponse.json({
         ok: false,
         message: "No menu items found",
-        pageTitle,
-        bodySnippet,
-        currentUrl: page.url(),
+        currentUrl: initialUrl,
+        debugInfo,
       });
     }
 
