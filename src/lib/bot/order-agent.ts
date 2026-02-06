@@ -67,6 +67,11 @@ export interface OrderResult {
 const TEST_CARD = '4000000000000002';
 const ORDER_PAGE_LOAD_MAX_ATTEMPTS = 3;
 
+type CartState = {
+  count: number | null;
+  hasActionCta: boolean;
+};
+
 async function navigateToRestaurantPage(page: Page, url: string): Promise<boolean> {
   let lastError = 'Unknown navigation error';
 
@@ -86,6 +91,74 @@ async function navigateToRestaurantPage(page: Page, url: string): Promise<boolea
   }
 
   throw new Error(`Failed to load Toast page after retries: ${lastError}`);
+}
+
+async function getToastCartState(page: Page): Promise<CartState> {
+  return page.evaluate(() => {
+    const actionNodes = Array.from(
+      document.querySelectorAll(
+        'button.targetAction, [class*="targetAction"], [data-testid*="cart"], [data-testid*="order-summary"]',
+      ),
+    ) as HTMLElement[];
+
+    let parsedCount: number | null = null;
+    for (const node of actionNodes) {
+      const text = node.innerText?.trim() || '';
+      const exactCount = text.match(/^\d+$/);
+      if (exactCount) {
+        parsedCount = Number(exactCount[0]);
+        break;
+      }
+
+      const labeledCount = text.match(/(?:cart|order)\D*(\d+)/i);
+      if (labeledCount) {
+        parsedCount = Number(labeledCount[1]);
+        break;
+      }
+    }
+
+    const hasActionCta = Array.from(document.querySelectorAll('button, a')).some((node) => {
+      const text = (node as HTMLElement).innerText?.toLowerCase().trim() || '';
+      return text.includes('view order') || text.includes('checkout') || text.includes('review order');
+    });
+
+    return {
+      count: parsedCount,
+      hasActionCta,
+    };
+  });
+}
+
+function hasCartAdvanced(before: CartState, after: CartState): boolean {
+  if (before.count !== null && after.count !== null) {
+    return after.count > before.count;
+  }
+
+  if (before.count === 0 && after.count === null) {
+    return after.hasActionCta;
+  }
+
+  if (!before.hasActionCta && after.hasActionCta) {
+    return true;
+  }
+
+  return false;
+}
+
+async function waitForCartAdvance(page: Page, before: CartState, timeoutMs: number): Promise<CartState> {
+  const startedAt = Date.now();
+  let latest = await getToastCartState(page);
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (hasCartAdvanced(before, latest)) {
+      return latest;
+    }
+
+    await page.waitForTimeout(400);
+    latest = await getToastCartState(page);
+  }
+
+  return latest;
 }
 
 // Scrape confirmation page for order details
@@ -426,6 +499,8 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     console.log('\nStep 2: Adding items to cart...');
     for (const item of request.items) {
       console.log(`  Looking for "${item.name}"...`);
+      const cartBeforeAdd = await getToastCartState(page);
+      console.log(`  Cart before add: count=${cartBeforeAdd.count ?? 'unknown'} cta=${cartBeforeAdd.hasActionCta}`);
 
       const itemElement = page.locator(`span:has-text("${item.name}")`).first();
       await itemElement.click({ timeout: 30000 });
@@ -703,6 +778,30 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       }
 
       if (!addSuccess) {
+        // Last recovery: fire low-level pointer events to ensure React handlers run.
+        const lowLevelClicked = await page.evaluate(() => {
+          const btn = document.querySelector('[data-testid="menu-item-cart-cta"]') as HTMLButtonElement | null;
+          if (!btn) {
+            return false;
+          }
+          if (btn.disabled) {
+            btn.disabled = false;
+            btn.removeAttribute('disabled');
+          }
+          btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+          btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+          btn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+          btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          return true;
+        });
+        if (lowLevelClicked) {
+          console.log('  Add recovery via low-level click events');
+          addSuccess = true;
+          await page.waitForTimeout(1500);
+        }
+      }
+
+      if (!addSuccess) {
         // Capture diagnostic info
         const diagInfo = await page.evaluate(() => {
           const selectedOption = document.querySelector('.option.selected')?.textContent?.trim() || 'none';
@@ -722,8 +821,39 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
         });
         throw new Error(`Add to Cart button remained disabled. Debug: ${JSON.stringify(diagInfo)}`);
       }
-      console.log(`  Added to cart`);
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(1200);
+
+      // Verify add actually changed the cart state; if not, retry the CTA once.
+      let cartAfterAdd = await waitForCartAdvance(page, cartBeforeAdd, 6000);
+      if (!hasCartAdvanced(cartBeforeAdd, cartAfterAdd)) {
+        console.log('  Cart did not advance after add click, retrying CTA once...');
+        const retryClicked = await page.evaluate(() => {
+          const btn = document.querySelector('[data-testid="menu-item-cart-cta"]') as HTMLButtonElement | null;
+          if (!btn) {
+            return false;
+          }
+          if (btn.disabled) {
+            btn.disabled = false;
+            btn.removeAttribute('disabled');
+          }
+          btn.click();
+          return true;
+        });
+
+        if (retryClicked) {
+          await page.waitForTimeout(1200);
+          cartAfterAdd = await waitForCartAdvance(page, cartBeforeAdd, 5000);
+        }
+      }
+
+      if (!hasCartAdvanced(cartBeforeAdd, cartAfterAdd)) {
+        throw new Error(
+          `Item "${item.name}" was not added to cart. cartBefore=${JSON.stringify(cartBeforeAdd)} cartAfter=${JSON.stringify(cartAfterAdd)}`,
+        );
+      }
+
+      console.log(`  Added to cart (count=${cartAfterAdd.count ?? 'unknown'})`);
+      await page.waitForTimeout(1000);
 
       // Wait for modal to close
       for (let i = 0; i < 5; i++) {
@@ -746,15 +876,23 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
 
     await page.keyboard.press('Escape');
     await page.waitForTimeout(1000);
+    const cartStateAtCheckoutStart = await getToastCartState(page);
+    console.log(
+      `  Cart at checkout start: count=${cartStateAtCheckoutStart.count ?? 'unknown'} cta=${cartStateAtCheckoutStart.hasActionCta}`,
+    );
 
     // Toast shows a floating "View order" bar or cart button after adding items
     const cartSelectors = [
       'button:has-text("View order")',
       'button:has-text("View Order")',
       'a:has-text("View order")',
+      'button.targetAction',
+      '[class*="targetAction"]',
       '[data-testid*="cart"]',
       '[data-testid*="order-summary"]',
       'button:has-text("Cart")',
+      'button[aria-label*="cart" i]',
+      'button[aria-label*="order" i]',
       '[class*="cartButton"]',
       '[class*="orderButton"]',
       '[class*="viewOrder"]',
@@ -764,6 +902,10 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     for (const selector of cartSelectors) {
       const el = page.locator(selector).first();
       if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+        const cartLabel = await el.innerText().catch(() => '');
+        if (cartLabel.trim() === '0') {
+          continue;
+        }
         console.log(`  Found cart via: ${selector}`);
         await el.click({ force: true });
         cartFound = true;
@@ -789,6 +931,8 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       'button:has-text("Checkout")',
       'a:has-text("Checkout")',
       'button:has-text("Continue")',
+      'button:has-text("Continue to payment")',
+      'button:has-text("Proceed to checkout")',
       'button:has-text("Place Order")',
       'button:has-text("Continue to checkout")',
       '[data-testid*="checkout"]',
@@ -803,6 +947,28 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
         checkoutClicked = true;
         await page.waitForTimeout(3000);
         break;
+      }
+    }
+
+    if (!checkoutClicked) {
+      if (cartStateAtCheckoutStart.count !== null && cartStateAtCheckoutStart.count > 0) {
+        const directCheckoutUrl = `${request.restaurantUrl.replace(/\/+$/, '')}/checkout`;
+        console.log(`  Trying direct checkout fallback: ${directCheckoutUrl}`);
+        await page.goto(directCheckoutUrl, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
+        await page.waitForTimeout(2500);
+
+        const isCheckoutLike = await page
+          .locator(
+            'input[name*="email" i], input[placeholder*="email" i], iframe#toast-checkout, iframe[name="toast-checkout"]',
+          )
+          .first()
+          .isVisible({ timeout: 2000 })
+          .catch(() => false);
+
+        if (isCheckoutLike) {
+          checkoutClicked = true;
+          console.log('  Reached checkout via direct URL fallback');
+        }
       }
     }
 
