@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     console.log("[ScraperTest] Launching browser...");
     const launchOptions: Parameters<typeof chromium.launch>[0] = {
       headless: true,
-      args: ['--no-sandbox', '--disable-dev-shm-usage'],
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--ignore-certificate-errors', '--disable-blink-features=AutomationControlled'],
     };
 
     if (proxyUrl) {
