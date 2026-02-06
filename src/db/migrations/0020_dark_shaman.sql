@@ -20,12 +20,20 @@ CREATE TABLE "guest_preferences" (
 --> statement-breakpoint
 ALTER TABLE "dine_in_order_items" DROP CONSTRAINT "dine_in_order_items_menu_item_id_menu_items_id_fk";
 --> statement-breakpoint
-ALTER TABLE "dine_in_order_items" ALTER COLUMN "menu_item_id" DROP NOT NULL;--> statement-breakpoint
-ALTER TABLE "chat_conversations" ADD CONSTRAINT "chat_conversations_guest_id_guest_profiles_id_fk" FOREIGN KEY ("guest_id") REFERENCES "public"."guest_profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "chat_conversations" ADD CONSTRAINT "chat_conversations_hotel_id_hotels_id_fk" FOREIGN KEY ("hotel_id") REFERENCES "public"."hotels"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "guest_preferences" ADD CONSTRAINT "guest_preferences_guest_id_guest_profiles_id_fk" FOREIGN KEY ("guest_id") REFERENCES "public"."guest_profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "chat_conversations_guest_id_idx" ON "chat_conversations" USING btree ("guest_id");--> statement-breakpoint
-CREATE INDEX "chat_conversations_hotel_id_idx" ON "chat_conversations" USING btree ("hotel_id");--> statement-breakpoint
-CREATE INDEX "guest_preferences_guest_id_idx" ON "guest_preferences" USING btree ("guest_id");--> statement-breakpoint
-CREATE INDEX "guest_preferences_type_idx" ON "guest_preferences" USING btree ("preference_type");--> statement-breakpoint
+ALTER TABLE "dine_in_order_items" ALTER COLUMN "menu_item_id" DROP NOT NULL;
+--> statement-breakpoint
+ALTER TABLE "chat_conversations" ADD CONSTRAINT "chat_conversations_guest_id_guest_profiles_id_fk" FOREIGN KEY ("guest_id") REFERENCES "public"."guest_profiles"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "chat_conversations" ADD CONSTRAINT "chat_conversations_hotel_id_hotels_id_fk" FOREIGN KEY ("hotel_id") REFERENCES "public"."hotels"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "guest_preferences" ADD CONSTRAINT "guest_preferences_guest_id_guest_profiles_id_fk" FOREIGN KEY ("guest_id") REFERENCES "public"."guest_profiles"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+CREATE INDEX "chat_conversations_guest_id_idx" ON "chat_conversations" USING btree ("guest_id");
+--> statement-breakpoint
+CREATE INDEX "chat_conversations_hotel_id_idx" ON "chat_conversations" USING btree ("hotel_id");
+--> statement-breakpoint
+CREATE INDEX "guest_preferences_guest_id_idx" ON "guest_preferences" USING btree ("guest_id");
+--> statement-breakpoint
+CREATE INDEX "guest_preferences_type_idx" ON "guest_preferences" USING btree ("preference_type");
+--> statement-breakpoint
 ALTER TABLE "dine_in_order_items" ADD CONSTRAINT "dine_in_order_items_menu_item_id_menu_items_id_fk" FOREIGN KEY ("menu_item_id") REFERENCES "public"."menu_items"("id") ON DELETE set null ON UPDATE no action;
