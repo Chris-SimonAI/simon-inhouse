@@ -199,6 +199,69 @@ async function openItemEditor(page: Page, itemName: string): Promise<void> {
   throw new Error(`Unable to open item editor for "${itemName}"`);
 }
 
+async function resolveFulfillmentPrompts(page: Page): Promise<string[]> {
+  const clickedButtons: string[] = [];
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const clickedText = await page.evaluate(() => {
+      const promptKeywords = [
+        'schedule your order for later',
+        'schedule order',
+        'start order',
+        'as soon as possible',
+        'asap',
+        'select time',
+        'choose time',
+        'continue',
+        'save',
+        'confirm',
+        'done',
+        'next',
+      ];
+
+      const nodes = Array.from(document.querySelectorAll('button, a')) as HTMLButtonElement[];
+      for (const node of nodes) {
+        const text = node.textContent?.toLowerCase().trim() || '';
+        if (!text) {
+          continue;
+        }
+        if (text.includes('sign in')) {
+          continue;
+        }
+        if (!promptKeywords.some((keyword) => text.includes(keyword))) {
+          continue;
+        }
+
+        const disabled = node.hasAttribute('disabled') || node.getAttribute('aria-disabled') === 'true';
+        if (disabled) {
+          continue;
+        }
+
+        const style = window.getComputedStyle(node);
+        const hidden = style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
+        if (hidden) {
+          continue;
+        }
+
+        node.scrollIntoView({ block: 'center' });
+        node.click();
+        return text;
+      }
+
+      return null;
+    });
+
+    if (!clickedText) {
+      break;
+    }
+
+    clickedButtons.push(clickedText);
+    await page.waitForTimeout(1400);
+  }
+
+  return clickedButtons;
+}
+
 // Scrape confirmation page for order details
 async function scrapeConfirmationPage(page: Page): Promise<ConfirmationData> {
   const confirmation: ConfirmationData = {};
@@ -531,6 +594,11 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     await page.keyboard.press('Escape').catch(() => {});
     await page.waitForTimeout(1000);
     cfDetected = cfDetected || (await ensureNoCloudflareBlock(page, 'before_add_to_cart'));
+    const fulfillmentClicks = await resolveFulfillmentPrompts(page);
+    if (fulfillmentClicks.length > 0) {
+      console.log(`  Fulfillment prompts resolved: ${fulfillmentClicks.join(' -> ')}`);
+      await page.waitForTimeout(1200);
+    }
 
     // Step 2: Add items to cart
     currentStage = 'add_to_cart';
@@ -889,6 +957,32 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
         if (retryClicked) {
           await page.waitForTimeout(1200);
           cartAfterAdd = await waitForCartAdvance(page, cartBeforeAdd, 5000);
+        }
+      }
+
+      if (!hasCartAdvanced(cartBeforeAdd, cartAfterAdd)) {
+        console.log('  Cart still unchanged, resolving fulfillment prompts and retrying item add...');
+        const retryFulfillmentClicks = await resolveFulfillmentPrompts(page);
+        if (retryFulfillmentClicks.length > 0) {
+          console.log(`  Fulfillment retry clicks: ${retryFulfillmentClicks.join(' -> ')}`);
+          await page.waitForTimeout(1200);
+
+          const ctaStillVisible = await page
+            .locator('[data-testid="menu-item-cart-cta"]')
+            .first()
+            .isVisible({ timeout: 2000 })
+            .catch(() => false);
+          if (!ctaStillVisible) {
+            await openItemEditor(page, item.name);
+            await page.waitForTimeout(1200);
+          }
+
+          const finalRetry = page.locator('[data-testid="menu-item-cart-cta"]').first();
+          if (await finalRetry.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await finalRetry.click({ force: true, timeout: 5000 }).catch(() => {});
+            await page.waitForTimeout(1200);
+            cartAfterAdd = await waitForCartAdvance(page, cartBeforeAdd, 5000);
+          }
         }
       }
 
