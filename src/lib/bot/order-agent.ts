@@ -219,6 +219,7 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       '--no-sandbox',
       '--disable-dev-shm-usage',
       '--disable-blink-features=AutomationControlled',
+      '--ignore-certificate-errors',
     ],
   };
 
