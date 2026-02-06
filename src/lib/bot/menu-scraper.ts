@@ -548,6 +548,17 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
       let itemsWithModifiers = 0;
       let navigationFailures = 0;
       let clickFailures = 0;
+      let browserClosed = false;
+
+      // Helper to check if page is still usable
+      const isPageValid = async (): Promise<boolean> => {
+        try {
+          await page.url(); // Simple check - will throw if page is closed
+          return true;
+        } catch {
+          return false;
+        }
+      };
 
       // Store the menu URL to navigate back to
       const menuUrl = page.url();
@@ -558,6 +569,12 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
       console.log(`  Found ${totalCards} clickable item cards`);
 
       for (let i = 0; i < Math.min(totalCards, 25); i++) {
+        // Check if browser is still valid before each iteration
+        if (browserClosed || !(await isPageValid())) {
+          console.log('  Browser/page closed, stopping modifier scraping');
+          break;
+        }
+
         const item = items[i];
         if (!item) continue;
         itemsAttempted++;
@@ -857,16 +874,37 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
           }
         } catch (e: unknown) {
           clickFailures++;
-          console.log(`  Error scraping ${item.name}: ${e instanceof Error ? e.message : String(e)}`);
-          // Try to get back to menu page
-          if (page.url() !== menuUrl) {
-            await page.goBack({ timeout: 10000 }).catch(async () => {
-              await page.goto(menuUrl, { waitUntil: 'commit', timeout: 30000 }).catch(() => {});
-            });
-            await page.waitForTimeout(1000);
-          } else {
-            await page.keyboard.press('Escape').catch(() => {});
-            await page.waitForTimeout(300);
+          const errorMessage = e instanceof Error ? e.message : String(e);
+          console.log(`  Error scraping ${item.name}: ${errorMessage}`);
+
+          // Check if browser/page was closed
+          if (errorMessage.includes('Target page, context or browser has been closed') ||
+              errorMessage.includes('Target closed') ||
+              errorMessage.includes('browser has been closed')) {
+            browserClosed = true;
+            console.log('  Browser was closed, stopping scraping');
+            break;
+          }
+
+          // Try to get back to menu page (only if browser is still valid)
+          try {
+            const currentUrl = page.url();
+            if (currentUrl !== menuUrl) {
+              await page.goBack({ timeout: 10000 }).catch(async () => {
+                await page.goto(menuUrl, { waitUntil: 'commit', timeout: 30000 }).catch(() => {});
+              });
+              await page.waitForTimeout(1000);
+            } else {
+              await page.keyboard.press('Escape').catch(() => {});
+              await page.waitForTimeout(300);
+            }
+          } catch (recoveryError) {
+            // If recovery fails, browser is likely closed
+            const recoveryMsg = recoveryError instanceof Error ? recoveryError.message : String(recoveryError);
+            if (recoveryMsg.includes('closed')) {
+              browserClosed = true;
+              break;
+            }
           }
         }
       }
@@ -878,7 +916,13 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
 
     const uniqueCategories = [...new Set(items.map(i => i.category))];
 
-    const hours = await scrapeHours(page);
+    // Try to scrape hours but don't fail if browser is closed
+    let hours: RestaurantHours | undefined;
+    try {
+      hours = await scrapeHours(page);
+    } catch {
+      console.log('  Could not scrape hours (page may be closed)');
+    }
 
     const menu: ScrapedMenu = {
       restaurantName: restaurantName || 'Unknown Restaurant',
