@@ -428,11 +428,25 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
 
     if (!menuFound) {
       // Log page info for debugging
-      const pageTitle = await page.title();
+      const pageTitle = await page.title().catch(() => 'unknown');
       const pageUrl = page.url();
       console.log(`  Page title: ${pageTitle}`);
       console.log(`  Page URL: ${pageUrl}`);
-      throw new Error('Could not find menu items on page');
+
+      // Check for Cloudflare block
+      if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
+        throw new Error(`Cloudflare blocked access - page title: "${pageTitle}"`);
+      }
+
+      // Get page content snippet for debugging
+      const bodySnippet = await page.evaluate(() => {
+        if (!document.body) return 'NO BODY';
+        const text = document.body.innerText || '';
+        return text.substring(0, 500);
+      }).catch(() => 'EVAL FAILED');
+      console.log(`  Body snippet: ${bodySnippet}`);
+
+      throw new Error(`Could not find menu items on page. Title: "${pageTitle}", URL: ${pageUrl}`);
     }
 
     await page.waitForTimeout(2000);
