@@ -574,7 +574,24 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       }
 
       if (!addSuccess) {
-        throw new Error('Add to Cart button remained disabled after all modifier selection attempts');
+        // Capture diagnostic info
+        const diagInfo = await page.evaluate(() => {
+          const selectedOption = document.querySelector('.option.selected')?.textContent?.trim() || 'none';
+          const btn = document.querySelector('[data-testid="menu-item-cart-cta"]') as HTMLButtonElement;
+          const btnText = btn?.textContent?.trim() || 'not found';
+          const btnDisabled = btn?.disabled ?? true;
+          const modSections = Array.from(document.querySelectorAll('.modSection')).map(s => {
+            const title = s.querySelector('.modSectionTitleContainer')?.textContent?.trim() || '';
+            const hasChecked = !!s.querySelector('input:checked');
+            const inputCount = s.querySelectorAll('input').length;
+            return { title, hasChecked, inputCount };
+          });
+          const addressInputs = Array.from(document.querySelectorAll('input')).filter(i =>
+            i.placeholder?.toLowerCase().includes('address') || i.name?.toLowerCase().includes('address')
+          ).map(i => ({ placeholder: i.placeholder, value: i.value, visible: i.offsetParent !== null }));
+          return { selectedOption, btnText, btnDisabled, modSections, addressInputs };
+        });
+        throw new Error(`Add to Cart button remained disabled. Debug: ${JSON.stringify(diagInfo)}`);
       }
       console.log(`  Added to cart`);
       await page.waitForTimeout(2000);
