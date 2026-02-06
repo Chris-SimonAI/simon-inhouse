@@ -413,7 +413,7 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
         for (const group of requiredInfo) {
           console.log(`    Auto-selecting first option in: ${group.groupName}`);
           if (group.firstOptionId) {
-            const input = page.locator(`#${CSS.escape(group.firstOptionId)}`);
+            const input = page.locator(`[id="${group.firstOptionId}"]`);
             if (await input.isVisible({ timeout: 1000 }).catch(() => false)) {
               await input.click({ force: true });
               await page.waitForTimeout(300);
