@@ -515,7 +515,14 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
               return;
             }
 
-            const firstLabel = section.querySelector('label, .option, [role="radio"], [role="checkbox"]') as HTMLElement | null;
+            const optionCandidates = Array.from(
+              section.querySelectorAll('label, .option, [role="radio"], [role="checkbox"]'),
+            ) as HTMLElement[];
+            const pricedOption =
+              optionCandidates.find((candidate) =>
+                /\$\s*[1-9]\d*(?:\.\d{1,2})?/i.test(candidate.textContent || ''),
+              ) || null;
+            const firstLabel = pricedOption || optionCandidates[0] || null;
             if (firstLabel) {
               firstLabel.scrollIntoView({ block: 'center' });
               firstLabel.click();
@@ -561,7 +568,12 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
             sections.forEach(section => {
               const titleText = section.querySelector('.modSectionTitleContainer')?.textContent || '';
               if (/required/i.test(titleText) && !section.querySelector('input:checked')) {
-                const label = section.querySelector('label, .option') as HTMLElement | null;
+                const optionCandidates = Array.from(section.querySelectorAll('label, .option')) as HTMLElement[];
+                const pricedOption =
+                  optionCandidates.find((candidate) =>
+                    /\$\s*[1-9]\d*(?:\.\d{1,2})?/i.test(candidate.textContent || ''),
+                  ) || null;
+                const label = pricedOption || optionCandidates[0] || null;
                 if (label) {
                   label.scrollIntoView({ block: 'center' });
                   label.click();
@@ -652,6 +664,41 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
           console.log(`  Forced Add click after disabled-state mismatch`);
           addSuccess = true;
           await page.waitForTimeout(1500);
+        }
+      }
+
+      if (!addSuccess) {
+        // Recovery: Toast may block Add until fulfillment time/start-order confirmation is clicked.
+        const fulfillmentRecovery = await page.evaluate(() => {
+          const keywords = ['asap', 'continue', 'start order', 'save', 'confirm', 'select time', 'next'];
+          const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[];
+          for (const button of buttons) {
+            const text = button.textContent?.toLowerCase().trim() || '';
+            if (!text || button.disabled) {
+              continue;
+            }
+            if (keywords.some((keyword) => text.includes(keyword))) {
+              button.scrollIntoView({ block: 'center' });
+              button.click();
+              return text;
+            }
+          }
+          return null;
+        });
+
+        if (fulfillmentRecovery) {
+          console.log(`  Fulfillment recovery click: ${fulfillmentRecovery}`);
+          await page.waitForTimeout(2000);
+          const postRecoveryBtn = page.locator('[data-testid="menu-item-cart-cta"]').first();
+          const postRecoveryDisabled = await postRecoveryBtn
+            .evaluate((el) => (el as HTMLButtonElement).disabled)
+            .catch(() => true);
+          if (!postRecoveryDisabled) {
+            await postRecoveryBtn.click({ force: true, timeout: 5000 }).catch(() => {});
+            addSuccess = true;
+            console.log('  Add succeeded after fulfillment recovery');
+            await page.waitForTimeout(1500);
+          }
         }
       }
 
