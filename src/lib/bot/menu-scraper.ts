@@ -793,26 +793,39 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
               const requiredGroups = modifierGroups.filter(g => g.required).length;
               console.log(`  ${item.name}: ${flatModifiers.length} modifiers in ${modifierGroups.length} groups (${requiredGroups} required)`);
             } else {
-              // Debug: check what's inside the modSection elements
+              // Debug: look at entire modal structure to find where modifiers actually are
               const debugInfo = await page.evaluate(() => {
                 const modal = document.querySelector('[role="dialog"]');
                 if (!modal) return 'NO MODAL FOUND';
-                const modSections = modal.querySelectorAll('.modSection');
-                if (modSections.length === 0) return 'no .modSection elements';
 
-                // Look at first modSection's structure
-                const firstSection = modSections[0];
-                const optionEls = firstSection.querySelectorAll('.option');
-                const inputEls = firstSection.querySelectorAll('input');
-                const labelEls = firstSection.querySelectorAll('label');
-                const allChildClasses = Array.from(firstSection.querySelectorAll('*'))
-                  .slice(0, 30)
-                  .map(el => el.className)
-                  .filter(c => c && typeof c === 'string');
+                // Count all interactive elements in modal
+                const allInputs = modal.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+                const allLabels = modal.querySelectorAll('label');
+                const allButtons = modal.querySelectorAll('button');
 
-                return `${modSections.length} modSections, first has: ${optionEls.length} .option, ${inputEls.length} inputs, ${labelEls.length} labels. Classes: ${allChildClasses.slice(0, 15).join(' | ')}`;
+                // Look for any elements that might contain modifier options
+                const possibleContainers = [
+                  '.modSection', '.modifierGroup', '.modifier-group', '.optionGroup',
+                  '[class*="modifier"]', '[class*="option"]', '[class*="choice"]',
+                  '[class*="selection"]', '[class*="customize"]'
+                ];
+
+                const containerCounts: Record<string, number> = {};
+                possibleContainers.forEach(sel => {
+                  try {
+                    containerCounts[sel] = modal.querySelectorAll(sel).length;
+                  } catch { containerCounts[sel] = 0; }
+                });
+
+                // Get unique class names from direct children of modal content
+                const modalContent = modal.querySelector('.modalContent, .itemModalContent, [class*="modalContent"]');
+                const childClasses = modalContent
+                  ? Array.from(modalContent.children).map(el => el.className).filter(c => c && typeof c === 'string').slice(0, 10)
+                  : [];
+
+                return `${allInputs.length} radios/checkboxes, ${allLabels.length} labels. Containers: ${JSON.stringify(containerCounts)}. Modal children: ${childClasses.join(' | ')}`;
               });
-              console.log(`  ${item.name}: no modifiers found (${debugInfo})`);
+              console.log(`  ${item.name}: no modifiers (${debugInfo})`);
             }
 
             // Close the modal
