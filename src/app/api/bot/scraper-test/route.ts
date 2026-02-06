@@ -10,10 +10,11 @@ export const maxDuration = 60;
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const url = body.url || "https://example.com";
+  const skipProxy = body.skipProxy === true;
 
-  console.log(`[ScraperTest] Testing with URL: ${url}`);
+  console.log(`[ScraperTest] Testing with URL: ${url}, skipProxy: ${skipProxy}`);
 
-  const proxyUrl = process.env.SCRAPER_PROXY_URL;
+  const proxyUrl = skipProxy ? null : process.env.SCRAPER_PROXY_URL;
   console.log(`[ScraperTest] Proxy configured: ${!!proxyUrl}`);
 
   try {
@@ -44,10 +45,11 @@ export async function POST(request: NextRequest) {
     console.log("[ScraperTest] Page created");
 
     console.log("[ScraperTest] Navigating...");
-    await page.goto(url, { waitUntil: 'commit', timeout: 30000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
     console.log("[ScraperTest] Navigation complete");
 
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     const title = await page.title().catch(() => 'TITLE_FAILED');
     const debugInfo = await page.evaluate(() => {
