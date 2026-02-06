@@ -148,7 +148,8 @@ async function scrapeHours(page: Page): Promise<RestaurantHours | undefined> {
   try {
     const hours = await page.evaluate(() => {
       const result: Record<string, Array<{ open: string; close: string }>> = {};
-      const pageText = document.body.innerText;
+      if (!document.body) return null;
+      const pageText = document.body.innerText || '';
 
       const dayPatterns = [
         /monday[:\s]+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*[-–to]+\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/gi,
@@ -303,6 +304,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
     // IMPORTANT: Scrape address FIRST while still on Pickup mode (address is visible there)
     // Toast shows: "Pickup from 1329 Santa Monica Boulevard, Santa Monica, CA"
     const address = await page.evaluate(() => {
+      if (!document.body) return undefined;
       const pageText = document.body.innerText || '';
 
       let addressLine1 = '';
@@ -478,6 +480,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
 
     // Get delivery ETA
     const deliveryEta = await page.evaluate(() => {
+      if (!document.body) return undefined;
       // Look for "Estimated in X - Y min" text
       const etaPatterns = [
         /estimated\s+in\s+(\d+\s*-\s*\d+\s*min)/i,
