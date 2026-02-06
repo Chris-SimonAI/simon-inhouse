@@ -301,7 +301,31 @@ async function openItemEditor(page: Page, itemName: string): Promise<void> {
     }
   }
 
-  throw new Error(`Unable to open item editor for "${itemName}"`);
+  const openDebug = await page.evaluate(() => {
+    const anchors = Array.from(document.querySelectorAll('a[href*="/item-"]')).slice(0, 5).map((anchor) => ({
+      href: (anchor as HTMLAnchorElement).href,
+      text: (anchor as HTMLElement).innerText?.trim().slice(0, 80) || '',
+    }));
+    const menuCards = document.querySelectorAll('[data-testid="menu-item-card"], li.item, [class*="menuItem"]').length;
+    const buttons = Array.from(document.querySelectorAll('button, a'))
+      .slice(0, 20)
+      .map((node) => ((node as HTMLElement).innerText || '').trim())
+      .filter(Boolean)
+      .slice(0, 10);
+    const bodyPreview = document.body?.innerText?.slice(0, 220) || '';
+
+    return {
+      url: window.location.href,
+      title: document.title,
+      anchorCount: document.querySelectorAll('a[href*="/item-"]').length,
+      menuCards,
+      anchors,
+      buttons,
+      bodyPreview,
+    };
+  });
+
+  throw new Error(`Unable to open item editor for "${itemName}". Debug: ${JSON.stringify(openDebug)}`);
 }
 
 async function resolveFulfillmentPrompts(page: Page): Promise<string[]> {
