@@ -50,9 +50,14 @@ export async function POST(request: NextRequest) {
     await page.waitForTimeout(2000);
 
     const title = await page.title().catch(() => 'TITLE_FAILED');
-    const bodyText = await page.evaluate(() => {
-      return document.body?.innerText?.substring(0, 200) || 'NO_BODY';
-    }).catch(() => 'EVAL_FAILED');
+    const debugInfo = await page.evaluate(() => {
+      return {
+        hasBody: !!document.body,
+        bodyText: document.body?.innerText?.substring(0, 300) || 'NO_BODY',
+        html: document.documentElement?.outerHTML?.substring(0, 1000) || 'NO_HTML',
+        readyState: document.readyState,
+      };
+    }).catch((e) => ({ error: String(e) }));
 
     await browser.close();
 
@@ -60,7 +65,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       url,
       title,
-      bodyText,
+      debugInfo,
       proxyUsed: !!proxyUrl,
     });
   } catch (error) {
