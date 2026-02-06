@@ -161,6 +161,44 @@ async function waitForCartAdvance(page: Page, before: CartState, timeoutMs: numb
   return latest;
 }
 
+function escapeForSelector(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+async function openItemEditor(page: Page, itemName: string): Promise<void> {
+  const escapedName = escapeForSelector(itemName);
+  const selectors = [
+    `[data-testid="menu-item-card"]:has-text("${escapedName}")`,
+    `li:has-text("${escapedName}")`,
+    `a:has-text("${escapedName}")`,
+    `button:has-text("${escapedName}")`,
+    `span:has-text("${escapedName}")`,
+  ];
+
+  for (const selector of selectors) {
+    const target = page.locator(selector).first();
+    const visible = await target.isVisible({ timeout: 2000 }).catch(() => false);
+    if (!visible) {
+      continue;
+    }
+
+    await target.click({ timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1200);
+
+    const ctaVisible = await page
+      .locator('[data-testid="menu-item-cart-cta"]')
+      .first()
+      .isVisible({ timeout: 3500 })
+      .catch(() => false);
+
+    if (ctaVisible || page.url().includes('/item-')) {
+      return;
+    }
+  }
+
+  throw new Error(`Unable to open item editor for "${itemName}"`);
+}
+
 // Scrape confirmation page for order details
 async function scrapeConfirmationPage(page: Page): Promise<ConfirmationData> {
   const confirmation: ConfirmationData = {};
@@ -502,10 +540,18 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       const cartBeforeAdd = await getToastCartState(page);
       console.log(`  Cart before add: count=${cartBeforeAdd.count ?? 'unknown'} cta=${cartBeforeAdd.hasActionCta}`);
 
-      const itemElement = page.locator(`span:has-text("${item.name}")`).first();
-      await itemElement.click({ timeout: 30000 });
-      console.log(`  Clicked ${item.name}`);
-      await page.waitForTimeout(2000);
+      await openItemEditor(page, item.name);
+      console.log(`  Opened item editor for ${item.name}`);
+      await page.waitForTimeout(1500);
+
+      const addCtaVisible = await page
+        .locator('[data-testid="menu-item-cart-cta"]')
+        .first()
+        .isVisible({ timeout: 5000 })
+        .catch(() => false);
+      if (!addCtaVisible) {
+        throw new Error(`Add to Cart CTA not visible after opening "${item.name}"`);
+      }
 
       // Handle modifiers if specified
       if (item.modifiers && item.modifiers.length > 0) {
