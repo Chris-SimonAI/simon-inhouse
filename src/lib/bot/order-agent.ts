@@ -289,17 +289,17 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     });
     console.log('  Page elements:', JSON.stringify(fulfillmentDebug, null, 2));
 
-    // Try fulfillment selectors (Toast uses tabs, buttons, or links for Delivery/Pickup)
+    // Try fulfillment selectors (Toast uses .option class for Delivery/Pickup)
     const orderTypeSelectors = request.orderType === 'delivery'
       ? [
+          '.option:has-text("Delivery")', 'text="Delivery"',
           'button:has-text("Delivery")', '[role="tab"]:has-text("Delivery")',
           'a:has-text("Delivery")', '[data-testid*="delivery"]',
-          '[data-testid*="fulfillment"] button:has-text("Delivery")',
         ]
       : [
+          '.option:has-text("Pickup")', 'text="Pickup"',
           'button:has-text("Pickup")', '[role="tab"]:has-text("Pickup")',
-          'button:has-text("Pick up")', 'a:has-text("Pickup")',
-          '[data-testid*="pickup"]',
+          'button:has-text("Pick up")', '[data-testid*="pickup"]',
         ];
 
     let orderTypeSelected = false;
@@ -552,27 +552,32 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
         await page.waitForTimeout(500);
       }
 
-      // Wait for React to settle after modifier selection, then click Add via DOM
-      await page.waitForTimeout(1000);
-      const addClicked = await page.evaluate(() => {
-        // Re-query the button fresh (avoids stale React DOM references)
-        const btn = document.querySelector('[data-testid="menu-item-cart-cta"]') as HTMLButtonElement
-          || document.querySelector('button.modalButton') as HTMLButtonElement;
-        if (btn && !btn.disabled) {
-          btn.click();
-          return 'clicked';
-        }
-        return btn ? `disabled=${btn.disabled}` : 'not_found';
-      });
-      console.log(`  Add button result: ${addClicked}`);
+      // Wait for React to settle after modifier selection
+      await page.waitForTimeout(1500);
 
-      if (addClicked !== 'clicked') {
-        // Final attempt: force click via Playwright with fresh locator
-        const freshAddBtn = page.locator('[data-testid="menu-item-cart-cta"]').first();
-        await freshAddBtn.click({ force: true, timeout: 5000 });
+      // Click Add button using Playwright (not DOM) to trigger React event handlers
+      // Use a fresh locator each attempt to avoid stale references from React re-renders
+      let addSuccess = false;
+      for (let addAttempt = 0; addAttempt < 5; addAttempt++) {
+        const freshBtn = page.locator('[data-testid="menu-item-cart-cta"]').first();
+        const btnDisabled = await freshBtn.evaluate(el => (el as HTMLButtonElement).disabled).catch(() => true);
+
+        if (!btnDisabled) {
+          await freshBtn.click({ force: true, timeout: 5000 }).catch(() => {});
+          console.log(`  Clicked Add button (attempt ${addAttempt + 1})`);
+          addSuccess = true;
+          break;
+        }
+
+        console.log(`  Add button still disabled (attempt ${addAttempt + 1}), waiting...`);
+        await page.waitForTimeout(1000);
+      }
+
+      if (!addSuccess) {
+        throw new Error('Add to Cart button remained disabled after all modifier selection attempts');
       }
       console.log(`  Added to cart`);
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(2000);
 
       // Wait for modal to close
       for (let i = 0; i < 5; i++) {
