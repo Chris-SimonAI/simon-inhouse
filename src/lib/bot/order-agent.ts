@@ -481,18 +481,39 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
 
     // Step 1b: Select order type and enter delivery address (Toast requires this before adding items)
     console.log(`  Selecting order type: ${request.orderType}...`);
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    await page.waitForTimeout(800);
 
     // Debug: capture what fulfillment elements are on the page
-    const fulfillmentDebug = await page.evaluate(() => {
-      const buttons = Array.from(document.querySelectorAll('button, a, [role="tab"]')).slice(0, 40).map(el => ({
-        tag: el.tagName,
-        text: (el as HTMLElement).innerText?.trim().slice(0, 60) || '',
-        class: el.className?.toString().slice(0, 60) || '',
-        testId: el.getAttribute('data-testid') || '',
-        role: el.getAttribute('role') || '',
-      }));
-      return buttons.filter(b => b.text);
-    });
+    let fulfillmentDebug: Array<{
+      tag: string;
+      text: string;
+      class: string;
+      testId: string;
+      role: string;
+    }> = [];
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        fulfillmentDebug = await page.evaluate(() => {
+          const buttons = Array.from(document.querySelectorAll('button, a, [role="tab"]')).slice(0, 40).map(el => ({
+            tag: el.tagName,
+            text: (el as HTMLElement).innerText?.trim().slice(0, 60) || '',
+            class: el.className?.toString().slice(0, 60) || '',
+            testId: el.getAttribute('data-testid') || '',
+            role: el.getAttribute('role') || '',
+          }));
+          return buttons.filter(b => b.text);
+        });
+        break;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (attempt === 3 || !message.toLowerCase().includes('execution context was destroyed')) {
+          throw error;
+        }
+        console.log(`  Fulfillment debug retry ${attempt}/3 after navigation race...`);
+        await page.waitForTimeout(1200);
+      }
+    }
     console.log('  Page elements:', JSON.stringify(fulfillmentDebug, null, 2));
 
     // Try fulfillment selectors (Toast uses .option class for Delivery/Pickup)
