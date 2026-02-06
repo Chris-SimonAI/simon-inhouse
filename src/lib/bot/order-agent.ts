@@ -185,14 +185,21 @@ async function openItemEditor(page: Page, itemName: string): Promise<void> {
     await target.click({ timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1200);
 
-    const ctaVisible = await page
-      .locator('[data-testid="menu-item-cart-cta"]')
-      .first()
-      .isVisible({ timeout: 3500 })
+    const ctaAttached = await page
+      .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
+      .then(() => true)
       .catch(() => false);
 
-    if (ctaVisible || page.url().includes('/item-')) {
+    if (ctaAttached) {
       return;
+    }
+
+    if (page.url().includes('/item-')) {
+      await page.waitForTimeout(1200);
+      const ctaRetryCount = await page.locator('[data-testid="menu-item-cart-cta"]').count().catch(() => 0);
+      if (ctaRetryCount > 0) {
+        return;
+      }
     }
   }
 
@@ -608,16 +615,28 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       const cartBeforeAdd = await getToastCartState(page);
       console.log(`  Cart before add: count=${cartBeforeAdd.count ?? 'unknown'} cta=${cartBeforeAdd.hasActionCta}`);
 
-      await openItemEditor(page, item.name);
-      console.log(`  Opened item editor for ${item.name}`);
-      await page.waitForTimeout(1500);
+      let addCtaAttached = false;
+      for (let openAttempt = 1; openAttempt <= 3; openAttempt++) {
+        await openItemEditor(page, item.name);
+        console.log(`  Opened item editor for ${item.name} (attempt ${openAttempt})`);
+        const openFulfillmentClicks = await resolveFulfillmentPrompts(page);
+        if (openFulfillmentClicks.length > 0) {
+          console.log(`  Fulfillment clicks while opening item: ${openFulfillmentClicks.join(' -> ')}`);
+        }
 
-      const addCtaVisible = await page
-        .locator('[data-testid="menu-item-cart-cta"]')
-        .first()
-        .isVisible({ timeout: 5000 })
-        .catch(() => false);
-      if (!addCtaVisible) {
+        addCtaAttached = await page
+          .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 7000 })
+          .then(() => true)
+          .catch(() => false);
+        if (addCtaAttached) {
+          break;
+        }
+
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.waitForTimeout(800);
+      }
+
+      if (!addCtaAttached) {
         throw new Error(`Add to Cart CTA not visible after opening "${item.name}"`);
       }
 
