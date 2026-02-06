@@ -113,10 +113,15 @@ export async function POST(request: NextRequest) {
       const allElements = targetElement.querySelectorAll('*');
       const classSet = new Set<string>();
       allElements.forEach(el => {
-        if (el.className && typeof el.className === 'string') {
-          el.className.split(/\s+/).forEach(c => {
-            if (c.length > 2 && c.length < 50) classSet.add(c);
-          });
+        try {
+          const className = el.getAttribute('class');
+          if (className && typeof className === 'string') {
+            className.split(/\s+/).forEach(c => {
+              if (c.length > 2 && c.length < 50) classSet.add(c);
+            });
+          }
+        } catch {
+          // Skip elements that don't support getAttribute
         }
       });
       const allClasses = Array.from(classSet).sort();
@@ -125,16 +130,16 @@ export async function POST(request: NextRequest) {
       const inputs = Array.from(targetElement.querySelectorAll('input')).map(input => ({
         type: input.type,
         name: input.name,
-        className: input.className,
+        className: input.getAttribute('class') || '',
         id: input.id,
-        parentClass: input.parentElement?.className || '',
+        parentClass: input.parentElement?.getAttribute('class') || '',
         labelText: input.closest('label')?.textContent?.trim()?.slice(0, 50) || '',
       }));
 
       // Find all buttons that might be modifier options
       const buttons = Array.from(targetElement.querySelectorAll('button')).slice(0, 30).map(btn => ({
         text: btn.textContent?.trim().slice(0, 50) || '',
-        className: btn.className,
+        className: btn.getAttribute('class') || '',
         type: btn.type,
         role: btn.getAttribute('role') || '',
         ariaPressed: btn.getAttribute('aria-pressed'),
@@ -144,7 +149,7 @@ export async function POST(request: NextRequest) {
       const clickables = Array.from(targetElement.querySelectorAll('[role="radio"], [role="checkbox"], [role="option"], [tabindex="0"]')).slice(0, 30).map(el => ({
         tag: el.tagName,
         role: el.getAttribute('role') || '',
-        className: el.className,
+        className: el.getAttribute('class') || '',
         text: (el as HTMLElement).innerText?.slice(0, 50) || '',
         ariaChecked: el.getAttribute('aria-checked'),
       }));
@@ -156,7 +161,7 @@ export async function POST(request: NextRequest) {
       relevantSelectors.forEach(keyword => {
         const matches = targetElement.querySelectorAll(`[class*="${keyword}" i]`);
         if (matches.length > 0) {
-          const sampleClasses = Array.from(matches).slice(0, 5).map(el => el.className);
+          const sampleClasses = Array.from(matches).slice(0, 5).map(el => el.getAttribute('class') || '');
           const sampleTexts = Array.from(matches).slice(0, 5).map(el => (el as HTMLElement).innerText?.slice(0, 100) || '');
           relevantElements.push({
             selector: `[class*="${keyword}"]`,
@@ -186,7 +191,7 @@ export async function POST(request: NextRequest) {
       // Find all h2, h3, h4 headings that might be group names
       const headings = Array.from(targetElement.querySelectorAll('h2, h3, h4, [class*="header" i], [class*="title" i]')).slice(0, 20).map(el => ({
         tag: el.tagName,
-        className: el.className,
+        className: el.getAttribute('class') || '',
         text: (el as HTMLElement).innerText?.slice(0, 100) || '',
       }));
 
