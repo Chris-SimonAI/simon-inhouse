@@ -793,13 +793,24 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
               const requiredGroups = modifierGroups.filter(g => g.required).length;
               console.log(`  ${item.name}: ${flatModifiers.length} modifiers in ${modifierGroups.length} groups (${requiredGroups} required)`);
             } else {
-              // Debug: check what's in the modal
+              // Debug: check what's inside the modSection elements
               const debugInfo = await page.evaluate(() => {
                 const modal = document.querySelector('[role="dialog"]');
                 if (!modal) return 'NO MODAL FOUND';
                 const modSections = modal.querySelectorAll('.modSection');
-                const allClasses = Array.from(modal.querySelectorAll('*')).slice(0, 50).map(el => el.className).filter(Boolean);
-                return `modal found, ${modSections.length} .modSection elements, sample classes: ${allClasses.slice(0, 10).join(', ')}`;
+                if (modSections.length === 0) return 'no .modSection elements';
+
+                // Look at first modSection's structure
+                const firstSection = modSections[0];
+                const optionEls = firstSection.querySelectorAll('.option');
+                const inputEls = firstSection.querySelectorAll('input');
+                const labelEls = firstSection.querySelectorAll('label');
+                const allChildClasses = Array.from(firstSection.querySelectorAll('*'))
+                  .slice(0, 30)
+                  .map(el => el.className)
+                  .filter(c => c && typeof c === 'string');
+
+                return `${modSections.length} modSections, first has: ${optionEls.length} .option, ${inputEls.length} inputs, ${labelEls.length} labels. Classes: ${allChildClasses.slice(0, 15).join(' | ')}`;
               });
               console.log(`  ${item.name}: no modifiers found (${debugInfo})`);
             }
