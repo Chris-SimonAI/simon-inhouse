@@ -801,7 +801,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
                 // Count all interactive elements in modal
                 const allInputs = modal.querySelectorAll('input[type="radio"], input[type="checkbox"]');
                 const allLabels = modal.querySelectorAll('label');
-                const allButtons = modal.querySelectorAll('button');
+                const _allButtons = modal.querySelectorAll('button');
 
                 // Look for any elements that might contain modifier options
                 const possibleContainers = [
