@@ -543,7 +543,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
     // Scrape modifiers by clicking each item
     // Note: Toast now navigates to a new page for item details instead of showing a modal
     if (!skipModifiers) {
-      console.log(`Scraping modifiers for ${Math.min(items.length, 50)} items...`);
+      console.log(`Scraping modifiers for ${Math.min(items.length, 25)} items...`);
       let itemsAttempted = 0;
       let itemsWithModifiers = 0;
       let navigationFailures = 0;
@@ -557,7 +557,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
       const totalCards = await allItemCards.count();
       console.log(`  Found ${totalCards} clickable item cards`);
 
-      for (let i = 0; i < Math.min(totalCards, 50); i++) {
+      for (let i = 0; i < Math.min(totalCards, 25); i++) {
         const item = items[i];
         if (!item) continue;
         itemsAttempted++;
@@ -573,8 +573,8 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
             card.click({ timeout: 5000, noWaitAfter: true }),
           ]);
 
-          // Wait for page to load
-          await page.waitForTimeout(3000);
+          // Wait for page to load (reduced timeout for speed)
+          await page.waitForTimeout(1500);
           await page.waitForLoadState('domcontentloaded').catch(() => {});
 
           // Check if we navigated or if a modal opened
@@ -588,8 +588,8 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
             continue;
           }
 
-          // Wait for modifier sections to render
-          await page.waitForTimeout(1000);
+          // Wait for modifier sections to render (reduced for speed)
+          await page.waitForTimeout(500);
 
           // Scrape modifiers from the page (either modal or item detail page)
           const { modifierGroups, flatModifiers } = await page.evaluate((args: { itemName: string }) => {
@@ -837,10 +837,12 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
 
           // Navigate back to menu page or close modal
           if (didNavigate) {
-            // We navigated to item detail page, go back to menu
-            await page.goto(menuUrl, { waitUntil: 'commit', timeout: 60000 });
-            await page.waitForTimeout(3000);
-            await page.waitForLoadState('domcontentloaded').catch(() => {});
+            // Use browser back for faster navigation
+            await page.goBack({ timeout: 15000, waitUntil: 'commit' }).catch(async () => {
+              // Fallback to full navigation if goBack fails
+              await page.goto(menuUrl, { waitUntil: 'commit', timeout: 30000 });
+            });
+            await page.waitForTimeout(1000);
           } else {
             // Close the modal
             await page.keyboard.press('Escape');
@@ -858,11 +860,13 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
           console.log(`  Error scraping ${item.name}: ${e instanceof Error ? e.message : String(e)}`);
           // Try to get back to menu page
           if (page.url() !== menuUrl) {
-            await page.goto(menuUrl, { waitUntil: 'commit', timeout: 60000 }).catch(() => {});
-            await page.waitForTimeout(3000);
+            await page.goBack({ timeout: 10000 }).catch(async () => {
+              await page.goto(menuUrl, { waitUntil: 'commit', timeout: 30000 }).catch(() => {});
+            });
+            await page.waitForTimeout(1000);
           } else {
             await page.keyboard.press('Escape').catch(() => {});
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(300);
           }
         }
       }
