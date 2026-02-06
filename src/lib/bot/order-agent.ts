@@ -605,12 +605,15 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     return result;
   };
 
-  // Use residential proxy if configured (bypasses Cloudflare)
-  const proxyUrl = getScraperProxyUrl();
+  // Dry runs are validated against sandbox/test flows; in those cases proxying can break Toast item APIs.
+  // Keep proxy enabled for non-dry-run behavior.
+  const proxyUrl = getScraperProxyUrl(Boolean(request.dryRun));
   const launchOptions = buildChromiumLaunchOptions(proxyUrl);
 
   if (proxyUrl) {
     console.log('  Using residential proxy for ordering');
+  } else if (request.dryRun) {
+    console.log('  Dry run mode: proxy disabled to reduce item/cart API instability');
   } else {
     console.log('  Warning: SCRAPER_PROXY_URL is not configured; Cloudflare pass rate may be low.');
   }
