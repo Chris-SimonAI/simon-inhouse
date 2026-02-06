@@ -52,7 +52,25 @@ export async function POST(request: NextRequest) {
 
   try {
     console.log(`[Calibrate] Opening ${url}...`);
-    await page.goto(url, { waitUntil: 'commit', timeout: 90000 });
+
+    // Retry navigation up to 3 times
+    let navigationSuccess = false;
+    for (let attempt = 1; attempt <= 3 && !navigationSuccess; attempt++) {
+      try {
+        console.log(`[Calibrate] Navigation attempt ${attempt}/3...`);
+        await page.goto(url, {
+          waitUntil: attempt === 1 ? 'commit' : 'domcontentloaded',
+          timeout: attempt === 1 ? 60000 : 90000
+        });
+        navigationSuccess = true;
+      } catch (navError) {
+        const msg = navError instanceof Error ? navError.message : String(navError);
+        console.log(`[Calibrate] Attempt ${attempt} failed: ${msg}`);
+        if (attempt === 3) throw navError;
+        await page.waitForTimeout(2000);
+      }
+    }
+
     // Wait for page to render - longer timeout for proxy
     await page.waitForTimeout(8000);
     await page.waitForLoadState('domcontentloaded').catch(() => {});
@@ -69,11 +87,18 @@ export async function POST(request: NextRequest) {
     console.log(`[Calibrate] Found ${cardCount} menu item cards`);
 
     if (cardCount === 0) {
+      const pageTitle = await page.title().catch(() => 'unknown');
+      const bodySnippet = await page.evaluate(() => {
+        if (!document.body) return 'NO BODY';
+        return document.body.innerText?.substring(0, 500) || 'EMPTY';
+      }).catch(() => 'EVAL FAILED');
       await browser.close();
       return NextResponse.json({
         ok: false,
         message: "No menu items found",
-        pageTitle: await page.title(),
+        pageTitle,
+        bodySnippet,
+        currentUrl: page.url(),
       });
     }
 
