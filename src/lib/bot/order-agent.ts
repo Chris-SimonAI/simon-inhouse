@@ -166,6 +166,13 @@ function escapeForSelector(value: string): string {
 }
 
 async function openItemEditor(page: Page, itemName: string): Promise<void> {
+  await page
+    .waitForSelector('a[href*="/item-"], [data-testid="menu-item-card"], li.item, [class*="menuItem"]', {
+      state: 'attached',
+      timeout: 20000,
+    })
+    .catch(() => {});
+
   const escapedName = escapeForSelector(itemName);
   const selectors = [
     `[data-testid="menu-item-card"]:has-text("${escapedName}")`,
@@ -247,6 +254,44 @@ async function openItemEditor(page: Page, itemName: string): Promise<void> {
   }
 
   if (fallback?.action === 'clicked') {
+    const ctaAttached = await page
+      .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false);
+    if (ctaAttached) {
+      return;
+    }
+  }
+
+  const genericFallback = await page.evaluate(() => {
+    const firstAnchor = document.querySelector('a[href*="/item-"]') as HTMLAnchorElement | null;
+    if (firstAnchor?.href) {
+      return { action: 'navigate', href: firstAnchor.href };
+    }
+
+    const firstCard = document.querySelector('[data-testid="menu-item-card"], li.item, [class*="menuItem"]') as
+      | HTMLElement
+      | null;
+    if (firstCard) {
+      firstCard.click();
+      return { action: 'clicked' };
+    }
+
+    return null;
+  });
+
+  if (genericFallback?.action === 'navigate' && genericFallback.href) {
+    await page.goto(genericFallback.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const ctaAttached = await page
+      .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false);
+    if (ctaAttached) {
+      return;
+    }
+  }
+
+  if (genericFallback?.action === 'clicked') {
     const ctaAttached = await page
       .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
       .then(() => true)
