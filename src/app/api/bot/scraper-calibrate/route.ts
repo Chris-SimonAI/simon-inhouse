@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Calibrate] Clicking item ${targetIndex}: ${itemName}`);
 
     await card.scrollIntoViewIfNeeded();
-    await card.click({ timeout: 5000 });
+    await card.click({ timeout: 5000, noWaitAfter: true });
 
     // Wait for modal
     const addButton = page.locator('button:has-text("Add")').first();
