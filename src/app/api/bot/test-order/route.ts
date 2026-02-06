@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
 
   // Default test values - can be overridden in request body
-  const restaurantUrl = body.url || "https://www.toasttab.com/local/order/uncle-paulies-sunset-1411-west-sunset-boulevard";
-  const itemName = body.itemName || "Bacon, Egg & Cheese";
+  const restaurantUrl = body.url || "https://www.toasttab.com/local/order/bludsos-bbq-santamonica";
+  const itemName = body.itemName || "Brisket Sandwich";
 
   const orderRequest: OrderRequest = {
     restaurantUrl,
@@ -38,10 +38,10 @@ export async function POST(request: NextRequest) {
     },
     orderType: "delivery",
     deliveryAddress: body.deliveryAddress || {
-      street: "1463 W Sunset Blvd",
-      city: "Los Angeles",
+      street: "2210 Broadway",
+      city: "Santa Monica",
       state: "CA",
-      zip: "90026",
+      zip: "90404",
     },
     dryRun: true, // This tells the agent we expect the card to be declined
   };
@@ -74,8 +74,8 @@ export async function GET() {
   return NextResponse.json({
     usage: "POST with optional body: { url, itemName, modifiers[] }",
     defaults: {
-      url: "https://www.toasttab.com/local/order/uncle-paulies-sunset-1411-west-sunset-boulevard",
-      itemName: "Bacon, Egg & Cheese",
+      url: "https://www.toasttab.com/local/order/bludsos-bbq-santamonica",
+      itemName: "Brisket Sandwich",
     },
     description: "Tests the bot order flow up to payment decline with test card 4000000000000002",
   });
