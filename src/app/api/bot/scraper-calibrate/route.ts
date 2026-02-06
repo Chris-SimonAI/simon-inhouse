@@ -91,8 +91,10 @@ export async function POST(request: NextRequest) {
       card.click({ timeout: 5000, noWaitAfter: true }),
     ]);
 
-    // Wait for page to stabilize
+    // Wait for page to stabilize after click/navigation
     await page.waitForTimeout(3000);
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    await page.waitForTimeout(2000);
 
     const currentUrl = page.url();
     const wasNavigation = currentUrl !== initialUrl;
@@ -104,6 +106,11 @@ export async function POST(request: NextRequest) {
       // Look for modal first
       const modal = document.querySelector('[role="dialog"]');
       const targetElement = modal || document.body;
+
+      if (!targetElement) {
+        return { error: "No target element found (document.body is null)" };
+      }
+
       const isModal = !!modal;
 
       // Get page/modal HTML (trimmed)
