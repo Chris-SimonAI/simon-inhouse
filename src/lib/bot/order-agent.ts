@@ -425,17 +425,77 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
     console.log('\nStep 3: Going to checkout...');
 
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
-    const cartBtn = page.locator('[class*="cart"], button:has-text("Cart"), button:has-text("View Order")').first();
-    if (await cartBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await cartBtn.click({ force: true });
-      await page.waitForTimeout(2000);
+    // Toast shows a floating "View order" bar or cart button after adding items
+    const cartSelectors = [
+      'button:has-text("View order")',
+      'button:has-text("View Order")',
+      'a:has-text("View order")',
+      '[data-testid*="cart"]',
+      '[data-testid*="order-summary"]',
+      'button:has-text("Cart")',
+      '[class*="cartButton"]',
+      '[class*="orderButton"]',
+      '[class*="viewOrder"]',
+    ];
+
+    let cartFound = false;
+    for (const selector of cartSelectors) {
+      const el = page.locator(selector).first();
+      if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+        console.log(`  Found cart via: ${selector}`);
+        await el.click({ force: true });
+        cartFound = true;
+        await page.waitForTimeout(2000);
+        break;
+      }
     }
 
-    const checkoutBtn = page.locator('button:has-text("Checkout"), a:has-text("Checkout"), button:has-text("Continue")').first();
-    await checkoutBtn.click({ timeout: 10000 });
-    await page.waitForTimeout(3000);
+    if (!cartFound) {
+      console.log('  No cart button found, trying page debug...');
+      const pageButtons = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('button, a')).slice(0, 30).map(el => ({
+          tag: el.tagName,
+          text: (el as HTMLElement).innerText?.trim().slice(0, 80) || '',
+          className: el.className?.toString().slice(0, 80) || '',
+        }));
+      });
+      console.log('  Page buttons:', JSON.stringify(pageButtons.filter(b => b.text), null, 2));
+    }
+
+    // Look for checkout button
+    const checkoutSelectors = [
+      'button:has-text("Checkout")',
+      'a:has-text("Checkout")',
+      'button:has-text("Continue")',
+      'button:has-text("Place Order")',
+      'button:has-text("Continue to checkout")',
+      '[data-testid*="checkout"]',
+    ];
+
+    let checkoutClicked = false;
+    for (const selector of checkoutSelectors) {
+      const el = page.locator(selector).first();
+      if (await el.isVisible({ timeout: 3000 }).catch(() => false)) {
+        console.log(`  Found checkout via: ${selector}`);
+        await el.click();
+        checkoutClicked = true;
+        await page.waitForTimeout(3000);
+        break;
+      }
+    }
+
+    if (!checkoutClicked) {
+      // Debug: log what's on the page
+      const debugButtons = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('button, a')).slice(0, 30).map(el => ({
+          text: (el as HTMLElement).innerText?.trim().slice(0, 80) || '',
+          className: el.className?.toString().slice(0, 80) || '',
+        }));
+      });
+      throw new Error(`Checkout button not found. Buttons on page: ${JSON.stringify(debugButtons.filter(b => b.text))}`);
+    }
 
     // Step 4: Handle delivery/pickup
     currentStage = 'delivery';
