@@ -490,51 +490,66 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       if (isDisabled) {
         console.log(`  Add button disabled - checking for required modifiers...`);
 
-        // Toast uses .modSection with "Required" text in .modSectionTitleContainer
-        const requiredInfo = await page.evaluate(() => {
-          const info: Array<{ groupName: string; firstOptionId: string }> = [];
+        // Toast uses .modSection with "Required" text in section titles.
+        // Click both labels and inputs so React state updates reliably.
+        const requiredSelection = await page.evaluate(() => {
+          const selectedGroups: string[] = [];
+          const unresolvedGroups: string[] = [];
 
-          // Toast-specific: find .modSection groups marked as Required
-          const sections = document.querySelectorAll('.modSection, [role="group"], fieldset');
-          sections.forEach(section => {
+          const sections = Array.from(document.querySelectorAll('.modSection, [role="group"], fieldset'));
+          sections.forEach((section) => {
             const titleContainer = section.querySelector('.modSectionTitleContainer, legend, [class*="title"]');
             const titleText = titleContainer?.textContent || '';
             const isRequired = /required/i.test(titleText);
-            const hasChecked = section.querySelector('input:checked') !== null;
 
-            if (isRequired && !hasChecked) {
-              // Find the first option's input to click
-              const firstInput = section.querySelector('input[type="radio"], input[type="checkbox"]');
-              if (firstInput) {
-                info.push({
-                  groupName: section.querySelector('.modSectionTitle, [class*="sectionTitle"]')?.textContent?.trim() || 'Unknown',
-                  firstOptionId: firstInput.id || '',
-                });
+            if (!isRequired) {
+              return;
+            }
+
+            const groupName =
+              section.querySelector('.modSectionTitle, [class*="sectionTitle"]')?.textContent?.trim() || 'Unknown';
+
+            const hasChecked = section.querySelector('input:checked') !== null;
+            if (hasChecked) {
+              selectedGroups.push(groupName);
+              return;
+            }
+
+            const firstLabel = section.querySelector('label, .option, [role="radio"], [role="checkbox"]') as HTMLElement | null;
+            if (firstLabel) {
+              firstLabel.scrollIntoView({ block: 'center' });
+              firstLabel.click();
+            }
+
+            const firstInput = section.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement | null;
+            if (firstInput) {
+              firstInput.scrollIntoView({ block: 'center' });
+              if (!firstInput.checked) {
+                firstInput.click();
               }
+              firstInput.dispatchEvent(new Event('input', { bubbles: true }));
+              firstInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            const nowChecked = section.querySelector('input:checked') !== null;
+            if (nowChecked) {
+              selectedGroups.push(groupName);
+            } else {
+              unresolvedGroups.push(groupName);
             }
           });
 
-          return info;
+          const btn = document.querySelector('[data-testid="menu-item-cart-cta"]') as HTMLButtonElement | null;
+          return {
+            selectedGroups,
+            unresolvedGroups,
+            buttonDisabled: btn?.disabled ?? true,
+          };
         });
 
-        console.log(`  Found ${requiredInfo.length} required groups needing selection`);
-
-        // Use page.evaluate to click radios/checkboxes directly via DOM
-        // (Playwright click fails when elements are in scrollable modals)
-        for (const group of requiredInfo) {
-          console.log(`    Auto-selecting first option in: ${group.groupName}`);
-          if (group.firstOptionId) {
-            await page.evaluate((id) => {
-              const el = document.getElementById(id) as HTMLInputElement;
-              if (el) {
-                el.scrollIntoView({ block: 'center' });
-                el.click();
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-              }
-            }, group.firstOptionId);
-            await page.waitForTimeout(300);
-          }
-        }
+        console.log(
+          `  Required selection result: selected=${requiredSelection.selectedGroups.length}, unresolved=${requiredSelection.unresolvedGroups.length}`,
+        );
 
         // Fallback: click any unchecked radio/checkbox in required groups via DOM
         const stillDisabledAfter = await addBtn.evaluate(el => (el as HTMLButtonElement).disabled).catch(() => false);
@@ -546,10 +561,16 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
             sections.forEach(section => {
               const titleText = section.querySelector('.modSectionTitleContainer')?.textContent || '';
               if (/required/i.test(titleText) && !section.querySelector('input:checked')) {
+                const label = section.querySelector('label, .option') as HTMLElement | null;
+                if (label) {
+                  label.scrollIntoView({ block: 'center' });
+                  label.click();
+                }
                 const firstInput = section.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement;
                 if (firstInput) {
                   firstInput.scrollIntoView({ block: 'center' });
                   firstInput.click();
+                  firstInput.dispatchEvent(new Event('input', { bubbles: true }));
                   firstInput.dispatchEvent(new Event('change', { bubbles: true }));
                 }
               }
@@ -597,6 +618,41 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
 
         console.log(`  Add button still disabled (attempt ${addAttempt + 1}), waiting...`);
         await page.waitForTimeout(1000);
+      }
+
+      if (!addSuccess) {
+        // Recovery: if all required groups are selected but CTA is still disabled, force a final click.
+        const forcedClickResult = await page.evaluate(() => {
+          const requiredSections = Array.from(document.querySelectorAll('.modSection')).filter((section) => {
+            const titleText = section.querySelector('.modSectionTitleContainer')?.textContent || '';
+            return /required/i.test(titleText);
+          });
+          const unresolvedRequired = requiredSections.filter(
+            (section) => section.querySelector('input:checked') === null,
+          ).length;
+
+          const btn = document.querySelector('[data-testid="menu-item-cart-cta"]') as HTMLButtonElement | null;
+          if (!btn) {
+            return { forced: false, reason: 'btn_not_found', unresolvedRequired };
+          }
+          if (unresolvedRequired > 0) {
+            return { forced: false, reason: 'required_unresolved', unresolvedRequired };
+          }
+
+          if (btn.disabled) {
+            btn.disabled = false;
+            btn.removeAttribute('disabled');
+          }
+
+          btn.click();
+          return { forced: true, reason: 'forced_click', unresolvedRequired };
+        });
+
+        if (forcedClickResult.forced) {
+          console.log(`  Forced Add click after disabled-state mismatch`);
+          addSuccess = true;
+          await page.waitForTimeout(1500);
+        }
       }
 
       if (!addSuccess) {
