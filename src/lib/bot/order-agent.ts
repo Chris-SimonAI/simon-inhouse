@@ -410,40 +410,43 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
 
         console.log(`  Found ${requiredInfo.length} required groups needing selection`);
 
+        // Use page.evaluate to click radios/checkboxes directly via DOM
+        // (Playwright click fails when elements are in scrollable modals)
         for (const group of requiredInfo) {
           console.log(`    Auto-selecting first option in: ${group.groupName}`);
           if (group.firstOptionId) {
-            const input = page.locator(`[id="${group.firstOptionId}"]`);
-            if (await input.isVisible({ timeout: 1000 }).catch(() => false)) {
-              await input.click({ force: true });
-              await page.waitForTimeout(300);
-            } else {
-              // Try clicking the parent label/row
-              const label = page.locator(`label[for="${group.firstOptionId}"]`).first();
-              if (await label.isVisible({ timeout: 1000 }).catch(() => false)) {
-                await label.click();
-                await page.waitForTimeout(300);
+            await page.evaluate((id) => {
+              const el = document.getElementById(id) as HTMLInputElement;
+              if (el) {
+                el.scrollIntoView({ block: 'center' });
+                el.click();
+                el.dispatchEvent(new Event('change', { bubbles: true }));
               }
-            }
+            }, group.firstOptionId);
+            await page.waitForTimeout(300);
           }
         }
 
-        // Fallback: click any unchecked radio in a required group
+        // Fallback: click any unchecked radio/checkbox in required groups via DOM
         const stillDisabledAfter = await addBtn.evaluate(el => (el as HTMLButtonElement).disabled).catch(() => false);
         if (stillDisabledAfter) {
-          console.log('  Still disabled, trying fallback radio click...');
-          const uncheckedRadios = page.locator('.modSection input[type="radio"]:not(:checked)');
-          const radioCount = await uncheckedRadios.count();
-          if (radioCount > 0) {
-            await uncheckedRadios.first().click({ force: true });
-            await page.waitForTimeout(500);
-          }
-          // Also try unchecked checkboxes in required sections
-          const uncheckedCheckboxes = page.locator('.modSection:has(.modSectionTitleContainer:has-text("Required")) input[type="checkbox"]:not(:checked)');
-          if (await uncheckedCheckboxes.count() > 0) {
-            await uncheckedCheckboxes.first().click({ force: true });
-            await page.waitForTimeout(500);
-          }
+          console.log('  Still disabled, trying fallback via DOM click...');
+          await page.evaluate(() => {
+            // Find all required sections and click first unchecked input in each
+            const sections = document.querySelectorAll('.modSection');
+            sections.forEach(section => {
+              const titleText = section.querySelector('.modSectionTitleContainer')?.textContent || '';
+              if (/required/i.test(titleText) && !section.querySelector('input:checked')) {
+                const firstInput = section.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement;
+                if (firstInput) {
+                  firstInput.scrollIntoView({ block: 'center' });
+                  firstInput.click();
+                  firstInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+              }
+            });
+          });
+          await page.waitForTimeout(500);
         }
 
         await page.waitForTimeout(500);
@@ -455,12 +458,15 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
         if (!stillDisabled) break;
 
         console.log(`  Attempt ${attempt + 1}: Add still disabled, clicking first available option...`);
-        // Try any unchecked input in the modal
-        const anyInput = page.locator('.modSection input:not(:checked)').first();
-        if (await anyInput.isVisible({ timeout: 500 }).catch(() => false)) {
-          await anyInput.click({ force: true });
-          await page.waitForTimeout(500);
-        }
+        await page.evaluate(() => {
+          const input = document.querySelector('.modSection input:not(:checked)') as HTMLInputElement;
+          if (input) {
+            input.scrollIntoView({ block: 'center' });
+            input.click();
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
+        await page.waitForTimeout(500);
       }
 
       await addBtn.click({ timeout: 10000 });
