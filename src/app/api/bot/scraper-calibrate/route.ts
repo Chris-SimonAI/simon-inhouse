@@ -83,18 +83,46 @@ export async function POST(request: NextRequest) {
     await card.scrollIntoViewIfNeeded();
     await card.click({ timeout: 5000, noWaitAfter: true });
 
-    // Wait for modal
+    // Wait for modal using multiple possible indicators
+    await page.waitForTimeout(3000); // Give page time to open modal
+
+    // Check for various modal indicators
+    const modalDialog = page.locator('[role="dialog"]').first();
     const addButton = page.locator('button:has-text("Add")').first();
-    const modalOpened = await addButton.waitFor({ state: 'visible', timeout: 8000 }).then(() => true).catch(() => false);
+    const itemModal = page.locator('[class*="itemModal"], [class*="ItemModal"], .modal').first();
+
+    const modalOpened = await Promise.race([
+      modalDialog.waitFor({ state: 'visible', timeout: 8000 }).then(() => 'dialog'),
+      addButton.waitFor({ state: 'visible', timeout: 8000 }).then(() => 'addButton'),
+      itemModal.waitFor({ state: 'visible', timeout: 8000 }).then(() => 'itemModal'),
+    ]).catch(() => false);
 
     if (!modalOpened) {
+      // Even if we don't find a modal, capture what's on the page
+      const pageState = await page.evaluate(() => {
+        const body = document.body;
+        const allDialogs = document.querySelectorAll('[role="dialog"]');
+        const allModals = document.querySelectorAll('[class*="modal" i]');
+        const allOverlays = document.querySelectorAll('[class*="overlay" i]');
+        return {
+          hasDialogs: allDialogs.length,
+          hasModals: allModals.length,
+          hasOverlays: allOverlays.length,
+          bodyClasses: body.className,
+          sampleModalClasses: Array.from(allModals).slice(0, 3).map(m => m.className),
+        };
+      });
+
       await browser.close();
       return NextResponse.json({
         ok: false,
         message: "Modal did not open after clicking item",
         itemName,
+        pageState,
       });
     }
+
+    console.log(`[Calibrate] Modal found via: ${modalOpened}`);
 
     // Wait for content to render
     await page.waitForTimeout(2000);
