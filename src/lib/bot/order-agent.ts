@@ -273,6 +273,45 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
       await page.waitForTimeout(5000);
     }
 
+    // Step 1b: Select order type (Toast requires this before adding items)
+    console.log(`  Selecting order type: ${request.orderType}...`);
+    const orderTypeSelectors = request.orderType === 'delivery'
+      ? ['button:has-text("Delivery")', '[data-testid*="delivery"]', '[role="tab"]:has-text("Delivery")']
+      : ['button:has-text("Pickup")', '[data-testid*="pickup"]', '[role="tab"]:has-text("Pickup")', 'button:has-text("Pick up")'];
+
+    for (const selector of orderTypeSelectors) {
+      const el = page.locator(selector).first();
+      if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await el.click();
+        console.log(`  Selected order type via: ${selector}`);
+        await page.waitForTimeout(1500);
+        break;
+      }
+    }
+
+    // Handle any "Start Order" / "ASAP" / time selection dialogs
+    const startOrderSelectors = [
+      'button:has-text("Start Order")',
+      'button:has-text("ASAP")',
+      'button:has-text("Continue")',
+      'button:has-text("Start")',
+      '[data-testid*="fulfill-cta"]',
+      '[data-testid*="start-order"]',
+    ];
+    for (const selector of startOrderSelectors) {
+      const el = page.locator(selector).first();
+      if (await el.isVisible({ timeout: 1500 }).catch(() => false)) {
+        await el.click();
+        console.log(`  Clicked: ${selector}`);
+        await page.waitForTimeout(1500);
+        break;
+      }
+    }
+
+    // Dismiss any remaining modals
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(1000);
+
     // Step 2: Add items to cart
     currentStage = 'add_to_cart';
     console.log('\nStep 2: Adding items to cart...');
