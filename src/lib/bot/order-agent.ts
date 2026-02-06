@@ -203,6 +203,59 @@ async function openItemEditor(page: Page, itemName: string): Promise<void> {
     }
   }
 
+  const fallback = await page.evaluate((targetName) => {
+    const normalize = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const target = normalize(targetName);
+
+    const matchingAnchor = Array.from(document.querySelectorAll('a[href*="/item-"]')).find((anchor) => {
+      const text = normalize((anchor as HTMLElement).innerText || anchor.textContent || '');
+      return text.includes(target);
+    }) as HTMLAnchorElement | undefined;
+
+    if (matchingAnchor?.href) {
+      return { action: 'navigate', href: matchingAnchor.href };
+    }
+
+    const cardCandidates = Array.from(document.querySelectorAll('[data-testid="menu-item-card"], li, article'));
+    for (const card of cardCandidates) {
+      const text = normalize((card as HTMLElement).innerText || '');
+      if (!text.includes(target)) {
+        continue;
+      }
+
+      const nestedAnchor = card.querySelector('a[href*="/item-"]') as HTMLAnchorElement | null;
+      if (nestedAnchor?.href) {
+        return { action: 'navigate', href: nestedAnchor.href };
+      }
+
+      (card as HTMLElement).click();
+      return { action: 'clicked' };
+    }
+
+    return null;
+  }, itemName);
+
+  if (fallback?.action === 'navigate' && fallback.href) {
+    await page.goto(fallback.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const ctaAttached = await page
+      .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false);
+    if (ctaAttached) {
+      return;
+    }
+  }
+
+  if (fallback?.action === 'clicked') {
+    const ctaAttached = await page
+      .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false);
+    if (ctaAttached) {
+      return;
+    }
+  }
+
   throw new Error(`Unable to open item editor for "${itemName}"`);
 }
 
