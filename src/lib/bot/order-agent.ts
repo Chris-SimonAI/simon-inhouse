@@ -191,6 +191,7 @@ async function openItemEditor(page: Page, itemName: string): Promise<void> {
 
     await target.click({ timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1200);
+    await ensureNoCloudflareBlock(page, 'item_open_click').catch(() => false);
 
     const ctaAttached = await page
       .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
@@ -244,6 +245,7 @@ async function openItemEditor(page: Page, itemName: string): Promise<void> {
 
   if (fallback?.action === 'navigate' && fallback.href) {
     await page.goto(fallback.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await ensureNoCloudflareBlock(page, 'item_open_fallback_nav').catch(() => false);
     const ctaAttached = await page
       .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
       .then(() => true)
@@ -254,6 +256,7 @@ async function openItemEditor(page: Page, itemName: string): Promise<void> {
   }
 
   if (fallback?.action === 'clicked') {
+    await ensureNoCloudflareBlock(page, 'item_open_fallback_click').catch(() => false);
     const ctaAttached = await page
       .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
       .then(() => true)
@@ -282,6 +285,7 @@ async function openItemEditor(page: Page, itemName: string): Promise<void> {
 
   if (genericFallback?.action === 'navigate' && genericFallback.href) {
     await page.goto(genericFallback.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await ensureNoCloudflareBlock(page, 'item_open_generic_nav').catch(() => false);
     const ctaAttached = await page
       .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
       .then(() => true)
@@ -292,6 +296,7 @@ async function openItemEditor(page: Page, itemName: string): Promise<void> {
   }
 
   if (genericFallback?.action === 'clicked') {
+    await ensureNoCloudflareBlock(page, 'item_open_generic_click').catch(() => false);
     const ctaAttached = await page
       .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 8000 })
       .then(() => true)
@@ -425,6 +430,7 @@ async function tryAddFallbackPricedMenuItem(page: Page, cartBeforeAdd: CartState
 
   console.log(`  Trying fallback priced item: ${fallbackItem.text || fallbackItem.href}`);
   await page.goto(fallbackItem.href, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
+  await ensureNoCloudflareBlock(page, 'fallback_priced_item').catch(() => false);
 
   const ctaReady = await page
     .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 10000 })
