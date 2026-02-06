@@ -541,12 +541,16 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
     });
 
     // Scrape modifiers by clicking each item
+    // Note: Toast now navigates to a new page for item details instead of showing a modal
     if (!skipModifiers) {
       console.log(`Scraping modifiers for ${Math.min(items.length, 50)} items...`);
       let itemsAttempted = 0;
       let itemsWithModifiers = 0;
-      let modalOpenFailures = 0;
+      let navigationFailures = 0;
       let clickFailures = 0;
+
+      // Store the menu URL to navigate back to
+      const menuUrl = page.url();
 
       // Get all clickable item cards by index (avoids name-matching and visibility issues)
       const allItemCards = page.locator('[data-testid="menu-item-card"]');
@@ -558,17 +562,27 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
         if (!item) continue;
         itemsAttempted++;
         try {
-          // Click by index - Playwright auto-scrolls into view
+          // Click by index - Toast will navigate to item detail page
           const card = allItemCards.nth(i);
           await card.scrollIntoViewIfNeeded().catch(() => {});
-          await card.click({ timeout: 5000 });
 
-          // Wait for modal to appear - longer timeout for proxy
-          const addButton = page.locator('button:has-text("Add")').first();
-          const modalOpened = await addButton.waitFor({ state: 'visible', timeout: 8000 }).then(() => true).catch(() => false);
+          // Click and wait for navigation or modal
+          const currentUrl = page.url();
+          await Promise.all([
+            page.waitForURL((url) => url.toString() !== currentUrl, { timeout: 10000 }).catch(() => {}),
+            card.click({ timeout: 5000, noWaitAfter: true }),
+          ]);
 
-          if (!modalOpened) {
-            modalOpenFailures++;
+          // Wait for page to load
+          await page.waitForTimeout(3000);
+          await page.waitForLoadState('domcontentloaded').catch(() => {});
+
+          // Check if we navigated or if a modal opened
+          const didNavigate = page.url() !== menuUrl;
+          const hasModal = await page.locator('[role="dialog"]').isVisible().catch(() => false);
+
+          if (!didNavigate && !hasModal) {
+            navigationFailures++;
             await page.keyboard.press('Escape').catch(() => {});
             await page.waitForTimeout(500);
             continue;
@@ -577,27 +591,27 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
           // Wait for modifier sections to render
           await page.waitForTimeout(1000);
 
-            // Check if Add button is disabled (indicates required selection)
-            const addButtonDisabled = await addButton.evaluate(el => (el as HTMLButtonElement).disabled).catch(() => false);
+          // Scrape modifiers from the page (either modal or item detail page)
+          const { modifierGroups, flatModifiers } = await page.evaluate((args: { itemName: string }) => {
+            const { itemName } = args;
+            const groups: Array<{
+              name: string;
+              required: boolean;
+              minSelections: number;
+              maxSelections: number;
+              options: Array<{ name: string; price: number }>
+            }> = [];
+            const flatModifiers: Array<{ name: string; price: number; groupName?: string }> = [];
+            const seenOptions = new Set<string>();
 
-            // Scrape modifiers from the modal
-            const { modifierGroups, flatModifiers } = await page.evaluate((args: { itemName: string; isAddDisabled: boolean }) => {
-              const { itemName } = args;
-              const groups: Array<{
-                name: string;
-                required: boolean;
-                minSelections: number;
-                maxSelections: number;
-                options: Array<{ name: string; price: number }>
-              }> = [];
-              const flatModifiers: Array<{ name: string; price: number; groupName?: string }> = [];
-              const seenOptions = new Set<string>();
+            // Toast now uses page navigation - look for modSection on the page body
+            // (or fall back to modal if one exists)
+            const modal = document.querySelector('[role="dialog"]');
+            const targetElement = modal || document.body;
+            if (!targetElement) return { modifierGroups: groups, flatModifiers };
 
-              const modal = document.querySelector('[role="dialog"]');
-              if (!modal) return { modifierGroups: groups, flatModifiers };
-
-              // Toast-specific: Find modifier sections using their class names
-              const modSections = modal.querySelectorAll('.modSection');
+            // Toast-specific: Find modifier sections using their class names
+            const modSections = targetElement.querySelectorAll('.modSection[role="group"], .modSection');
 
               if (modSections.length > 0) {
                 modSections.forEach((section) => {
@@ -703,7 +717,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
                 });
               } else {
                 // Fallback for non-Toast sites or different layouts
-                const fallbackSections = modal.querySelectorAll('fieldset, [class*="modifierGroup"], [class*="ModifierGroup"]');
+                const fallbackSections = targetElement.querySelectorAll('fieldset, [class*="modifierGroup"], [class*="ModifierGroup"]');
 
                 if (fallbackSections.length > 0) {
                   fallbackSections.forEach((section) => {
@@ -749,7 +763,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
                 } else {
                   // Last resort: collect all checkboxes/radios
                   const options: Array<{ name: string; price: number }> = [];
-                  modal.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(input => {
+                  targetElement.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(input => {
                     const label = (input as HTMLInputElement).closest('label') || input.parentElement;
                     if (!label) return;
 
@@ -784,67 +798,75 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
               }
 
               return { modifierGroups: groups, flatModifiers };
-            }, { itemName: item.name, isAddDisabled: addButtonDisabled });
+            }, { itemName: item.name });
 
-            if (flatModifiers.length > 0) {
-              item.modifiers = flatModifiers;
-              item.modifierGroups = modifierGroups;
-              itemsWithModifiers++;
-              const requiredGroups = modifierGroups.filter(g => g.required).length;
-              console.log(`  ${item.name}: ${flatModifiers.length} modifiers in ${modifierGroups.length} groups (${requiredGroups} required)`);
-            } else {
-              // Debug: look at entire modal structure to find where modifiers actually are
-              const debugInfo = await page.evaluate(() => {
-                const modal = document.querySelector('[role="dialog"]');
-                if (!modal) return 'NO MODAL FOUND';
+          if (flatModifiers.length > 0) {
+            item.modifiers = flatModifiers;
+            item.modifierGroups = modifierGroups;
+            itemsWithModifiers++;
+            const requiredGroups = modifierGroups.filter(g => g.required).length;
+            console.log(`  ${item.name}: ${flatModifiers.length} modifiers in ${modifierGroups.length} groups (${requiredGroups} required)`);
+          } else {
+            // Debug: look at page structure to find where modifiers actually are
+            const debugInfo = await page.evaluate(() => {
+              const targetElement = document.querySelector('[role="dialog"]') || document.body;
+              if (!targetElement) return 'NO TARGET ELEMENT';
 
-                // Count all interactive elements in modal
-                const allInputs = modal.querySelectorAll('input[type="radio"], input[type="checkbox"]');
-                const allLabels = modal.querySelectorAll('label');
-                const _allButtons = modal.querySelectorAll('button');
+              // Count all interactive elements
+              const allInputs = targetElement.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+              const allLabels = targetElement.querySelectorAll('label');
 
-                // Look for any elements that might contain modifier options
-                const possibleContainers = [
-                  '.modSection', '.modifierGroup', '.modifier-group', '.optionGroup',
-                  '[class*="modifier"]', '[class*="option"]', '[class*="choice"]',
-                  '[class*="selection"]', '[class*="customize"]'
-                ];
+              // Look for any elements that might contain modifier options
+              const possibleContainers = [
+                '.modSection', '.modifierGroup', '.modifier-group', '.optionGroup',
+                '[class*="modifier"]', '[class*="option"]', '[class*="choice"]',
+                '[class*="selection"]', '[class*="customize"]'
+              ];
 
-                const containerCounts: Record<string, number> = {};
-                possibleContainers.forEach(sel => {
-                  try {
-                    containerCounts[sel] = modal.querySelectorAll(sel).length;
-                  } catch { containerCounts[sel] = 0; }
-                });
-
-                // Get unique class names from direct children of modal content
-                const modalContent = modal.querySelector('.modalContent, .itemModalContent, [class*="modalContent"]');
-                const childClasses = modalContent
-                  ? Array.from(modalContent.children).map(el => el.className).filter(c => c && typeof c === 'string').slice(0, 10)
-                  : [];
-
-                return `${allInputs.length} radios/checkboxes, ${allLabels.length} labels. Containers: ${JSON.stringify(containerCounts)}. Modal children: ${childClasses.join(' | ')}`;
+              const containerCounts: Record<string, number> = {};
+              possibleContainers.forEach(sel => {
+                try {
+                  containerCounts[sel] = targetElement.querySelectorAll(sel).length;
+                } catch { containerCounts[sel] = 0; }
               });
-              console.log(`  ${item.name}: no modifiers (${debugInfo})`);
-            }
 
+              return `${allInputs.length} radios/checkboxes, ${allLabels.length} labels. Containers: ${JSON.stringify(containerCounts)}`;
+            });
+            console.log(`  ${item.name}: no modifiers (${debugInfo})`);
+          }
+
+          // Navigate back to menu page or close modal
+          if (didNavigate) {
+            // We navigated to item detail page, go back to menu
+            await page.goto(menuUrl, { waitUntil: 'commit', timeout: 60000 });
+            await page.waitForTimeout(3000);
+            await page.waitForLoadState('domcontentloaded').catch(() => {});
+          } else {
             // Close the modal
             await page.keyboard.press('Escape');
             await page.waitForTimeout(1000);
 
+            const addButton = page.locator('button:has-text("Add")').first();
             const stillVisible = await addButton.isVisible({ timeout: 500 }).catch(() => false);
             if (stillVisible) {
               await page.keyboard.press('Escape');
               await page.waitForTimeout(500);
             }
+          }
         } catch (e: unknown) {
           clickFailures++;
           console.log(`  Error scraping ${item.name}: ${e instanceof Error ? e.message : String(e)}`);
-          await page.keyboard.press('Escape').catch(() => {});
-          await page.waitForTimeout(500);
+          // Try to get back to menu page
+          if (page.url() !== menuUrl) {
+            await page.goto(menuUrl, { waitUntil: 'commit', timeout: 60000 }).catch(() => {});
+            await page.waitForTimeout(3000);
+          } else {
+            await page.keyboard.press('Escape').catch(() => {});
+            await page.waitForTimeout(500);
+          }
         }
       }
-      console.log(`Modifier scraping complete: ${itemsAttempted} attempted, ${itemsWithModifiers} had modifiers, ${clickFailures} click failures, ${modalOpenFailures} modal failures`);
+      console.log(`Modifier scraping complete: ${itemsAttempted} attempted, ${itemsWithModifiers} had modifiers, ${clickFailures} click failures, ${navigationFailures} navigation failures`);
     }
 
     const slugMatch = restaurantUrl.match(/\/order\/([^\\/\\?]+)/);
