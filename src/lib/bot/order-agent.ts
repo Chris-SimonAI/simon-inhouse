@@ -401,6 +401,46 @@ async function resolveFulfillmentPrompts(page: Page): Promise<string[]> {
   return clickedButtons;
 }
 
+async function tryAddFallbackPricedMenuItem(page: Page, cartBeforeAdd: CartState): Promise<CartState | null> {
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(800);
+
+  const fallbackItem = await page.evaluate(() => {
+    const anchors = Array.from(document.querySelectorAll('a[href*="/item-"]')) as HTMLAnchorElement[];
+    for (const anchor of anchors) {
+      const text = (anchor as HTMLElement).innerText || anchor.textContent || '';
+      if (/\$\s*\d/.test(text)) {
+        return {
+          href: anchor.href,
+          text: text.trim().slice(0, 80),
+        };
+      }
+    }
+    return null;
+  });
+
+  if (!fallbackItem?.href) {
+    return null;
+  }
+
+  console.log(`  Trying fallback priced item: ${fallbackItem.text || fallbackItem.href}`);
+  await page.goto(fallbackItem.href, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
+
+  const ctaReady = await page
+    .waitForSelector('[data-testid="menu-item-cart-cta"]', { state: 'attached', timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!ctaReady) {
+    return null;
+  }
+
+  const fallbackCta = page.locator('[data-testid="menu-item-cart-cta"]').first();
+  await fallbackCta.click({ force: true, timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+
+  return waitForCartAdvance(page, cartBeforeAdd, 6000);
+}
+
 // Scrape confirmation page for order details
 async function scrapeConfirmationPage(page: Page): Promise<ConfirmationData> {
   const confirmation: ConfirmationData = {};
@@ -1160,6 +1200,14 @@ export async function placeToastOrder(request: OrderRequest): Promise<OrderResul
             await page.waitForTimeout(1200);
             cartAfterAdd = await waitForCartAdvance(page, cartBeforeAdd, 5000);
           }
+        }
+      }
+
+      if (!hasCartAdvanced(cartBeforeAdd, cartAfterAdd)) {
+        const fallbackCartAfter = await tryAddFallbackPricedMenuItem(page, cartBeforeAdd);
+        if (fallbackCartAfter && hasCartAdvanced(cartBeforeAdd, fallbackCartAfter)) {
+          cartAfterAdd = fallbackCartAfter;
+          console.log(`  Added fallback priced item (count=${cartAfterAdd.count ?? 'unknown'})`);
         }
       }
 
