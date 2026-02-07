@@ -20,6 +20,7 @@ import { AnalyticsEvents } from "@/lib/analytics/events";
 import { PostHogServerClient } from "@/lib/analytics/posthog/server";
 import { getOrCreateGuestProfile, markGuestIntroduced } from "@/actions/guest-profiles";
 import { sendSMS, isTwilioEnabled } from "@/lib/twilio";
+import { extractCanonicalBotItems } from '@/lib/orders/canonical-order-artifact';
 
 export async function POST(req: NextRequest) {
   try {
@@ -263,12 +264,23 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
       hasOrderingUrl: !!(restaurant.metadata as Record<string, unknown>)?.sourceUrl
     });
     
-    // Get order items for bot payload
-    const orderItems = await db.select({
-      itemName: dineInOrderItems.itemName,
-      quantity: dineInOrderItems.quantity,
-      modifierDetails: dineInOrderItems.modifierDetails,
-    }).from(dineInOrderItems).where(eq(dineInOrderItems.orderId, orderIdNum));
+    // Prefer canonical compiler artifact from order metadata. Fallback to DB order items.
+    const canonicalBotItems = extractCanonicalBotItems(order[0].metadata);
+    const orderItems =
+      canonicalBotItems ??
+      (await db
+        .select({
+          itemName: dineInOrderItems.itemName,
+          quantity: dineInOrderItems.quantity,
+          modifierDetails: dineInOrderItems.modifierDetails,
+        })
+        .from(dineInOrderItems)
+        .where(eq(dineInOrderItems.orderId, orderIdNum)));
+
+    if (orderItems.length === 0) {
+      console.error('No order items available for bot payload:', { orderId: orderIdNum });
+      return;
+    }
     // Extract restaurant URL from metadata
     const restaurantUrl = (restaurant.metadata as Record<string, unknown>)?.sourceUrl as string;
     if (!restaurantUrl) {
@@ -315,6 +327,7 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
           ...(order[0].metadata as Record<string, unknown> || {}),
           botTriggered: true,
           botStatus: 'processing',
+          botItemSource: canonicalBotItems ? 'canonical_order' : 'order_items_table',
         } as Record<string, unknown>,
       })
       .where(

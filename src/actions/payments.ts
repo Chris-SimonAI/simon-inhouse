@@ -13,6 +13,10 @@ import { env } from '@/env';
 import { getHotelSession } from './sessions';
 import { compileCanonicalOrderRequest } from '@/lib/orders/canonical-order-compiler-server';
 import { type CompiledOrderItem } from '@/lib/orders/canonical-order-compiler';
+import {
+  buildCanonicalOrderArtifact,
+  canonicalCompilerVersion,
+} from '@/lib/orders/canonical-order-artifact';
 
 /**
  * Result of server-side order total calculation
@@ -169,6 +173,10 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
     }
     
     const calculation = calculationResult.data;
+    const canonicalOrder = buildCanonicalOrderArtifact(
+      calculation.items,
+      calculation.subtotal,
+    );
 
     console.log('[stripe][secureCreate] total:calculation:success', {
       env: env.NODE_ENV,
@@ -200,6 +208,7 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
         fullName: validatedInput.fullName,
         email: validatedInput.email,
         phoneNumber: validatedInput.phoneNumber,
+        canonicalOrder,
         paymentBreakdown: {
           subtotal: calculation.subtotal,
           serviceFee: calculation.serviceFee,
@@ -288,6 +297,8 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
         discountPercentage: calculation.discountPercentage.toString(),
         tip: calculation.tip.toString(),
         total: calculation.total.toString(),
+        compilerVersion: canonicalCompilerVersion,
+        compilerItemCount: calculation.items.length.toString(),
         source: env.NODE_ENV,
         userId: userId,
       },
