@@ -39,6 +39,46 @@ describe('scoreMenuCandidate', () => {
 
     expect(exact.score).toBeGreaterThan(partial.score);
   });
+
+  it('prefers entree-style salads over spread salads for generic salad intent', () => {
+    const request = parseOrderRequestLines('i want a salad')[0];
+    if (!request) {
+      throw new Error('Expected parsed request');
+    }
+
+    const entree = scoreMenuCandidate(
+      request,
+      'Caesar Salad',
+      'romaine, parmesan, croutons',
+    );
+    const spread = scoreMenuCandidate(
+      request,
+      '8oz Chicken Salad',
+      'house-made chicken salad spread',
+    );
+
+    expect(entree.score).toBeGreaterThan(spread.score);
+  });
+
+  it('keeps chicken salad strong when user explicitly asks for it', () => {
+    const request = parseOrderRequestLines('chicken salad')[0];
+    if (!request) {
+      throw new Error('Expected parsed request');
+    }
+
+    const chicken = scoreMenuCandidate(
+      request,
+      '8oz Chicken Salad',
+      'house-made chicken salad spread',
+    );
+    const caesar = scoreMenuCandidate(
+      request,
+      'Caesar Salad',
+      'romaine, parmesan, croutons',
+    );
+
+    expect(chicken.score).toBeGreaterThan(caesar.score);
+  });
 });
 
 describe('chooseBestRestaurantGuid', () => {

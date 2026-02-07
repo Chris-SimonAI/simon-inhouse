@@ -23,6 +23,26 @@ const stopWords = new Set([
 ]);
 
 const quantityPrefixPattern = /^\s*(\d+)\s*(?:x\b)?\s*/i;
+const saladEntreeCueTokens = new Set([
+  'caesar',
+  'garden',
+  'greek',
+  'cobb',
+  'romaine',
+  'arugula',
+  'kale',
+  'chopped',
+  'vinaigrette',
+]);
+const saladSpreadCueTokens = new Set([
+  'olive',
+  'chicken',
+  'tuna',
+  'egg',
+  'macaroni',
+  'potato',
+  'pimento',
+]);
 
 export interface ParsedOrderRequestLine {
   raw: string;
@@ -37,6 +57,7 @@ export interface CandidateScore {
   phraseMatch: boolean;
   tokenHitsInName: number;
   tokenHitsInDescription: number;
+  semanticAdjustment: number;
 }
 
 export interface RestaurantCoverageCandidate {
@@ -93,12 +114,19 @@ export function scoreMenuCandidate(
     }
   }
 
+  const semanticAdjustment = getSemanticAdjustment(
+    requestLine,
+    normalizedName,
+    normalizedDescription,
+  );
+
   const score = calculateScore({
     exactNameMatch,
     phraseMatch,
     tokenHitsInName,
     tokenHitsInDescription,
     requestedTokenCount: requestLine.tokens.length,
+    semanticAdjustment,
   });
 
   return {
@@ -107,6 +135,7 @@ export function scoreMenuCandidate(
     phraseMatch,
     tokenHitsInName,
     tokenHitsInDescription,
+    semanticAdjustment,
   };
 }
 
@@ -150,6 +179,14 @@ export function chooseBestRestaurantGuid(
 }
 
 export function toMatchReason(score: CandidateScore): string {
+  if (score.semanticAdjustment >= 12) {
+    return 'Intent-aligned match';
+  }
+
+  if (score.semanticAdjustment <= -12) {
+    return 'Lexical match (de-prioritized by intent)';
+  }
+
   if (score.exactNameMatch) {
     return 'Exact item-name match';
   }
@@ -237,6 +274,7 @@ function calculateScore(input: {
   tokenHitsInName: number;
   tokenHitsInDescription: number;
   requestedTokenCount: number;
+  semanticAdjustment: number;
 }): number {
   let score = 0;
 
@@ -257,5 +295,61 @@ function calculateScore(input: {
     score += Math.round(coverage * 20);
   }
 
+  score += input.semanticAdjustment;
+
   return score;
+}
+
+function getSemanticAdjustment(
+  requestLine: ParsedOrderRequestLine,
+  normalizedName: string,
+  normalizedDescription: string,
+): number {
+  const requestTokens = new Set(requestLine.tokens);
+  const nameTokens = new Set(tokenize(normalizedName));
+  const descriptionTokens = new Set(tokenize(normalizedDescription));
+
+  const isGenericSaladRequest =
+    requestTokens.has('salad') && requestTokens.size === 1;
+  if (!isGenericSaladRequest) {
+    return 0;
+  }
+
+  const hasEntreeSaladCues =
+    hasAnyToken(nameTokens, saladEntreeCueTokens) ||
+    hasAnyToken(descriptionTokens, saladEntreeCueTokens);
+  const hasSpreadCues =
+    hasAnyToken(nameTokens, saladSpreadCueTokens) ||
+    hasAnyToken(descriptionTokens, saladSpreadCueTokens) ||
+    /\b\d+\s*oz\b/.test(normalizedName);
+
+  let adjustment = 0;
+
+  if (hasEntreeSaladCues) {
+    adjustment += 16;
+  }
+
+  if (hasSpreadCues) {
+    adjustment -= 22;
+  }
+
+  if (
+    adjustment === 0 &&
+    normalizedName.includes('salad') &&
+    !hasSpreadCues
+  ) {
+    adjustment += 6;
+  }
+
+  return adjustment;
+}
+
+function hasAnyToken(tokens: Set<string>, cues: Set<string>): boolean {
+  for (const cue of cues) {
+    if (tokens.has(cue)) {
+      return true;
+    }
+  }
+
+  return false;
 }
