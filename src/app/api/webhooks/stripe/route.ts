@@ -21,6 +21,11 @@ import { PostHogServerClient } from "@/lib/analytics/posthog/server";
 import { getOrCreateGuestProfile, markGuestIntroduced } from "@/actions/guest-profiles";
 import { sendSMS, isTwilioEnabled } from "@/lib/twilio";
 import { extractCanonicalBotItems } from '@/lib/orders/canonical-order-artifact';
+import {
+  buildHumanOpsHandoffPayload,
+  dispatchHumanOpsHandoff,
+  type HumanOpsHandoffReason,
+} from '@/lib/orders/human-ops-handoff';
 
 export async function POST(req: NextRequest) {
   try {
@@ -341,7 +346,12 @@ async function handlePaymentIntentAuthorized(paymentIntent: Stripe.PaymentIntent
 
     // Fire-and-forget: run inline bot asynchronously
     // Don't await — webhook must return 200 quickly
-    runInlineBot(orderIdNum, botPayload, order[0]).catch(err => {
+    runInlineBot(orderIdNum, botPayload, order[0], {
+      hotelName: hotel[0]?.name || 'Unknown Hotel',
+      hotelAddress,
+      restaurantName: restaurant.name,
+      restaurantSourceUrl: restaurantUrl,
+    }).catch(err => {
       console.error(`[inline-bot] Unhandled error for order ${orderIdNum}:`, err);
     });
 
@@ -626,6 +636,12 @@ async function runInlineBot(
   orderId: number,
   botPayload: BotOrderPayload,
   order: typeof dineInOrders.$inferSelect,
+  context: {
+    hotelName: string;
+    hotelAddress: string;
+    restaurantName: string;
+    restaurantSourceUrl: string;
+  },
 ) {
   const { stripe } = await import("@/lib/stripe");
 
@@ -725,6 +741,15 @@ async function runInlineBot(
         }
       } catch (captureError) {
         console.error(`[inline-bot] Failed to capture payment for order ${orderId}:`, captureError);
+        const handoff = await createHumanOpsHandoff({
+          reason: 'capture_failed',
+          order,
+          botPayload,
+          context,
+          failureMessage:
+            captureError instanceof Error ? captureError.message : String(captureError),
+        });
+
         await db.update(dineInOrders)
           .set({
             orderStatus: 'toast_ok_capture_failed',
@@ -733,6 +758,8 @@ async function runInlineBot(
               botStatus: 'capture_failed',
               botError: 'Payment capture failed',
               errorReason: 'Payment capture failed after successful Toast order',
+              humanHandoff: handoff.payload,
+              humanHandoffDelivery: handoff.dispatch,
               botCompletedAt: new Date().toISOString(),
             } as Record<string, unknown>,
           })
@@ -742,6 +769,15 @@ async function runInlineBot(
       // Bot failed — cancel payment
       try {
         await stripe.paymentIntents.cancel(payment.stripePaymentIntentId);
+        const handoff = await createHumanOpsHandoff({
+          reason: 'bot_failed',
+          order,
+          botPayload,
+          context,
+          failureStage: result.stage,
+          failureMessage: result.message,
+        });
+
         await db.update(dineInOrders)
           .set({
             metadata: {
@@ -749,6 +785,8 @@ async function runInlineBot(
               botStatus: 'failed',
               botError: result.message,
               errorReason: result.stage,
+              humanHandoff: handoff.payload,
+              humanHandoffDelivery: handoff.dispatch,
               botCompletedAt: new Date().toISOString(),
             } as Record<string, unknown>,
           })
@@ -756,6 +794,16 @@ async function runInlineBot(
         console.log(`[inline-bot] Payment cancelled for failed order ${orderId}`);
       } catch (cancelError) {
         console.error(`[inline-bot] Failed to cancel payment for order ${orderId}:`, cancelError);
+        const handoff = await createHumanOpsHandoff({
+          reason: 'cancel_failed',
+          order,
+          botPayload,
+          context,
+          failureStage: result.stage,
+          failureMessage:
+            cancelError instanceof Error ? cancelError.message : String(cancelError),
+        });
+
         await db.update(dineInOrders)
           .set({
             metadata: {
@@ -763,6 +811,8 @@ async function runInlineBot(
               botStatus: 'cancel_failed',
               botError: 'Payment cancellation failed',
               errorReason: result.message,
+              humanHandoff: handoff.payload,
+              humanHandoffDelivery: handoff.dispatch,
               botCompletedAt: new Date().toISOString(),
             } as Record<string, unknown>,
           })
@@ -771,17 +821,76 @@ async function runInlineBot(
     }
   } catch (error) {
     console.error(`[inline-bot] Unhandled error for order ${orderId}:`, error);
+    const handoff = await createHumanOpsHandoff({
+      reason: 'bot_error',
+      order,
+      botPayload,
+      context,
+      failureMessage: error instanceof Error ? error.message : String(error),
+    });
+
     await db.update(dineInOrders)
       .set({
         metadata: {
           ...(order.metadata as Record<string, unknown> || {}),
           botStatus: 'error',
           botError: error instanceof Error ? error.message : String(error),
+          humanHandoff: handoff.payload,
+          humanHandoffDelivery: handoff.dispatch,
           botCompletedAt: new Date().toISOString(),
         } as Record<string, unknown>,
       })
       .where(eq(dineInOrders.id, orderId));
   }
+}
+
+async function createHumanOpsHandoff(input: {
+  reason: HumanOpsHandoffReason;
+  order: typeof dineInOrders.$inferSelect;
+  botPayload: BotOrderPayload;
+  context: {
+    hotelName: string;
+    hotelAddress: string;
+    restaurantName: string;
+    restaurantSourceUrl: string;
+  };
+  failureStage?: string;
+  failureMessage?: string;
+}) {
+  const orderMetadata = (input.order.metadata as Record<string, unknown> | null) ?? {};
+  const payload = buildHumanOpsHandoffPayload({
+    reason: input.reason,
+    orderId: input.order.id,
+    orderStatus: input.order.orderStatus,
+    failureStage: input.failureStage,
+    failureMessage: input.failureMessage,
+    guest: {
+      name: String(orderMetadata.fullName ?? input.botPayload.guest?.name ?? 'Guest'),
+      phone: String(orderMetadata.phoneNumber ?? input.botPayload.guest?.phone ?? ''),
+      email: String(orderMetadata.email ?? input.botPayload.guest?.email ?? ''),
+      roomNumber: input.order.roomNumber,
+    },
+    hotel: {
+      id: input.order.hotelId,
+      name: input.context.hotelName,
+      address: input.context.hotelAddress,
+    },
+    restaurant: {
+      id: input.order.restaurantId,
+      name: input.context.restaurantName,
+      sourceUrl: input.context.restaurantSourceUrl,
+    },
+    metadata: input.order.metadata,
+    fallbackItems: input.botPayload.items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity ?? 1,
+      modifiers: item.modifiers,
+    })),
+    adminBaseUrl: env.NEXT_PUBLIC_APP_URL,
+  });
+
+  const dispatch = await dispatchHumanOpsHandoff(payload);
+  return { payload, dispatch };
 }
 
 /**

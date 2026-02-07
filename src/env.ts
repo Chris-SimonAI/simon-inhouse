@@ -33,6 +33,9 @@ const Env = z.object({
   TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
   TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
   TWILIO_PHONE_NUMBER: z.string().min(1).optional(),
+  // Human ops handoff alerts
+  OPS_HANDOFF_SLACK_WEBHOOK_URL: z.string().url().optional(),
+  OPS_HANDOFF_SMS_NUMBERS: z.string().min(1).optional(),
   // Bright Data + proxy scraping
   BRIGHTDATA_API_KEY: z.string().min(1).optional(),
   BRIGHTDATA_WEB_UNLOCKER_ZONE: z.string().min(1).optional(),
