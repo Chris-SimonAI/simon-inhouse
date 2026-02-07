@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, ShoppingBag, LayoutDashboard, Library, Settings, Users, BarChart3, MessageSquare } from "lucide-react";
+import {
+  Building2,
+  ShoppingBag,
+  LayoutDashboard,
+  Library,
+  Settings,
+  Users,
+  BarChart3,
+  MessageSquare,
+  Wand2,
+} from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -11,6 +21,7 @@ const navItems = [
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/admin/guests", label: "Guests", icon: Users },
   { href: "/admin/test-chat", label: "Test Chat", icon: MessageSquare },
+  { href: "/admin/order-compiler", label: "Order Compiler", icon: Wand2 },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
