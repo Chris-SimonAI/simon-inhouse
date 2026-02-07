@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { Loader2, Sparkles, Wand2 } from 'lucide-react';
+import { Check, Copy, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -277,7 +277,7 @@ export function OrderCompilerClient({
                     ) : null}
 
                     {run.state === 'done' && run.data ? (
-                      <CompilerRunResultCard run={run.data} />
+                      <CompilerRunResultCard prompt={run.prompt} run={run.data} />
                     ) : null}
                   </div>
                 </div>
@@ -290,18 +290,65 @@ export function OrderCompilerClient({
   );
 }
 
-function CompilerRunResultCard({ run }: { run: NonNullable<CompilerRun['data']> }) {
+function CompilerRunResultCard({
+  prompt,
+  run,
+}: {
+  prompt: string;
+  run: NonNullable<CompilerRun['data']>;
+}) {
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
+    'idle',
+  );
   const compileBadgeClass = getCompileBadgeClass(run.compile?.status ?? null);
+
+  async function handleCopyJson() {
+    const payload = {
+      prompt,
+      output: run,
+    };
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard API unavailable');
+      }
+
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      setCopyState('copied');
+    } catch (error) {
+      console.error('Failed to copy compiler JSON:', error);
+      setCopyState('error');
+    } finally {
+      window.setTimeout(() => {
+        setCopyState('idle');
+      }, 2000);
+    }
+  }
 
   return (
     <Card className="rounded-2xl rounded-tl-sm border-slate-200">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <span>Compiler Trace</span>
-          <Badge className={compileBadgeClass}>
-            {run.compile?.status ?? 'not_compiled'}
-          </Badge>
-        </CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <span>Compiler Trace</span>
+            <Badge className={compileBadgeClass}>
+              {run.compile?.status ?? 'not_compiled'}
+            </Badge>
+          </CardTitle>
+          <Button variant="outline" size="sm" onClick={handleCopyJson}>
+            {copyState === 'copied' ? (
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4 mr-2" />
+                {copyState === 'error' ? 'Copy failed' : 'Copy JSON'}
+              </>
+            )}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-2 text-sm md:grid-cols-2">
