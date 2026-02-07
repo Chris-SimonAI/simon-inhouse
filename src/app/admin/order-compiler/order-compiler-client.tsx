@@ -14,10 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  runOrderCompilerPreview,
-  type OrderCompilerRestaurantOption,
-} from '@/actions/order-compiler';
+import { runOrderCompilerPreview } from '@/actions/order-compiler';
+import { type OrderCompilerRestaurantOption } from '@/lib/orders/order-compiler-types';
 
 type CompilerRun = {
   id: string;

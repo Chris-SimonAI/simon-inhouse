@@ -14,6 +14,7 @@ import {
 } from '@/db/schemas';
 import { createError, createSuccess } from '@/lib/utils';
 import { compileCanonicalOrderRequest } from '@/lib/orders/canonical-order-compiler-server';
+import { type OrderCompilerRestaurantOption } from '@/lib/orders/order-compiler-types';
 import {
   chooseBestRestaurantGuid,
   parseOrderRequestLines,
@@ -21,19 +22,11 @@ import {
   toMatchReason,
 } from '@/lib/orders/order-compiler-matcher';
 
-export const runtime = 'nodejs';
-
 const runOrderCompilerPreviewSchema = z.object({
   message: z.string().min(2).max(600),
   restaurantGuid: z.string().uuid().optional(),
   maxCandidates: z.number().int().min(1).max(5).default(3),
 });
-
-export interface OrderCompilerRestaurantOption {
-  restaurantGuid: string;
-  restaurantName: string;
-  hotelName: string | null;
-}
 
 interface IndexedMenuItem {
   restaurantGuid: string;
@@ -54,7 +47,7 @@ interface CandidateMatch {
 
 export async function getOrderCompilerRestaurants() {
   try {
-    const restaurants = await db
+    const restaurants: OrderCompilerRestaurantOption[] = await db
       .select({
         restaurantGuid: dineInRestaurants.restaurantGuid,
         restaurantName: dineInRestaurants.name,
