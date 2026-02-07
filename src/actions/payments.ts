@@ -4,39 +4,22 @@ import 'server-only';
 
 import { stripe } from '@/lib/stripe';
 import { db } from '@/db';
-import { dineInOrders, dineInOrderItems, dineInPayments, hotels, dineInRestaurants, menuItems, modifierOptions } from '@/db/schemas';
+import { dineInOrders, dineInOrderItems, dineInPayments, hotels, dineInRestaurants } from '@/db/schemas';
 import { createSuccess, createError } from '@/lib/utils';
 import { SecureCreateOrderRequestSchema, type SecureOrderItem, type TipOption } from '@/validations/dine-in-orders';
-import { eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getActiveDiscount } from '@/actions/dining-discounts';
 import { env } from '@/env';
 import { getHotelSession } from './sessions';
+import { compileCanonicalOrderRequest } from '@/lib/orders/canonical-order-compiler-server';
+import { type CompiledOrderItem } from '@/lib/orders/canonical-order-compiler';
 
 /**
  * Result of server-side order total calculation
  */
 export type OrderTotalBreakdown = {
   // Item-level details (for order storage)
-  items: Array<{
-    menuItemId: number;
-    menuItemGuid: string;
-    itemName: string;
-    itemDescription: string;
-    basePrice: number;
-    modifierPrice: number;
-    unitPrice: number;
-    quantity: number;
-    totalPrice: number;
-    modifierDetails: Array<{
-      groupId: string;
-      groupName: string;
-      options: Array<{
-        optionId: string;
-        optionName: string;
-        optionPrice: string;
-      }>;
-    }>;
-  }>;
+  items: CompiledOrderItem[];
   // Totals
   subtotal: number;          // Sum of all item prices
   serviceFee: number;        // subtotal * serviceFeePercent / 100
@@ -70,144 +53,27 @@ export async function calculateOrderTotal(
   tipOption: TipOption
 ): Promise<ReturnType<typeof createSuccess<OrderTotalBreakdown>> | ReturnType<typeof createError>> {
   try {
-    // 1. Get restaurant info (including fees)
-    const [restaurant] = await db
-      .select({
-        id: dineInRestaurants.id,
-        hotelId: dineInRestaurants.hotelId,
-        deliveryFee: dineInRestaurants.deliveryFee,
-        serviceFeePercent: dineInRestaurants.serviceFeePercent,
-      })
-      .from(dineInRestaurants)
-      .where(eq(dineInRestaurants.restaurantGuid, restaurantGuid))
-      .limit(1);
-
-    if (!restaurant) {
-      return createError('Restaurant not found');
+    const compileResult = await compileCanonicalOrderRequest(restaurantGuid, items);
+    if (!compileResult.ok) {
+      return createError(compileResult.message);
     }
 
-    // Convert decimal strings to numbers for calculations
-    const deliveryFee = parseFloat(restaurant.deliveryFee);
-    const serviceFeePercent = parseFloat(restaurant.serviceFeePercent);
-
-    // 2. Get all menu item GUIDs from the request
-    const menuItemGuids = items.map(item => item.menuItemGuid);
-    
-    // 3. Fetch menu items from database
-    const dbMenuItems = await db
-      .select({
-        id: menuItems.id,
-        menuItemGuid: menuItems.menuItemGuid,
-        name: menuItems.name,
-        description: menuItems.description,
-        price: menuItems.price,
-      })
-      .from(menuItems)
-      .where(inArray(menuItems.menuItemGuid, menuItemGuids));
-
-    // Create a map for quick lookup
-    const menuItemMap = new Map(
-      dbMenuItems.map(item => [item.menuItemGuid, item])
-    );
-
-    // 4. Collect all modifier option GUIDs from all items
-    const allModifierOptionGuids: string[] = [];
-    for (const item of items) {
-      for (const optionGuids of Object.values(item.selectedModifiers)) {
-        allModifierOptionGuids.push(...optionGuids);
-      }
+    const compileData = compileResult.data;
+    if (compileData.status === 'needs_user_input') {
+      return createError('Order is missing required selections', compileData.issues);
     }
 
-    // 5. Fetch all modifier options from database (if any)
-    let modifierOptionMap = new Map<string, { id: number; name: string; price: string; modifierGroupId: number }>();
-    
-    if (allModifierOptionGuids.length > 0) {
-      const dbModifierOptions = await db
-        .select({
-          id: modifierOptions.id,
-          modifierOptionGuid: modifierOptions.modifierOptionGuid,
-          modifierGroupId: modifierOptions.modifierGroupId,
-          name: modifierOptions.name,
-          price: modifierOptions.price,
-        })
-        .from(modifierOptions)
-        .where(inArray(modifierOptions.modifierOptionGuid, allModifierOptionGuids));
-
-      modifierOptionMap = new Map(
-        dbModifierOptions.map(opt => [opt.modifierOptionGuid, {
-          id: opt.id,
-          name: opt.name,
-          // price for a modifier can be null, indicating a free modifier
-          // this is why we need to use ?? to handle null values
-          price: opt.price ?? '0',
-          modifierGroupId: opt.modifierGroupId,
-        }])
-      );
+    if (compileData.status === 'unfulfillable') {
+      return createError('Order cannot be fulfilled with the current menu', compileData.issues);
     }
 
-    // 6. Calculate item prices and build order items
-    const calculatedItems: OrderTotalBreakdown['items'] = [];
-    let subtotal = 0;
-
-    for (const item of items) {
-      const menuItem = menuItemMap.get(item.menuItemGuid);
-      if (!menuItem) {
-        return createError(`Menu item not found: ${item.menuItemGuid}`);
-      }
-
-      const basePrice = parseFloat(menuItem.price || '0');
-      let modifierPrice = 0;
-      const modifierDetails: OrderTotalBreakdown['items'][0]['modifierDetails'] = [];
-
-      // Calculate modifier prices
-      for (const [groupGuid, optionGuids] of Object.entries(item.selectedModifiers)) {
-        const groupOptions: OrderTotalBreakdown['items'][0]['modifierDetails'][0]['options'] = [];
-        
-        for (const optionGuid of optionGuids) {
-          const option = modifierOptionMap.get(optionGuid);
-          if (!option) {
-            return createError(`Modifier option not found: ${optionGuid}`);
-          }
-          
-          const optionPrice = parseFloat(option.price);
-          modifierPrice += optionPrice;
-          
-          groupOptions.push({
-            optionId: optionGuid,
-            optionName: option.name,
-            optionPrice: optionPrice.toFixed(2),
-          });
-        }
-
-        if (groupOptions.length > 0) {
-          modifierDetails.push({
-            groupId: groupGuid,
-            groupName: '', // We don't have group name in the lookup, but it's stored for reference
-            options: groupOptions,
-          });
-        }
-      }
-
-      const unitPrice = basePrice + modifierPrice;
-      const totalPrice = unitPrice * item.quantity;
-      subtotal += totalPrice;
-
-      calculatedItems.push({
-        menuItemId: menuItem.id,
-        menuItemGuid: item.menuItemGuid,
-        itemName: menuItem.name,
-        itemDescription: menuItem.description || '',
-        basePrice: Math.round(basePrice * 100) / 100,
-        modifierPrice: Math.round(modifierPrice * 100) / 100,
-        unitPrice: Math.round(unitPrice * 100) / 100,
-        quantity: item.quantity,
-        totalPrice: Math.round(totalPrice * 100) / 100,
-        modifierDetails,
-      });
+    if (compileData.hotelId === null) {
+      return createError('Restaurant is not linked to a hotel');
     }
 
-    // Round subtotal
-    subtotal = Math.round(subtotal * 100) / 100;
+    const subtotal = compileData.subtotal;
+    const serviceFee = Math.round((subtotal * compileData.serviceFeePercent / 100) * 100) / 100;
+    const deliveryFee = compileData.deliveryFee;
 
     // 7. Get discount from session
     const discountResult = await getActiveDiscount();
@@ -217,10 +83,7 @@ export async function calculateOrderTotal(
     }
     const discount = Math.round((subtotal * discountPercentage / 100) * 100) / 100;
 
-    // 8. Calculate service fee (on original subtotal, before discount)
-    const serviceFee = Math.round((subtotal * serviceFeePercent / 100) * 100) / 100;
-
-    // 9. Calculate tip (on original subtotal, before discount and fees)
+    // 8. Calculate tip (on original subtotal, before discount and fees)
     const subtotalAfterDiscount = subtotal - discount;
     let tip = 0;
     if (tipOption.type === 'percentage') {
@@ -229,11 +92,11 @@ export async function calculateOrderTotal(
       tip = Math.round(tipOption.value * 100) / 100;
     }
 
-    // 10. Calculate total
+    // 9. Calculate total
     const total = Math.round((subtotalAfterDiscount + serviceFee + deliveryFee + tip) * 100) / 100;
 
     return createSuccess({
-      items: calculatedItems,
+      items: compileData.items,
       subtotal,
       serviceFee,
       deliveryFee,
@@ -241,8 +104,8 @@ export async function calculateOrderTotal(
       discountPercentage,
       tip,
       total,
-      restaurantId: restaurant.id,
-      hotelId: restaurant.hotelId ?? 0,
+      restaurantId: compileData.restaurantId,
+      hotelId: compileData.hotelId,
     });
   } catch (error) {
     console.error('Error calculating order total:', error);
