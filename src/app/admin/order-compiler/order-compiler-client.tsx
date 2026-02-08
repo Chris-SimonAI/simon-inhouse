@@ -29,7 +29,15 @@ type CompilerRun = {
     };
     matches: Array<{
       requestText: string;
+      normalizedRequest: string;
       quantity: number;
+      resolution: 'selected' | 'ambiguous' | 'modifier_only' | 'unmatched';
+      resolutionReason: string | null;
+      confidence: {
+        level: 'high' | 'medium' | 'low';
+        topScore: number | null;
+        scoreGap: number | null;
+      } | null;
       selectedCandidate: {
         restaurantGuid: string;
         restaurantName: string;
@@ -52,6 +60,7 @@ type CompilerRun = {
       restaurantGuid: string;
       items: Array<{
         menuItemGuid: string;
+        menuItemName: string;
         quantity: number;
         selectedModifiers: Record<string, string[]>;
       }>;
@@ -374,16 +383,36 @@ function CompilerRunResultCard({
                 <p className="text-sm font-medium text-slate-900">
                   &quot;{match.requestText}&quot; (qty {match.quantity})
                 </p>
-                {match.selectedCandidate ? (
-                  <Badge variant="outline" className="text-emerald-700 border-emerald-300">
-                    {match.selectedCandidate.menuItemName} · {match.selectedCandidate.score}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className={getResolutionBadgeClass(match.resolution)}>
+                    {match.resolution}
                   </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-red-700 border-red-300">
-                    No selected match
-                  </Badge>
-                )}
+                  {match.confidence ? (
+                    <Badge variant="outline" className={getConfidenceBadgeClass(match.confidence.level)}>
+                      {match.confidence.level} confidence
+                      {match.confidence.topScore !== null ? ` · ${match.confidence.topScore}` : ''}
+                    </Badge>
+                  ) : null}
+                </div>
               </div>
+              {match.selectedCandidate ? (
+                <div className="mb-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
+                  Selected: {match.selectedCandidate.menuItemName}
+                </div>
+              ) : null}
+              {match.resolutionReason ? (
+                <div className="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                  {match.resolutionReason}
+                </div>
+              ) : null}
+              {match.selectedCandidate === null && match.candidates.length === 0 ? (
+                <div className="text-xs text-slate-500">No item candidates generated for this line.</div>
+              ) : null}
+              {match.selectedCandidate === null && match.candidates.length > 0 ? (
+                <p className="text-xs text-slate-500 mb-1">
+                  Top candidates:
+                </p>
+              ) : null}
               <div className="space-y-1">
                 {match.candidates.map((candidate) => (
                   <div
@@ -410,7 +439,8 @@ function CompilerRunResultCard({
               ) : (
                 run.canonicalDraft.items.map((item) => (
                   <div key={item.menuItemGuid} className="text-sm text-slate-700">
-                    {item.quantity}x {item.menuItemGuid}
+                    {item.quantity}x {item.menuItemName}
+                    <span className="text-xs text-slate-500 ml-1">({item.menuItemGuid})</span>
                   </div>
                 ))
               )}
@@ -474,4 +504,34 @@ function getCompileBadgeClass(
   }
 
   return 'bg-slate-100 text-slate-700 border-slate-300';
+}
+
+function getResolutionBadgeClass(
+  resolution: 'selected' | 'ambiguous' | 'modifier_only' | 'unmatched',
+): string {
+  if (resolution === 'selected') {
+    return 'text-emerald-700 border-emerald-300';
+  }
+
+  if (resolution === 'ambiguous') {
+    return 'text-amber-700 border-amber-300';
+  }
+
+  if (resolution === 'modifier_only') {
+    return 'text-indigo-700 border-indigo-300';
+  }
+
+  return 'text-rose-700 border-rose-300';
+}
+
+function getConfidenceBadgeClass(level: 'high' | 'medium' | 'low'): string {
+  if (level === 'high') {
+    return 'text-emerald-700 border-emerald-300';
+  }
+
+  if (level === 'medium') {
+    return 'text-amber-700 border-amber-300';
+  }
+
+  return 'text-rose-700 border-rose-300';
 }

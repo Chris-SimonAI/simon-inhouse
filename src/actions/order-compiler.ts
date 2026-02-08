@@ -12,15 +12,19 @@ import {
   menuItems,
   menus,
 } from '@/db/schemas';
-import { createError, createSuccess } from '@/lib/utils';
 import { compileCanonicalOrderRequest } from '@/lib/orders/canonical-order-compiler-server';
-import { type OrderCompilerRestaurantOption } from '@/lib/orders/order-compiler-types';
 import {
+  assessCandidateSelectionQuality,
   chooseBestRestaurantGuid,
+  isLikelyModifierOnlyRequestLine,
+  type CandidateConfidenceLevel,
+  type ParsedOrderRequestLine,
   parseOrderRequestLines,
   scoreMenuCandidate,
   toMatchReason,
 } from '@/lib/orders/order-compiler-matcher';
+import { type OrderCompilerRestaurantOption } from '@/lib/orders/order-compiler-types';
+import { createError, createSuccess } from '@/lib/utils';
 
 const runOrderCompilerPreviewSchema = z.object({
   message: z.string().min(2).max(600),
@@ -43,6 +47,29 @@ interface CandidateMatch {
   menuItemName: string;
   score: number;
   reason: string;
+}
+
+type MatchResolution = 'selected' | 'ambiguous' | 'modifier_only' | 'unmatched';
+
+interface ResolvedMatch {
+  requestText: string;
+  normalizedRequest: string;
+  quantity: number;
+  resolution: MatchResolution;
+  resolutionReason: string | null;
+  confidence: {
+    level: CandidateConfidenceLevel;
+    topScore: number | null;
+    scoreGap: number | null;
+  } | null;
+  selectedCandidate: CandidateMatch | null;
+  candidates: CandidateMatch[];
+}
+
+interface CompileIssue {
+  code: string;
+  message: string;
+  severity: 'needs_user_input' | 'unfulfillable';
 }
 
 export async function getOrderCompilerRestaurants() {
@@ -83,16 +110,26 @@ export async function runOrderCompilerPreview(input: unknown) {
       return createError('Could not parse any orderable items from input');
     }
 
-    const requestMatches = parsedLines.map((line) => {
+    const requestMatches = parsedLines.map((requestLine) => {
+      const modifierOnly = isLikelyModifierOnlyRequestLine(requestLine);
+      if (modifierOnly) {
+        return {
+          requestLine,
+          candidates: [] as CandidateMatch[],
+          modifierOnly: true,
+        };
+      }
+
       const candidates = rankCandidatesForLine(
-        line,
+        requestLine,
         indexedMenuItems,
         request.maxCandidates,
       );
 
       return {
-        requestLine: line,
+        requestLine,
         candidates,
+        modifierOnly: false,
       };
     });
 
@@ -100,10 +137,12 @@ export async function runOrderCompilerPreview(input: unknown) {
       request.restaurantGuid ??
       chooseBestRestaurantGuid(
         requestMatches.map((match) =>
-          match.candidates.map((candidate) => ({
-            restaurantGuid: candidate.restaurantGuid,
-            score: candidate.score,
-          })),
+          match.modifierOnly
+            ? []
+            : match.candidates.map((candidate) => ({
+                restaurantGuid: candidate.restaurantGuid,
+                score: candidate.score,
+              })),
         ),
       );
 
@@ -112,35 +151,46 @@ export async function runOrderCompilerPreview(input: unknown) {
     }
 
     const selectedRestaurantName =
-      requestMatches
-        .flatMap((match) => match.candidates)
-        .find((candidate) => candidate.restaurantGuid === selectedRestaurantGuid)
-        ?.restaurantName ?? null;
+      indexedMenuItems.find(
+        (item) => item.restaurantGuid === selectedRestaurantGuid,
+      )?.restaurantName ?? null;
 
-    const selectedMatches = requestMatches.map((match) => {
-      const selectedCandidate = match.candidates.find(
-        (candidate) => candidate.restaurantGuid === selectedRestaurantGuid,
-      );
+    const menuItemNameByGuid = new Map(
+      indexedMenuItems.map((item) => [item.menuItemGuid, item.menuItemName]),
+    );
 
-      return {
-        requestText: match.requestLine.raw,
-        normalizedRequest: match.requestLine.normalized,
-        quantity: match.requestLine.quantity,
-        selectedCandidate: selectedCandidate ?? null,
-        candidates: match.candidates,
-      };
-    });
+    const resolvedMatches: ResolvedMatch[] = requestMatches.map((match) =>
+      resolveRequestLineMatch(match, selectedRestaurantGuid),
+    );
 
-    const draftItems = selectedMatches
-      .filter((match) => match.selectedCandidate !== null)
-      .map((match) => ({
-        menuItemGuid: match.selectedCandidate!.menuItemGuid,
+    const draftItems = resolvedMatches.reduce<
+      Array<{
+        menuItemGuid: string;
+        menuItemName: string;
+        quantity: number;
+        selectedModifiers: Record<string, string[]>;
+      }>
+    >((accumulator, match) => {
+      if (match.resolution !== 'selected' || match.selectedCandidate === null) {
+        return accumulator;
+      }
+
+      accumulator.push({
+        menuItemGuid: match.selectedCandidate.menuItemGuid,
+        menuItemName:
+          menuItemNameByGuid.get(match.selectedCandidate.menuItemGuid) ??
+          match.selectedCandidate.menuItemName,
         quantity: match.quantity,
-        selectedModifiers: {} as Record<string, string[]>,
-      }));
+        selectedModifiers: {},
+      });
 
-    const unmatchedRequests = selectedMatches
-      .filter((match) => match.selectedCandidate === null)
+      return accumulator;
+    }, []);
+
+    const inputResolutionIssues = buildInputResolutionIssues(resolvedMatches);
+
+    const unresolvedRequests = resolvedMatches
+      .filter((match) => match.resolution !== 'selected')
       .map((match) => match.requestText);
 
     let compile:
@@ -148,11 +198,7 @@ export async function runOrderCompilerPreview(input: unknown) {
           status: 'ready_to_execute' | 'needs_user_input' | 'unfulfillable';
           subtotal: number;
           itemCount: number;
-          issues: Array<{
-            code: string;
-            message: string;
-            severity: 'needs_user_input' | 'unfulfillable';
-          }>;
+          issues: CompileIssue[];
         }
       | null = null;
     let compileError: string | null = null;
@@ -160,23 +206,52 @@ export async function runOrderCompilerPreview(input: unknown) {
     if (draftItems.length > 0) {
       const compileResult = await compileCanonicalOrderRequest(
         selectedRestaurantGuid,
-        draftItems,
+        draftItems.map((item) => ({
+          menuItemGuid: item.menuItemGuid,
+          quantity: item.quantity,
+          selectedModifiers: item.selectedModifiers,
+        })),
       );
 
       if (!compileResult.ok) {
         compileError = compileResult.message;
       } else {
-        compile = {
-          status: compileResult.data.status,
-          subtotal: compileResult.data.subtotal,
-          itemCount: compileResult.data.items.length,
-          issues: compileResult.data.issues.map((issue) => ({
+        const canonicalIssues: CompileIssue[] = compileResult.data.issues.map(
+          (issue) => ({
             code: issue.code,
             message: issue.message,
             severity: issue.severity,
-          })),
+          }),
+        );
+        const combinedIssues = [...canonicalIssues, ...inputResolutionIssues];
+
+        const hasUnfulfillable = combinedIssues.some(
+          (issue) => issue.severity === 'unfulfillable',
+        );
+        const hasNeedsUserInput = combinedIssues.some(
+          (issue) => issue.severity === 'needs_user_input',
+        );
+
+        const status = hasUnfulfillable
+          ? 'unfulfillable'
+          : hasNeedsUserInput
+            ? 'needs_user_input'
+            : compileResult.data.status;
+
+        compile = {
+          status,
+          subtotal: compileResult.data.subtotal,
+          itemCount: compileResult.data.items.length,
+          issues: combinedIssues,
         };
       }
+    } else if (inputResolutionIssues.length > 0) {
+      compile = {
+        status: 'needs_user_input',
+        subtotal: 0,
+        itemCount: 0,
+        issues: inputResolutionIssues,
+      };
     }
 
     const searchStats = {
@@ -196,8 +271,8 @@ export async function runOrderCompilerPreview(input: unknown) {
         restaurantGuid: selectedRestaurantGuid,
         restaurantName: selectedRestaurantName,
       },
-      matches: selectedMatches,
-      unmatchedRequests,
+      matches: resolvedMatches,
+      unmatchedRequests: unresolvedRequests,
       canonicalDraft: {
         restaurantGuid: selectedRestaurantGuid,
         items: draftItems,
@@ -246,12 +321,7 @@ async function getIndexedMenuItems(
 }
 
 function rankCandidatesForLine(
-  requestLine: {
-    raw: string;
-    normalized: string;
-    quantity: number;
-    tokens: string[];
-  },
+  requestLine: ParsedOrderRequestLine,
   indexedItems: IndexedMenuItem[],
   maxCandidates: number,
 ): CandidateMatch[] {
@@ -280,4 +350,117 @@ function rankCandidatesForLine(
       return a.menuItemName.localeCompare(b.menuItemName);
     })
     .slice(0, maxCandidates);
+}
+
+function resolveRequestLineMatch(
+  input: {
+    requestLine: ParsedOrderRequestLine;
+    candidates: CandidateMatch[];
+    modifierOnly: boolean;
+  },
+  selectedRestaurantGuid: string,
+): ResolvedMatch {
+  if (input.modifierOnly) {
+    return {
+      requestText: input.requestLine.raw,
+      normalizedRequest: input.requestLine.normalized,
+      quantity: input.requestLine.quantity,
+      resolution: 'modifier_only',
+      resolutionReason:
+        'Looks like a modifier request without a clear parent item.',
+      confidence: null,
+      selectedCandidate: null,
+      candidates: [],
+    };
+  }
+
+  const selectedCandidate = input.candidates.find(
+    (candidate) => candidate.restaurantGuid === selectedRestaurantGuid,
+  );
+
+  const quality = assessCandidateSelectionQuality(
+    input.requestLine,
+    input.candidates.map((candidate) => candidate.score),
+  );
+
+  const confidence = {
+    level: quality.level,
+    topScore: quality.topScore,
+    scoreGap: quality.scoreGap,
+  };
+
+  if (!selectedCandidate) {
+    return {
+      requestText: input.requestLine.raw,
+      normalizedRequest: input.requestLine.normalized,
+      quantity: input.requestLine.quantity,
+      resolution: 'unmatched',
+      resolutionReason: 'No candidate matched in selected restaurant scope.',
+      confidence,
+      selectedCandidate: null,
+      candidates: input.candidates,
+    };
+  }
+
+  if (quality.isAmbiguous || quality.level === 'low') {
+    return {
+      requestText: input.requestLine.raw,
+      normalizedRequest: input.requestLine.normalized,
+      quantity: input.requestLine.quantity,
+      resolution: 'ambiguous',
+      resolutionReason: quality.isAmbiguous
+        ? 'Multiple close candidates; needs clarification.'
+        : 'Low confidence match; needs clarification.',
+      confidence,
+      selectedCandidate: null,
+      candidates: input.candidates,
+    };
+  }
+
+  return {
+    requestText: input.requestLine.raw,
+    normalizedRequest: input.requestLine.normalized,
+    quantity: input.requestLine.quantity,
+    resolution: 'selected',
+    resolutionReason: null,
+    confidence,
+    selectedCandidate,
+    candidates: input.candidates,
+  };
+}
+
+function buildInputResolutionIssues(matches: ResolvedMatch[]): CompileIssue[] {
+  const issues: CompileIssue[] = [];
+
+  for (const match of matches) {
+    if (match.resolution === 'selected') {
+      continue;
+    }
+
+    if (match.resolution === 'modifier_only') {
+      issues.push({
+        code: 'modifier_context_missing',
+        message: `Clarify which item should use modifier: "${match.requestText}"`,
+        severity: 'needs_user_input',
+      });
+      continue;
+    }
+
+    if (match.resolution === 'ambiguous') {
+      issues.push({
+        code: 'ambiguous_item_match',
+        message: `Clarify item for: "${match.requestText}"`,
+        severity: 'needs_user_input',
+      });
+      continue;
+    }
+
+    issues.push({
+      code: 'menu_item_unclear',
+      message: `No confident menu match for: "${match.requestText}"`,
+      severity: 'needs_user_input',
+    });
+  }
+
+  return issues;
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assessCandidateSelectionQuality,
   chooseBestRestaurantGuid,
+  isLikelyModifierOnlyRequestLine,
   parseOrderRequestLines,
   scoreMenuCandidate,
 } from '@/lib/orders/order-compiler-matcher';
@@ -78,6 +80,52 @@ describe('scoreMenuCandidate', () => {
     );
 
     expect(chicken.score).toBeGreaterThan(caesar.score);
+  });
+});
+
+describe('modifier detection', () => {
+  it('classifies short modifier lines as modifier-only', () => {
+    const request = parseOrderRequestLines('no onions')[0];
+    if (!request) {
+      throw new Error('Expected parsed request');
+    }
+
+    expect(isLikelyModifierOnlyRequestLine(request)).toBe(true);
+  });
+
+  it('does not classify explicit item requests as modifier-only', () => {
+    const request = parseOrderRequestLines('extra crispy chicken sandwich')[0];
+    if (!request) {
+      throw new Error('Expected parsed request');
+    }
+
+    expect(isLikelyModifierOnlyRequestLine(request)).toBe(false);
+  });
+});
+
+describe('assessCandidateSelectionQuality', () => {
+  it('marks tied generic requests as ambiguous low-confidence', () => {
+    const request = parseOrderRequestLines('salad')[0];
+    if (!request) {
+      throw new Error('Expected parsed request');
+    }
+
+    const quality = assessCandidateSelectionQuality(request, [98, 98, 94]);
+
+    expect(quality.level).toBe('low');
+    expect(quality.isAmbiguous).toBe(true);
+  });
+
+  it('marks clear wins as high-confidence', () => {
+    const request = parseOrderRequestLines('chicken sandwich')[0];
+    if (!request) {
+      throw new Error('Expected parsed request');
+    }
+
+    const quality = assessCandidateSelectionQuality(request, [140, 90, 80]);
+
+    expect(quality.level).toBe('high');
+    expect(quality.isAmbiguous).toBe(false);
   });
 });
 

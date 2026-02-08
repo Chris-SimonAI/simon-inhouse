@@ -43,6 +43,41 @@ const saladSpreadCueTokens = new Set([
   'potato',
   'pimento',
 ]);
+const modifierLeadingTokens = new Set([
+  'no',
+  'without',
+  'extra',
+  'light',
+  'easy',
+  'hold',
+  'remove',
+  'less',
+  'more',
+]);
+const strongItemHintTokens = new Set([
+  'burger',
+  'pizza',
+  'sandwich',
+  'salad',
+  'fries',
+  'wing',
+  'wings',
+  'taco',
+  'burrito',
+  'sushi',
+  'ramen',
+  'pasta',
+  'water',
+  'coke',
+  'soda',
+  'tea',
+  'coffee',
+  'juice',
+  'wrap',
+  'bowl',
+  'steak',
+  'chicken',
+]);
 
 export interface ParsedOrderRequestLine {
   raw: string;
@@ -63,6 +98,15 @@ export interface CandidateScore {
 export interface RestaurantCoverageCandidate {
   restaurantGuid: string;
   score: number;
+}
+
+export type CandidateConfidenceLevel = 'high' | 'medium' | 'low';
+
+export interface CandidateSelectionQuality {
+  level: CandidateConfidenceLevel;
+  topScore: number | null;
+  scoreGap: number | null;
+  isAmbiguous: boolean;
 }
 
 export function parseOrderRequestLines(message: string): ParsedOrderRequestLine[] {
@@ -208,6 +252,87 @@ export function toMatchReason(score: CandidateScore): string {
   }
 
   return 'Weak lexical similarity';
+}
+
+export function isLikelyModifierOnlyRequestLine(
+  requestLine: ParsedOrderRequestLine,
+): boolean {
+  if (requestLine.tokens.length === 0) {
+    return false;
+  }
+
+  const [firstToken] = requestLine.tokens;
+  if (!firstToken || !modifierLeadingTokens.has(firstToken)) {
+    return false;
+  }
+
+  if (requestLine.tokens.length <= 3) {
+    return true;
+  }
+
+  const hasStrongItemHint = requestLine.tokens.some((token) =>
+    strongItemHintTokens.has(token),
+  );
+  if (hasStrongItemHint) {
+    return false;
+  }
+
+  return requestLine.tokens.length <= 5;
+}
+
+export function assessCandidateSelectionQuality(
+  requestLine: ParsedOrderRequestLine,
+  candidateScores: number[],
+): CandidateSelectionQuality {
+  if (candidateScores.length === 0) {
+    return {
+      level: 'low',
+      topScore: null,
+      scoreGap: null,
+      isAmbiguous: false,
+    };
+  }
+
+  const topScore = candidateScores[0] ?? null;
+  const nextScore = candidateScores[1] ?? null;
+
+  if (topScore === null) {
+    return {
+      level: 'low',
+      topScore: null,
+      scoreGap: null,
+      isAmbiguous: false,
+    };
+  }
+
+  const scoreGap = nextScore === null ? null : topScore - nextScore;
+  const ambiguousGapThreshold = requestLine.tokens.length <= 1 ? 6 : 4;
+  const isAmbiguous = scoreGap !== null && scoreGap <= ambiguousGapThreshold;
+
+  if (topScore >= 130 && (scoreGap === null || scoreGap >= 16) && !isAmbiguous) {
+    return {
+      level: 'high',
+      topScore,
+      scoreGap,
+      isAmbiguous: false,
+    };
+  }
+
+  if (topScore >= 95 && (scoreGap === null || scoreGap >= 8) && !isAmbiguous) {
+    return {
+      level: 'medium',
+      topScore,
+      scoreGap,
+      isAmbiguous: false,
+    };
+  }
+
+  return {
+    level: 'low',
+    topScore,
+    scoreGap,
+    isAmbiguous,
+  };
 }
 
 function parseSingleRequestLine(rawSegment: string): ParsedOrderRequestLine {
