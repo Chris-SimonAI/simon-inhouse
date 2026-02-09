@@ -12,6 +12,7 @@ import {
   BarChart3,
   MessageSquare,
   Wand2,
+  Compass,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +23,11 @@ const navItems = [
   { href: "/admin/guests", label: "Guests", icon: Users },
   { href: "/admin/test-chat", label: "Test Chat", icon: MessageSquare },
   { href: "/admin/order-compiler", label: "Order Compiler", icon: Wand2 },
+  {
+    href: "/admin/restaurant-discovery",
+    label: "Discovery",
+    icon: Compass,
+  },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
