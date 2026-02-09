@@ -182,12 +182,22 @@ async function scrapeChowNowMenuViaApi(
     telemetry,
   );
 
-  const menuJson = await fetchJsonResilient(
-    `https://api.chownow.com/api/restaurant/${locationId}/menu`,
-    telemetry,
-  );
+  if (!isRecord(restaurantJson)) {
+    throw new Error("ChowNow API returned unexpected payload shape.");
+  }
 
-  if (!isRecord(restaurantJson) || !isRecord(menuJson)) {
+  const baseMenuUrl = `https://api.chownow.com/api/restaurant/${locationId}/menu`;
+  let menuJson = await fetchJsonResilient(baseMenuUrl, telemetry);
+
+  // Some ChowNow locations return `{}` for `/menu`, but succeed for `/menu/<whenId>`.
+  if (isRecord(menuJson) && !Array.isArray(menuJson["menu_categories"])) {
+    const whenId = getChowNowMenuWhenId(restaurantJson);
+    if (whenId) {
+      menuJson = await fetchJsonResilient(`${baseMenuUrl}/${whenId}`, telemetry);
+    }
+  }
+
+  if (!isRecord(menuJson)) {
     throw new Error("ChowNow API returned unexpected payload shape.");
   }
 
@@ -383,6 +393,33 @@ async function scrapeChowNowMenuViaApi(
     scrapedAt: new Date().toISOString(),
     address,
   };
+}
+
+function getChowNowMenuWhenId(restaurantJson: Record<string, unknown>): string | null {
+  const fulfillment = restaurantJson["fulfillment"];
+  if (!isRecord(fulfillment)) {
+    return null;
+  }
+
+  const candidates: string[] = [];
+  const fulfillmentTypes = ["pickup", "delivery", "curbside", "dine_in"] as const;
+
+  for (const fulfillmentType of fulfillmentTypes) {
+    const entry = fulfillment[fulfillmentType];
+    if (!isRecord(entry)) {
+      continue;
+    }
+
+    const nextAvailableTime = coerceString(entry["next_available_time"]);
+    if (!nextAvailableTime || !/^\d{12}$/.test(nextAvailableTime)) {
+      continue;
+    }
+
+    candidates.push(nextAvailableTime);
+  }
+
+  candidates.sort();
+  return candidates[0] ?? null;
 }
 
 function hasToastMenuSignals(html: string): boolean {
