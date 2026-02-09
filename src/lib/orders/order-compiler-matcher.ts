@@ -43,6 +43,8 @@ const saladSpreadCueTokens = new Set([
   'potato',
   'pimento',
 ]);
+const waterSparklingCueTokens = new Set(['sparkling', 'seltzer']);
+const waterStillCueTokens = new Set(['spring', 'still', 'bottled']);
 const modifierLeadingTokens = new Set([
   'no',
   'without',
@@ -434,6 +436,25 @@ function getSemanticAdjustment(
   const nameTokens = new Set(tokenize(normalizedName));
   const descriptionTokens = new Set(tokenize(normalizedDescription));
 
+  const isGenericWaterRequest = requestTokens.has('water') && requestTokens.size === 1;
+  if (isGenericWaterRequest) {
+    let adjustment = 0;
+
+    if (hasAnyToken(nameTokens, waterSparklingCueTokens) || hasAnyToken(descriptionTokens, waterSparklingCueTokens)) {
+      adjustment -= 14;
+    }
+
+    if (normalizedName === 'water') {
+      adjustment += 12;
+    }
+
+    if (hasAnyToken(nameTokens, waterStillCueTokens) || hasAnyToken(descriptionTokens, waterStillCueTokens)) {
+      adjustment += 6;
+    }
+
+    return adjustment;
+  }
+
   const isGenericSaladRequest =
     requestTokens.has('salad') && requestTokens.size === 1;
   if (!isGenericSaladRequest) {
@@ -456,6 +477,16 @@ function getSemanticAdjustment(
 
   if (hasSpreadCues) {
     adjustment -= 22;
+  }
+
+  // If multiple salads match lexically, favor meal-sized portions (e.g., 8oz over 3oz).
+  // This is a simple tie-breaker for ambiguous generic requests like "salad".
+  const ozMatch = normalizedName.match(/\b(\d+(?:\.\d+)?)\s*oz\b/);
+  if (ozMatch) {
+    const ozValue = Number.parseFloat(ozMatch[1]);
+    if (Number.isFinite(ozValue) && ozValue > 0) {
+      adjustment += Math.min(20, Math.round(ozValue * 2));
+    }
   }
 
   if (
