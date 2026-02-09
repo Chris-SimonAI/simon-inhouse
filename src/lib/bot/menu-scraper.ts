@@ -76,11 +76,44 @@ interface FetchTelemetryContext {
   unlockerUsed: boolean;
 }
 
+type OrderingPlatform = "toast" | "chownow";
+
+function detectOrderingPlatform(url: string): OrderingPlatform | null {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+
+    if (host.includes("toasttab.com")) {
+      return "toast";
+    }
+
+    if (host.endsWith("chownow.com") && path.includes("/order/")) {
+      return "chownow";
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function hasToastMenuSignals(html: string): boolean {
   return (
     html.includes('data-testid="menu-item-card"') ||
     html.includes('data-testid=\\"menu-item-card\\"') ||
     html.includes('menu-item-card')
+  );
+}
+
+function hasChowNowDomSignals(html: string): boolean {
+  const lower = html.toLowerCase();
+  return (
+    lower.includes("powered by chownow") ||
+    lower.includes("online ordering") ||
+    lower.includes("add to cart") ||
+    lower.includes("pickup") ||
+    lower.includes("delivery")
   );
 }
 
@@ -215,6 +248,390 @@ async function fetchMenuHtmlResilient(url: string, telemetry: FetchTelemetryCont
   }
 
   throw new Error(`Unable to fetch Toast menu page. ${errors.join(' | ')}`);
+}
+
+type JsonCandidate = {
+  url: string;
+  json: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parsePriceToNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    // Heuristic: treat large integers as cents.
+    if (Number.isInteger(value) && value >= 1000) {
+      return value / 100;
+    }
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const match = value.match(/-?\d+(?:\.\d+)?/);
+    if (!match) {
+      return null;
+    }
+    const parsed = Number.parseFloat(match[0]);
+    if (!Number.isFinite(parsed)) {
+      return null;
+    }
+    if (parsed >= 1000 && !value.includes(".")) {
+      return parsed / 100;
+    }
+    return parsed;
+  }
+
+  return null;
+}
+
+type ExtractedMenuItem = {
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  image?: string;
+};
+
+function looksLikeMenuSection(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const name = value["name"];
+  if (typeof name !== "string" || name.trim().length < 2) {
+    return false;
+  }
+
+  const maybeItems =
+    value["items"] ??
+    value["products"] ??
+    value["menu_items"] ??
+    value["menuItems"] ??
+    value["children"];
+
+  return Array.isArray(maybeItems) && maybeItems.length > 0;
+}
+
+function extractChowNowMenuItemsFromJson(
+  json: unknown,
+): { restaurantName: string | null; items: ExtractedMenuItem[] } {
+  const items: ExtractedMenuItem[] = [];
+  let restaurantName: string | null = null;
+
+  const seen = new Set<string>();
+
+  function normalizeKey(text: string) {
+    return text.toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  function recordItem(candidate: ExtractedMenuItem) {
+    const key = `${normalizeKey(candidate.category)}|${normalizeKey(candidate.name)}|${candidate.price.toFixed(2)}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    items.push(candidate);
+  }
+
+  function maybeSetRestaurantName(obj: Record<string, unknown>, path: string[]) {
+    if (restaurantName) {
+      return;
+    }
+    const name = obj["name"];
+    if (typeof name !== "string") {
+      return;
+    }
+    const normalizedPath = path.join(".").toLowerCase();
+    if (
+      normalizedPath.includes("restaurant") ||
+      normalizedPath.includes("location") ||
+      normalizedPath.includes("vendor") ||
+      normalizedPath.includes("store")
+    ) {
+      const cleaned = name.trim();
+      if (cleaned.length >= 2 && cleaned.length <= 80) {
+        restaurantName = cleaned;
+      }
+    }
+  }
+
+  function walk(value: unknown, path: string[], categoryContext: string | null) {
+    if (Array.isArray(value)) {
+      for (let i = 0; i < value.length; i += 1) {
+        walk(value[i], [...path, String(i)], categoryContext);
+      }
+      return;
+    }
+
+    if (!isRecord(value)) {
+      return;
+    }
+
+    maybeSetRestaurantName(value, path);
+
+    let nextCategory = categoryContext;
+    if (looksLikeMenuSection(value)) {
+      const sectionName = value["name"];
+      if (typeof sectionName === "string") {
+        nextCategory = sectionName.trim();
+      }
+    } else {
+      const explicitCategory =
+        value["category"] ??
+        value["category_name"] ??
+        value["categoryName"] ??
+        value["section_name"] ??
+        value["sectionName"];
+      if (typeof explicitCategory === "string" && explicitCategory.trim()) {
+        nextCategory = explicitCategory.trim();
+      }
+    }
+
+    const nameValue = value["name"];
+    const descriptionValue = value["description"] ?? value["desc"] ?? value["details"];
+    const imageValue =
+      value["image_url"] ??
+      value["imageUrl"] ??
+      value["image"] ??
+      value["photo_url"] ??
+      value["photoUrl"];
+
+    const priceValue =
+      value["price"] ??
+      value["price_cents"] ??
+      value["priceCents"] ??
+      value["amount"] ??
+      value["amount_cents"] ??
+      value["amountCents"] ??
+      value["base_price"] ??
+      value["basePrice"];
+
+    if (typeof nameValue === "string") {
+      const candidateName = nameValue.trim();
+      const candidatePrice = parsePriceToNumber(priceValue);
+
+      // Avoid treating the restaurant itself as a menu item.
+      const normalizedPath = path.join(".").toLowerCase();
+      const inRestaurantObject =
+        normalizedPath.includes("restaurant") || normalizedPath.includes("location");
+
+      if (
+        !inRestaurantObject &&
+        candidatePrice !== null &&
+        candidatePrice >= 0 &&
+        candidatePrice <= 400 &&
+        candidateName.length >= 2 &&
+        candidateName.length <= 120
+      ) {
+        recordItem({
+          name: candidateName,
+          description: typeof descriptionValue === "string" ? descriptionValue.trim() : "",
+          price: candidatePrice,
+          category: nextCategory ?? "Menu",
+          image: typeof imageValue === "string" ? imageValue : undefined,
+        });
+      }
+    }
+
+    for (const [key, child] of Object.entries(value)) {
+      walk(child, [...path, key], nextCategory);
+    }
+  }
+
+  walk(json, [], null);
+
+  return {
+    restaurantName,
+    items,
+  };
+}
+
+function pickBestChowNowJsonCandidate(candidates: JsonCandidate[]) {
+  let best: { candidate: JsonCandidate; itemCount: number } | null = null;
+
+  for (const candidate of candidates) {
+    const extracted = extractChowNowMenuItemsFromJson(candidate.json);
+    if (extracted.items.length < 10) {
+      continue;
+    }
+
+    if (!best || extracted.items.length > best.itemCount) {
+      best = { candidate, itemCount: extracted.items.length };
+    }
+  }
+
+  return best?.candidate ?? null;
+}
+
+async function scrapeChowNowMenuWithPlaywright(
+  restaurantUrl: string,
+  options: { skipModifiers: boolean },
+  telemetry: FetchTelemetryContext,
+): Promise<ScrapedMenu> {
+  const proxyUrl = getScraperProxyUrl();
+  const launchOptions = buildChromiumLaunchOptions(proxyUrl);
+  const browser = await chromium.launch(launchOptions);
+
+  try {
+    const context = await browser.newContext({
+      userAgent: BOT_USER_AGENT,
+      viewport: { width: 1280, height: 900 },
+      ignoreHTTPSErrors: Boolean(proxyUrl),
+    });
+
+    await applyAutomationInitScript(context);
+
+    const page = await context.newPage();
+
+    const jsonCandidates: JsonCandidate[] = [];
+    page.on("response", async (response) => {
+      const url = response.url();
+      const request = response.request();
+      const resourceType = request.resourceType();
+      if (resourceType !== "xhr" && resourceType !== "fetch") {
+        return;
+      }
+
+      if (!/chownow/i.test(url)) {
+        return;
+      }
+
+      const headers = response.headers();
+      const contentType = headers["content-type"] ?? "";
+      if (!contentType.includes("application/json")) {
+        return;
+      }
+
+      try {
+        const json = await response.json();
+        jsonCandidates.push({ url, json });
+      } catch {
+        // ignore
+      }
+    });
+
+    await page.goto(restaurantUrl, { waitUntil: "domcontentloaded", timeout: 90000 });
+    await stabilizePage(page);
+
+    const blocked = await ensureNoCloudflareBlock(page, "chownow-menu");
+    telemetry.cfDetected = telemetry.cfDetected || blocked;
+
+    // Give the app time to fetch menu JSON and render.
+    await page.waitForLoadState("networkidle").catch(() => {});
+    await delay(4000);
+
+    const best = pickBestChowNowJsonCandidate(jsonCandidates);
+    let extracted: { restaurantName: string | null; items: ExtractedMenuItem[] } | null = null;
+    if (best) {
+      extracted = extractChowNowMenuItemsFromJson(best.json);
+      console.log(`  [chownow] Using menu payload from ${best.url} (${extracted.items.length} items)`);
+    }
+
+    const html = await page.content();
+    if (!extracted || extracted.items.length === 0) {
+      if (!hasChowNowDomSignals(html)) {
+        throw new Error("ChowNow page did not render expected ordering content (possible block or app change).");
+      }
+
+      // As a last resort, try a naive DOM parse for item-name + price patterns.
+      const $ = cheerio.load(html);
+      const fallbackItems: ExtractedMenuItem[] = [];
+      const cardTextNodes = $("body")
+        .find("div, li, a, button")
+        .map((_, el) => $(el).text().replace(/\s+/g, " ").trim())
+        .get()
+        .filter((text) => text.length >= 5 && text.length <= 160);
+
+      for (const text of cardTextNodes) {
+        const priceMatch = text.match(/\$\\s*(\\d+(?:\\.\\d{2})?)/);
+        if (!priceMatch) {
+          continue;
+        }
+        const price = Number.parseFloat(priceMatch[1]);
+        if (!Number.isFinite(price) || price <= 0 || price > 400) {
+          continue;
+        }
+
+        // Heuristic: name is the part before the price.
+        const name = text.split(priceMatch[0])[0]?.trim();
+        if (!name || name.length < 2 || name.length > 120) {
+          continue;
+        }
+        fallbackItems.push({ name, description: "", price, category: "Menu" });
+      }
+
+      extracted = {
+        restaurantName: null,
+        items: dedupeExtractedItems(fallbackItems),
+      };
+    }
+
+    if (!extracted || extracted.items.length === 0) {
+      throw new Error("Unable to extract ChowNow menu items (no candidates found).");
+    }
+
+    const restaurantName =
+      extracted.restaurantName ?? (await page.title().catch(() => ""))?.split("|")[0]?.trim() ?? "Restaurant";
+
+    const slug = buildChowNowSlug(restaurantUrl);
+    const uniqueCategories = [...new Set(extracted.items.map((item) => item.category || "Menu"))];
+
+    // ChowNow modifiers are not implemented yet (platform-specific UI).
+    if (!options.skipModifiers) {
+      console.log("  [chownow] Modifier scraping not implemented; continuing with base items only.");
+    }
+
+    return {
+      restaurantName,
+      restaurantSlug: slug,
+      url: restaurantUrl,
+      items: extracted.items.map((item, index) => ({
+        id: `item-${index}`,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        category: item.category || "Menu",
+        image: item.image,
+        modifiers: [],
+        modifierGroups: [],
+      })),
+      categories: uniqueCategories.length > 0 ? uniqueCategories : ["Menu"],
+      scrapedAt: new Date().toISOString(),
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
+function dedupeExtractedItems(items: ExtractedMenuItem[]): ExtractedMenuItem[] {
+  const seen = new Set<string>();
+  const output: ExtractedMenuItem[] = [];
+  for (const item of items) {
+    const key = `${item.category.toLowerCase()}|${item.name.toLowerCase()}|${item.price.toFixed(2)}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    output.push(item);
+  }
+  return output;
+}
+
+function buildChowNowSlug(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const orderIndex = parts.indexOf("order");
+    if (orderIndex !== -1 && parts.length >= orderIndex + 4) {
+      const orderId = parts[orderIndex + 1];
+      const locationId = parts[orderIndex + 3];
+      return `chownow-${orderId}-${locationId}`;
+    }
+  } catch {
+    // ignore
+  }
+  return "chownow";
 }
 
 /**
@@ -400,11 +817,43 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
   };
   let stage = 'init';
   let failReason: string | undefined;
+  let platform: OrderingPlatform | null = null;
 
   console.log(`Scraping menu from ${restaurantUrl}...`);
 
-  // Fetch the main menu page with fallback strategy (Web Unlocker -> Playwright proxy)
   try {
+    platform = detectOrderingPlatform(restaurantUrl);
+    if (!platform) {
+      throw new Error("Unsupported menu URL. Expected Toast or ChowNow ordering URL.");
+    }
+
+    if (platform === "chownow") {
+      stage = "chownow_playwright";
+      const menu = await scrapeChowNowMenuWithPlaywright(
+        restaurantUrl,
+        { skipModifiers },
+        telemetry,
+      );
+
+      logBotRunTelemetry({
+        runType: "menu-scrape",
+        success: true,
+        stage,
+        cfDetected: telemetry.cfDetected,
+        proxyUsed: Boolean(getScraperProxyUrl()),
+        unlockerUsed: telemetry.unlockerUsed,
+        durationMs: Date.now() - startedAt,
+        metadata: {
+          url: restaurantUrl,
+          platform,
+          itemCount: menu.items.length,
+        },
+      });
+
+      return menu;
+    }
+
+    // Toast: Fetch the main menu page with fallback strategy (Web Unlocker -> Playwright proxy)
     stage = 'fetch_menu_html';
     const html = await fetchMenuHtmlResilient(restaurantUrl, telemetry);
     const $ = cheerio.load(html);
@@ -571,6 +1020,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
       metadata: {
         url: restaurantUrl,
         itemCount: items.length,
+        platform,
       },
     });
 

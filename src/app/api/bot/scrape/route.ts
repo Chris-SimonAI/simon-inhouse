@@ -98,11 +98,14 @@ export async function POST(request: NextRequest) {
     } else {
       // Create new restaurant (hotelId is optional - can add directly to library)
       const restaurantGuid = uuidv4();
+      const sourceDescription = url.includes("chownow.com")
+        ? "Menu scraped from ChowNow"
+        : "Menu scraped from Toast";
       const [newRestaurant] = await db.insert(dineInRestaurants).values({
         hotelId: hotelId ? Number(hotelId) : null,
         restaurantGuid,
         name: scrapedMenu.restaurantName,
-        description: `Menu scraped from Toast`,
+        description: sourceDescription,
         imageUrls: scrapedMenu.heroImage ? [scrapedMenu.heroImage] : [],
         status: "pending",
         deliveryFee: "5.00",
