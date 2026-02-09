@@ -377,14 +377,20 @@ function extractChowNowMenuItemsFromJson(
         nextCategory = sectionName.trim();
       }
     } else {
-      const explicitCategory =
+      // Explicitly type as unknown to avoid TS inferring an impossible type
+      // when traversing arbitrary JSON payloads.
+      const explicitCategoryRaw: unknown =
         value["category"] ??
         value["category_name"] ??
         value["categoryName"] ??
         value["section_name"] ??
         value["sectionName"];
-      if (typeof explicitCategory === "string" && explicitCategory.trim()) {
-        nextCategory = explicitCategory.trim();
+
+      if (typeof explicitCategoryRaw === "string") {
+        const trimmed = explicitCategoryRaw.trim();
+        if (trimmed) {
+          nextCategory = trimmed;
+        }
       }
     }
 
