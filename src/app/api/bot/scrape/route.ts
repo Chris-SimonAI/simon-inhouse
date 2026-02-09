@@ -13,6 +13,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { url, hotelId, restaurantId, skipModifiers = false } = body;
+    const sourcePlatform = typeof url === "string" && url.includes("chownow.com")
+      ? "chownow"
+      : "toast";
 
     // For new restaurant: url required, hotelId optional (can add to library without hotel)
     // For rescrape: url and restaurantId required
@@ -64,6 +67,7 @@ export async function POST(request: NextRequest) {
           metadata: {
             ...((existingRestaurant.metadata as object) || {}),
             sourceUrl: url,
+            sourcePlatform,
             scrapedAt: scrapedMenu.scrapedAt,
             lastRescrape: new Date().toISOString(),
             deliveryEta: scrapedMenu.deliveryEta || null,
@@ -124,6 +128,7 @@ export async function POST(request: NextRequest) {
         longitude: scrapedMenu.address?.longitude?.toString() || null,
         metadata: {
           sourceUrl: url,
+          sourcePlatform,
           scrapedAt: scrapedMenu.scrapedAt,
           deliveryEta: scrapedMenu.deliveryEta || null,
         },
