@@ -98,6 +98,293 @@ function detectOrderingPlatform(url: string): OrderingPlatform | null {
   }
 }
 
+function parseChowNowLocationId(orderingUrl: string): string {
+  const parsed = new URL(orderingUrl);
+  const parts = parsed.pathname.split("/").filter(Boolean);
+  const locationsIndex = parts.indexOf("locations");
+  if (locationsIndex === -1 || parts.length < locationsIndex + 2) {
+    throw new Error("ChowNow ordering URL missing locations segment.");
+  }
+
+  const locationId = parts[locationsIndex + 1];
+  if (!locationId || !/^\d+$/.test(locationId)) {
+    throw new Error("ChowNow ordering URL has invalid location id.");
+  }
+
+  return locationId;
+}
+
+async function fetchJsonResilient(url: string, telemetry: FetchTelemetryContext): Promise<unknown> {
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    "user-agent": BOT_USER_AGENT,
+  };
+
+  for (let attempt = 1; attempt <= PLAYWRIGHT_FETCH_MAX_ATTEMPTS; attempt += 1) {
+    const response = await fetch(url, { headers });
+    const contentType = response.headers.get("content-type") ?? "";
+    const bodyText = await response.text();
+
+    if (!response.ok) {
+      // Cloudflare sometimes replies with HTML + 4xx/5xx.
+      if (contentType.includes("text/html") && isCloudflareBlockedHtml(bodyText)) {
+        telemetry.cfDetected = true;
+        break;
+      }
+      continue;
+    }
+
+    if (!contentType.includes("application/json")) {
+      if (contentType.includes("text/html") && isCloudflareBlockedHtml(bodyText)) {
+        telemetry.cfDetected = true;
+        break;
+      }
+      continue;
+    }
+
+    try {
+      return JSON.parse(bodyText) as unknown;
+    } catch {
+      continue;
+    }
+  }
+
+  // Fallback to Web Unlocker if native fetch didn't produce JSON.
+  const unlocked = await fetchWithWebUnlocker(url, telemetry);
+  telemetry.unlockerUsed = true;
+  return JSON.parse(unlocked) as unknown;
+}
+
+function coerceString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function coerceNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function coerceStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((entry) => typeof entry === "string") as string[];
+}
+
+async function scrapeChowNowMenuViaApi(
+  restaurantUrl: string,
+  options: { skipModifiers: boolean },
+  telemetry: FetchTelemetryContext,
+): Promise<ScrapedMenu> {
+  const locationId = parseChowNowLocationId(restaurantUrl);
+
+  const restaurantJson = await fetchJsonResilient(
+    `https://api.chownow.com/api/restaurant/${locationId}`,
+    telemetry,
+  );
+
+  const menuJson = await fetchJsonResilient(
+    `https://api.chownow.com/api/restaurant/${locationId}/menu`,
+    telemetry,
+  );
+
+  if (!isRecord(restaurantJson) || !isRecord(menuJson)) {
+    throw new Error("ChowNow API returned unexpected payload shape.");
+  }
+
+  const restaurantName = coerceString(restaurantJson["name"]) ?? "Restaurant";
+
+  const address: RestaurantAddress | undefined = (() => {
+    const raw = restaurantJson["address"];
+    if (!isRecord(raw)) {
+      return undefined;
+    }
+
+    return {
+      addressLine1: coerceString(raw["street_address1"]) ?? undefined,
+      addressLine2: coerceString(raw["street_address2"]) ?? undefined,
+      city: coerceString(raw["city"]) ?? undefined,
+      state: coerceString(raw["state"]) ?? undefined,
+      zipCode: coerceString(raw["zip"]) ?? undefined,
+      country: coerceString(raw["country"]) ?? undefined,
+      phoneNumber: coerceString(restaurantJson["phone"]) ?? undefined,
+      latitude: coerceNumber(raw["latitude"]) ?? undefined,
+      longitude: coerceNumber(raw["longitude"]) ?? undefined,
+    };
+  })();
+
+  const modifierById = new Map<string, { name: string; price: number }>();
+  const modifiersRaw = menuJson["modifiers"];
+  if (Array.isArray(modifiersRaw)) {
+    for (const entry of modifiersRaw) {
+      if (!isRecord(entry)) {
+        continue;
+      }
+      const id = coerceString(entry["id"]);
+      const name = coerceString(entry["name"]);
+      const price = coerceNumber(entry["price"]) ?? 0;
+      if (!id || !name) {
+        continue;
+      }
+      modifierById.set(id, { name, price });
+    }
+  }
+
+  const modifierCategoryById = new Map<
+    string,
+    {
+      name: string;
+      modifierIds: string[];
+      minQty: number;
+      maxQty: number | null;
+    }
+  >();
+
+  const modifierCategoriesRaw = menuJson["modifier_categories"];
+  if (Array.isArray(modifierCategoriesRaw)) {
+    for (const entry of modifierCategoriesRaw) {
+      if (!isRecord(entry)) {
+        continue;
+      }
+      const id = coerceString(entry["id"]);
+      const name = coerceString(entry["name"]);
+      if (!id || !name) {
+        continue;
+      }
+
+      const modifierIds = coerceStringArray(entry["modifiers"]);
+      const minQty = coerceNumber(entry["min_qty"]) ?? 0;
+      const maxQty = coerceNumber(entry["max_qty"]);
+
+      modifierCategoryById.set(id, {
+        name,
+        modifierIds,
+        minQty,
+        maxQty: maxQty === null ? null : maxQty,
+      });
+    }
+  }
+
+  const menuCategoriesRaw = menuJson["menu_categories"];
+  if (!Array.isArray(menuCategoriesRaw) || menuCategoriesRaw.length === 0) {
+    throw new Error("ChowNow API returned empty menu_categories.");
+  }
+
+  const items: MenuItem[] = [];
+  const categories: string[] = [];
+
+  for (const categoryEntry of menuCategoriesRaw) {
+    if (!isRecord(categoryEntry)) {
+      continue;
+    }
+    const categoryName = coerceString(categoryEntry["name"]) ?? "Menu";
+    categories.push(categoryName);
+
+    const itemEntries = categoryEntry["items"];
+    if (!Array.isArray(itemEntries)) {
+      continue;
+    }
+
+    for (const itemEntry of itemEntries) {
+      if (!isRecord(itemEntry)) {
+        continue;
+      }
+
+      const isMeta = itemEntry["is_meta"];
+      if (typeof isMeta === "boolean" && isMeta) {
+        continue;
+      }
+
+      const id = coerceString(itemEntry["id"]);
+      const name = coerceString(itemEntry["name"]);
+      if (!id || !name) {
+        continue;
+      }
+
+      const description = coerceString(itemEntry["description"]) ?? "";
+      const price = coerceNumber(itemEntry["price"]) ?? 0;
+      const image = coerceString(itemEntry["image"]) ?? undefined;
+
+      let modifierGroups: ModifierGroup[] | undefined;
+      let flatModifiers: ModifierOption[] | undefined;
+
+      if (!options.skipModifiers) {
+        const modifierCategoryIds = coerceStringArray(itemEntry["modifier_categories"]);
+        const groups: ModifierGroup[] = [];
+        const flat: ModifierOption[] = [];
+
+        for (const modifierCategoryId of modifierCategoryIds) {
+          const category = modifierCategoryById.get(modifierCategoryId);
+          if (!category) {
+            continue;
+          }
+
+          const optionRecords = category.modifierIds
+            .map((modifierId) => modifierById.get(modifierId))
+            .filter((option): option is { name: string; price: number } => Boolean(option));
+
+          if (optionRecords.length === 0) {
+            continue;
+          }
+
+          const maxSelections =
+            category.maxQty === null
+              ? optionRecords.length
+              : Math.max(1, Math.min(optionRecords.length, category.maxQty));
+
+          const minSelections = Math.max(0, Math.min(maxSelections, category.minQty));
+          const required = minSelections > 0;
+
+          const options = optionRecords.map((option) => ({
+            name: option.name,
+            price: option.price,
+          }));
+
+          groups.push({
+            name: category.name,
+            required,
+            minSelections,
+            maxSelections,
+            options,
+          });
+
+          for (const option of options) {
+            flat.push({ name: option.name, price: option.price, groupName: category.name });
+          }
+        }
+
+        modifierGroups = groups;
+        flatModifiers = flat;
+      }
+
+      items.push({
+        id,
+        name,
+        description,
+        price,
+        category: categoryName,
+        image,
+        modifiers: flatModifiers ?? [],
+        modifierGroups: modifierGroups ?? [],
+      });
+    }
+  }
+
+  const uniqueCategories = [...new Set(categories.map((name) => name.trim()).filter(Boolean))];
+  if (items.length === 0) {
+    throw new Error("ChowNow API returned no menu items.");
+  }
+
+  return {
+    restaurantName,
+    restaurantSlug: buildChowNowSlug(restaurantUrl),
+    url: restaurantUrl,
+    items,
+    categories: uniqueCategories.length > 0 ? uniqueCategories : ["Menu"],
+    scrapedAt: new Date().toISOString(),
+    address,
+  };
+}
+
 function hasToastMenuSignals(html: string): boolean {
   return (
     html.includes('data-testid="menu-item-card"') ||
@@ -475,6 +762,16 @@ async function scrapeChowNowMenuWithPlaywright(
   options: { skipModifiers: boolean },
   telemetry: FetchTelemetryContext,
 ): Promise<ScrapedMenu> {
+  // Prefer the public ChowNow API (more reliable and faster than headless DOM scraping).
+  try {
+    const apiMenu = await scrapeChowNowMenuViaApi(restaurantUrl, options, telemetry);
+    console.log(`  [chownow] API scrape succeeded (${apiMenu.items.length} items)`);
+    return apiMenu;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`  [chownow] API scrape failed, falling back to Playwright: ${message}`);
+  }
+
   const proxyUrl = getScraperProxyUrl();
   const launchOptions = buildChromiumLaunchOptions(proxyUrl);
   const browser = await chromium.launch(launchOptions);
