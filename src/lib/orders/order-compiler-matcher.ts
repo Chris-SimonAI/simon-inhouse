@@ -466,17 +466,19 @@ function getSemanticAdjustment(
     hasAnyToken(descriptionTokens, saladEntreeCueTokens);
   const hasSpreadCues =
     hasAnyToken(nameTokens, saladSpreadCueTokens) ||
-    hasAnyToken(descriptionTokens, saladSpreadCueTokens) ||
-    /\b\d+\s*oz\b/.test(normalizedName);
+    hasAnyToken(descriptionTokens, saladSpreadCueTokens);
 
   let adjustment = 0;
 
   if (hasEntreeSaladCues) {
-    adjustment += 16;
+    adjustment += 22;
   }
 
   if (hasSpreadCues) {
-    adjustment -= 22;
+    // "Olive salad", "tuna salad", etc. are usually deli-style spreads, not leafy salads.
+    // For generic requests like "a salad", de-prioritize these heavily so other restaurants'
+    // leafy salads can win the cross-restaurant selection.
+    adjustment -= 44;
   }
 
   // If multiple salads match lexically, favor meal-sized portions (e.g., 8oz over 3oz).
@@ -485,7 +487,12 @@ function getSemanticAdjustment(
   if (ozMatch) {
     const ozValue = Number.parseFloat(ozMatch[1]);
     if (Number.isFinite(ozValue) && ozValue > 0) {
-      adjustment += Math.min(20, Math.round(ozValue * 2));
+      // Very small portions (3oz, etc.) are likely sides/spreads.
+      if (ozValue < 6) {
+        adjustment -= 14;
+      } else if (ozValue >= 10) {
+        adjustment += 6;
+      }
     }
   }
 
