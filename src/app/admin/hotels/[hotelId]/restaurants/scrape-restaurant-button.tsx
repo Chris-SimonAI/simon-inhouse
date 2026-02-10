@@ -28,7 +28,7 @@ export function ScrapeRestaurantButton({ hotelId }: Props) {
 
   async function handleScrape() {
     if (!url.trim()) {
-      toast.error("Please enter a Toast URL");
+      toast.error("Please enter a menu URL");
       return;
     }
 
@@ -83,24 +83,24 @@ export function ScrapeRestaurantButton({ hotelId }: Props) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Restaurant from Toast</DialogTitle>
+          <DialogTitle>Add Restaurant</DialogTitle>
           <DialogDescription>
-            Enter the Toast online ordering URL for the restaurant. We&apos;ll scrape the menu automatically.
+            Enter the restaurant ordering URL (Toast, ChowNow, or Slice). We&apos;ll scrape the menu automatically.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-4">
           <div className="space-y-2">
-            <Label htmlFor="toast-url">Toast Ordering URL</Label>
+            <Label htmlFor="toast-url">Menu URL</Label>
             <Input
               id="toast-url"
-              placeholder="https://www.toasttab.com/restaurant-name"
+              placeholder="https://www.toasttab.com/... or https://www.chownow.com/order/... or https://slicelife.com/restaurants/..."
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleScrape()}
             />
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <ExternalLink className="w-3 h-3" />
-              Paste the full Toast ordering URL for the restaurant
+              Paste the full ordering URL for the restaurant
             </p>
           </div>
           <div className="flex gap-2">

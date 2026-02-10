@@ -54,6 +54,7 @@ export interface RestaurantAddress {
 }
 
 export interface ScrapedMenu {
+  platform: OrderingPlatform;
   restaurantName: string;
   restaurantSlug: string;
   url: string;
@@ -76,7 +77,7 @@ interface FetchTelemetryContext {
   unlockerUsed: boolean;
 }
 
-type OrderingPlatform = "toast" | "chownow";
+type OrderingPlatform = "toast" | "chownow" | "slice";
 
 function detectOrderingPlatform(url: string): OrderingPlatform | null {
   try {
@@ -90,6 +91,10 @@ function detectOrderingPlatform(url: string): OrderingPlatform | null {
 
     if (host.endsWith("chownow.com") && path.includes("/order/")) {
       return "chownow";
+    }
+
+    if (host.includes("slicelife.com")) {
+      return "slice";
     }
 
     return null;
@@ -385,6 +390,7 @@ async function scrapeChowNowMenuViaApi(
   }
 
   return {
+    platform: "chownow",
     restaurantName,
     restaurantSlug: buildChowNowSlug(restaurantUrl),
     url: restaurantUrl,
@@ -430,6 +436,10 @@ function hasToastMenuSignals(html: string): boolean {
   );
 }
 
+function hasSliceMenuSignals(html: string): boolean {
+  return html.includes("window.__SLICE_REDUX_STATE__=") || html.includes("window._initialDataContext =");
+}
+
 function hasChowNowDomSignals(html: string): boolean {
   const lower = html.toLowerCase();
   return (
@@ -454,6 +464,299 @@ function isCloudflareBlockedHtml(html: string): boolean {
   ];
 
   return blockedSignals.some((signal) => lower.includes(signal));
+}
+
+type SliceMenuExtraction = {
+  categories: Array<{
+    name: string;
+    products: Array<{
+      id?: string;
+      name: string;
+      price: string;
+      description?: string;
+      image?: string;
+    }>;
+  }>;
+};
+
+function extractSliceReduxStateJson(html: string) {
+  const marker = "window.__SLICE_REDUX_STATE__=";
+  const idx = html.indexOf(marker);
+  if (idx === -1) return null;
+
+  const startIdx = html.indexOf("{", idx);
+  if (startIdx === -1) return null;
+
+  let depth = 0;
+  for (let i = startIdx; i < html.length; i += 1) {
+    const ch = html[i];
+    if (ch === "{") depth += 1;
+    if (ch === "}") depth -= 1;
+    if (depth === 0) {
+      const jsonText = html.slice(startIdx, i + 1);
+      try {
+        return JSON.parse(jsonText) as unknown;
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  return null;
+}
+
+function extractInitialDataContextJson(html: string) {
+  const marker = "window._initialDataContext =";
+  const idx = html.indexOf(marker);
+  if (idx === -1) return null;
+
+  const startIdx = html.indexOf("{", idx);
+  if (startIdx === -1) return null;
+
+  let depth = 0;
+  for (let i = startIdx; i < html.length; i += 1) {
+    const ch = html[i];
+    if (ch === "{") depth += 1;
+    if (ch === "}") depth -= 1;
+    if (depth === 0) {
+      const jsonText = html.slice(startIdx, i + 1);
+      try {
+        return JSON.parse(jsonText) as unknown;
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  return null;
+}
+
+function findSliceMenuFromReduxState(value: unknown): SliceMenuExtraction | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const menus = record["menus"];
+  if (!menus || typeof menus !== "object") return null;
+  const menusRecord = menus as Record<string, unknown>;
+  const menusByKey = menusRecord["menus"];
+  if (!menusByKey || typeof menusByKey !== "object") return null;
+
+  const byKey = menusByKey as Record<string, unknown>;
+  const normalized: SliceMenuExtraction["categories"] = [];
+
+  for (const menuEntry of Object.values(byKey)) {
+    if (!menuEntry || typeof menuEntry !== "object") continue;
+    const me = menuEntry as Record<string, unknown>;
+    const valueNode = me["value"];
+    if (!valueNode || typeof valueNode !== "object") continue;
+    const v = valueNode as Record<string, unknown>;
+    const categories = v["categories"];
+    if (!Array.isArray(categories) || categories.length === 0) continue;
+
+    for (const entry of categories) {
+      if (!entry || typeof entry !== "object") continue;
+      const e = entry as Record<string, unknown>;
+      const name = typeof e["name"] === "string" ? e["name"] : null;
+      const isDisplayed = typeof e["isDisplayed"] === "boolean" ? e["isDisplayed"] : true;
+      const products = e["groupedProducts"];
+      if (!name || !isDisplayed) continue;
+      if (!Array.isArray(products) || products.length === 0) continue;
+
+      const normalizedProducts: SliceMenuExtraction["categories"][number]["products"] = [];
+      for (const p of products) {
+        if (!p || typeof p !== "object") continue;
+        const pr = p as Record<string, unknown>;
+        const id = typeof pr["id"] === "string" ? pr["id"] : undefined;
+        const productName = typeof pr["name"] === "string" ? pr["name"] : null;
+        const basePrice = typeof pr["basePrice"] === "string" ? pr["basePrice"] : null;
+        const image = typeof pr["image"] === "string" ? pr["image"] : undefined;
+        const description = typeof pr["description"] === "string" ? pr["description"] : undefined;
+        if (!productName || !basePrice) continue;
+        normalizedProducts.push({ id, name: productName, price: `$${basePrice}`, image, description });
+      }
+
+      if (normalizedProducts.length === 0) continue;
+      normalized.push({ name, products: normalizedProducts });
+    }
+  }
+
+  const total = normalized.reduce((sum, c) => sum + c.products.length, 0);
+  if (normalized.length >= 1 && total >= 5) return { categories: normalized };
+  return null;
+}
+
+function findSliceMenuFromInitialDataContext(value: unknown): SliceMenuExtraction | null {
+  if (!value || typeof value !== "object") return null;
+
+  const stack: unknown[] = [value];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current || typeof current !== "object") {
+      continue;
+    }
+
+    const record = current as Record<string, unknown>;
+    const categories = record["categories"];
+    if (Array.isArray(categories) && categories.length > 0) {
+      const normalized: SliceMenuExtraction["categories"] = [];
+
+      for (const entry of categories) {
+        if (!entry || typeof entry !== "object") continue;
+        const e = entry as Record<string, unknown>;
+        const name = typeof e["name"] === "string" ? e["name"] : null;
+        const hidden = typeof e["hidden"] === "boolean" ? e["hidden"] : false;
+        const products = e["products"];
+        if (!name || hidden) continue;
+        if (!Array.isArray(products) || products.length === 0) continue;
+
+        const normalizedProducts: SliceMenuExtraction["categories"][number]["products"] = [];
+        for (const p of products) {
+          if (!p || typeof p !== "object") continue;
+          const pr = p as Record<string, unknown>;
+          const id = typeof pr["id"] === "string" ? pr["id"] : undefined;
+          const productName = typeof pr["name"] === "string" ? pr["name"] : null;
+          const price = typeof pr["price"] === "string" ? pr["price"] : null;
+          const image = typeof pr["image"] === "string" ? pr["image"] : undefined;
+          const description = typeof pr["description"] === "string" ? pr["description"] : undefined;
+          if (!productName || !price) continue;
+          normalizedProducts.push({ id, name: productName, price, image, description });
+        }
+
+        if (normalizedProducts.length === 0) continue;
+        normalized.push({ name, products: normalizedProducts });
+      }
+
+      const total = normalized.reduce((sum, c) => sum + c.products.length, 0);
+      if (normalized.length >= 1 && total >= 5) return { categories: normalized };
+    }
+
+    for (const next of Object.values(record)) {
+      if (next && typeof next === "object") {
+        stack.push(next);
+      }
+    }
+  }
+
+  return null;
+}
+
+function buildSliceSlug(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const parts = parsed.pathname.split("/").filter(Boolean);
+
+    if (host.includes("slicelife.com")) {
+      const idx = parts.indexOf("restaurants");
+      if (idx !== -1 && parts.length >= idx + 5) {
+        const slug = parts[idx + 4];
+        if (slug) return `slice-${slug}`;
+      }
+      return "slice-central";
+    }
+
+    const safeHost = host.replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+    return safeHost ? `slice-${safeHost}` : "slice";
+  } catch {
+    return "slice";
+  }
+}
+
+function pickRestaurantNameFromHtml(html: string): string {
+  const $ = cheerio.load(html);
+  const h1 = $("h1").first().text().trim();
+  if (h1) return h1;
+  const title = $("title").text().trim();
+  if (title) {
+    const left = title.split("|")[0]?.trim();
+    if (left) return left;
+  }
+  return "Restaurant";
+}
+
+async function fetchSliceHtmlResilient(url: string, telemetry: FetchTelemetryContext): Promise<string> {
+  const headers: Record<string, string> = {
+    accept: "text/html",
+    "user-agent": BOT_USER_AGENT,
+  };
+
+  try {
+    const response = await fetch(url, { redirect: "follow", headers });
+    const body = await response.text();
+    if (response.ok && !isCloudflareBlockedHtml(body)) {
+      return body;
+    }
+    if (isCloudflareBlockedHtml(body)) {
+      telemetry.cfDetected = true;
+    }
+  } catch {
+    // fall through
+  }
+
+  const html = await fetchWithWebUnlocker(url, telemetry);
+  if (isCloudflareBlockedHtml(html)) {
+    telemetry.cfDetected = true;
+  }
+  return html;
+}
+
+async function scrapeSliceMenu(
+  restaurantUrl: string,
+  options: { skipModifiers: boolean },
+  telemetry: FetchTelemetryContext,
+  htmlOverride?: string,
+): Promise<ScrapedMenu> {
+  const html = htmlOverride ?? (await fetchSliceHtmlResilient(restaurantUrl, telemetry));
+
+  const reduxState = extractSliceReduxStateJson(html);
+  const fromRedux = reduxState ? findSliceMenuFromReduxState(reduxState) : null;
+  const initialContext = fromRedux ? null : extractInitialDataContextJson(html);
+  const fromInitial = initialContext ? findSliceMenuFromInitialDataContext(initialContext) : null;
+  const extraction = fromRedux ?? fromInitial;
+
+  if (!extraction) {
+    throw new Error("Unable to extract Slice menu payload from HTML (no embedded state found).");
+  }
+
+  const restaurantName = pickRestaurantNameFromHtml(html);
+
+  const items: MenuItem[] = [];
+  let heroImage: string | undefined;
+
+  for (const category of extraction.categories) {
+    for (const product of category.products) {
+      const price = parsePriceToNumber(product.price);
+      if (!price || price <= 0) continue;
+      if (!heroImage && product.image) heroImage = product.image;
+
+      items.push({
+        id: product.id ?? `slice-item-${items.length}`,
+        name: product.name,
+        description: product.description ?? "",
+        price,
+        category: category.name,
+        image: product.image,
+        modifiers: [],
+        modifierGroups: options.skipModifiers ? [] : [],
+      });
+    }
+  }
+
+  if (items.length === 0) {
+    throw new Error("Slice menu extraction yielded 0 items.");
+  }
+
+  const categories = [...new Set(items.map((item) => item.category).filter(Boolean))];
+
+  return {
+    platform: "slice",
+    restaurantName,
+    restaurantSlug: buildSliceSlug(restaurantUrl),
+    url: restaurantUrl,
+    items,
+    categories: categories.length > 0 ? categories : ["Menu"],
+    scrapedAt: new Date().toISOString(),
+    heroImage,
+  };
 }
 
 /**
@@ -923,6 +1226,7 @@ async function scrapeChowNowMenuWithPlaywright(
     }
 
     return {
+      platform: "chownow",
       restaurantName,
       restaurantSlug: slug,
       url: restaurantUrl,
@@ -1164,7 +1468,43 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
   try {
     platform = detectOrderingPlatform(restaurantUrl);
     if (!platform) {
-      throw new Error("Unsupported menu URL. Expected Toast or ChowNow ordering URL.");
+      stage = "detect_platform";
+
+      // Support Slice white-label domains (not always detectable from hostname alone).
+      const probeHeaders: Record<string, string> = {
+        accept: "text/html",
+        "user-agent": BOT_USER_AGENT,
+      };
+      const response = await fetch(restaurantUrl, { redirect: "follow", headers: probeHeaders });
+      const html = await response.text();
+      if (isCloudflareBlockedHtml(html)) {
+        telemetry.cfDetected = true;
+      }
+
+      if (hasSliceMenuSignals(html)) {
+        platform = "slice";
+        stage = "slice_fetch";
+        const menu = await scrapeSliceMenu(restaurantUrl, { skipModifiers }, telemetry, html);
+
+        logBotRunTelemetry({
+          runType: "menu-scrape",
+          success: true,
+          stage,
+          cfDetected: telemetry.cfDetected,
+          proxyUsed: Boolean(getScraperProxyUrl()),
+          unlockerUsed: telemetry.unlockerUsed,
+          durationMs: Date.now() - startedAt,
+          metadata: {
+            url: restaurantUrl,
+            platform,
+            itemCount: menu.items.length,
+          },
+        });
+
+        return menu;
+      }
+
+      throw new Error("Unsupported menu URL. Expected Toast, ChowNow, or Slice ordering URL.");
     }
 
     if (platform === "chownow") {
@@ -1174,6 +1514,28 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
         { skipModifiers },
         telemetry,
       );
+
+      logBotRunTelemetry({
+        runType: "menu-scrape",
+        success: true,
+        stage,
+        cfDetected: telemetry.cfDetected,
+        proxyUsed: Boolean(getScraperProxyUrl()),
+        unlockerUsed: telemetry.unlockerUsed,
+        durationMs: Date.now() - startedAt,
+        metadata: {
+          url: restaurantUrl,
+          platform,
+          itemCount: menu.items.length,
+        },
+      });
+
+      return menu;
+    }
+
+    if (platform === "slice") {
+      stage = "slice_fetch";
+      const menu = await scrapeSliceMenu(restaurantUrl, { skipModifiers }, telemetry);
 
       logBotRunTelemetry({
         runType: "menu-scrape",
@@ -1335,6 +1697,7 @@ export async function scrapeMenu(restaurantUrl: string, options?: { skipModifier
     const uniqueCategories = [...new Set(items.map(i => i.category))];
 
     const menu: ScrapedMenu = {
+      platform: "toast",
       restaurantName,
       restaurantSlug,
       url: restaurantUrl,

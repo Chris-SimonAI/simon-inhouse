@@ -183,10 +183,6 @@ async function waitForSquareRender(page: Page) {
   ]);
 }
 
-function looksLikeDeliveryGate(bodyText: string) {
-  return /enter\s+delivery\s+address/i.test(bodyText);
-}
-
 async function looksLikeSquareLocationGate(page: Page) {
   const dialog = page.locator("div[role='dialog']").first();
   if (!(await dialog.isVisible().catch(() => false))) return false;
@@ -441,6 +437,10 @@ async function fetchSquareMenuFromApi(options: {
   productsUrl: string;
   categoriesUrl?: string;
 }): Promise<SquareMenuApiExtraction | null> {
+  function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
   const headers = {
     "user-agent":
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -453,22 +453,27 @@ async function fetchSquareMenuFromApi(options: {
   ]);
 
   if (!productsRes || !productsRes.ok) return null;
-  const productsJson = (await productsRes.json().catch(() => null)) as any;
-  const products = (productsJson?.data ?? productsJson?.products ?? productsJson?.items) as any;
-  if (!Array.isArray(products) || products.length === 0) return null;
+  const productsJson: unknown = await productsRes.json().catch(() => null);
+  if (!isRecord(productsJson)) return null;
+  const productsCandidate =
+    productsJson["data"] ?? productsJson["products"] ?? productsJson["items"];
+  if (!Array.isArray(productsCandidate) || productsCandidate.length === 0) return null;
 
-  let categoryNameById = new Map<string, string>();
+  const categoryNameById = new Map<string, string>();
   if (categoriesRes && categoriesRes.ok) {
-    const categoriesJson = (await categoriesRes.json().catch(() => null)) as any;
-    const roots = (categoriesJson?.data ?? categoriesJson?.categories ?? []) as any[];
-    const stack = Array.isArray(roots) ? [...roots] : [];
+    const categoriesJson: unknown = await categoriesRes.json().catch(() => null);
+    const rootsCandidate = isRecord(categoriesJson)
+      ? (categoriesJson["data"] ?? categoriesJson["categories"] ?? [])
+      : [];
+    const roots = Array.isArray(rootsCandidate) ? rootsCandidate : [];
+    const stack: unknown[] = [...roots];
     while (stack.length > 0) {
       const node = stack.pop();
-      if (!node || typeof node !== "object") continue;
-      const id = typeof node.id === "string" ? node.id : null;
-      const name = typeof node.name === "string" ? node.name : null;
+      if (!isRecord(node)) continue;
+      const id = typeof node["id"] === "string" ? node["id"] : null;
+      const name = typeof node["name"] === "string" ? node["name"] : null;
       if (id && name) categoryNameById.set(id, name);
-      const children = node.children;
+      const children = node["children"];
       if (Array.isArray(children)) {
         for (const c of children) stack.push(c);
       }
@@ -476,14 +481,26 @@ async function fetchSquareMenuFromApi(options: {
   }
 
   const items: SquareMenuApiExtraction["items"] = [];
-  for (const p of products) {
-    if (!p || typeof p !== "object") continue;
-    const name = typeof p.name === "string" ? p.name.trim() : null;
-    const price = p.price?.low_formatted ?? p.price?.high_formatted ?? p.price?.lowFormatted ?? p.price?.highFormatted;
+  for (const p of productsCandidate) {
+    if (!isRecord(p)) continue;
+    const name = typeof p["name"] === "string" ? p["name"].trim() : null;
+    const priceNode = p["price"];
+    const priceRecord = isRecord(priceNode) ? priceNode : null;
+    const price =
+      (priceRecord ? priceRecord["low_formatted"] : undefined) ??
+      (priceRecord ? priceRecord["high_formatted"] : undefined) ??
+      (priceRecord ? priceRecord["lowFormatted"] : undefined) ??
+      (priceRecord ? priceRecord["highFormatted"] : undefined);
     const priceStr = typeof price === "string" ? price.trim() : null;
     if (!name || !priceStr) continue;
-    const hasImage = Boolean(p.thumbnail || (Array.isArray(p.images) && p.images.length > 0));
-    const categoryId = Array.isArray(p.categoryIds) && typeof p.categoryIds[0] === "string" ? p.categoryIds[0] : undefined;
+    const thumbnail = p["thumbnail"];
+    const images = p["images"];
+    const hasImage = Boolean(thumbnail || (Array.isArray(images) && images.length > 0));
+    const categoryIds = p["categoryIds"];
+    const categoryId =
+      Array.isArray(categoryIds) && typeof categoryIds[0] === "string"
+        ? categoryIds[0]
+        : undefined;
     items.push({ name, price: priceStr, hasImage, categoryId });
   }
 

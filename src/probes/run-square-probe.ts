@@ -26,13 +26,10 @@ async function main() {
   const outPath = path.join(outputDir, "scorecard.json");
   await writeJson(outPath, payload);
 
-  // eslint-disable-next-line no-console
   console.log(JSON.stringify(payload, null, 2));
 }
 
 main().catch((error) => {
-  // eslint-disable-next-line no-console
   console.error(error);
   process.exitCode = 1;
 });
-

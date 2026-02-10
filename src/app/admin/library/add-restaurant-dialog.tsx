@@ -18,7 +18,7 @@ import { Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-function detectMenuPlatform(rawUrl: string): "toast" | "chownow" | null {
+function detectMenuPlatform(rawUrl: string): "toast" | "chownow" | "slice" | null {
   try {
     const parsed = new URL(rawUrl);
     const host = parsed.hostname.toLowerCase();
@@ -27,6 +27,9 @@ function detectMenuPlatform(rawUrl: string): "toast" | "chownow" | null {
     }
     if (host.includes("chownow.com")) {
       return "chownow";
+    }
+    if (host.includes("slicelife.com")) {
+      return "slice";
     }
     return null;
   } catch {
@@ -53,8 +56,7 @@ export function AddRestaurantDialog() {
     }
 
     if (!platform) {
-      toast.error("Please enter a Toast or ChowNow menu URL");
-      return;
+      toast.info("Unknown platform. We'll try to auto-detect it (supports Toast, ChowNow, and Slice).");
     }
 
     setLoading(true);
@@ -101,14 +103,14 @@ export function AddRestaurantDialog() {
           <DialogHeader>
             <DialogTitle>Add Restaurant to Library</DialogTitle>
             <DialogDescription>
-              Enter a Toast or ChowNow menu URL to scrape and add it to your library.
+              Enter a menu URL (Toast, ChowNow, or Slice) to scrape and add it to your library.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Label htmlFor="url">Menu URL</Label>
             <Input
               id="url"
-              placeholder="https://www.toasttab.com/... or https://www.chownow.com/order/..."
+              placeholder="https://www.toasttab.com/... or https://www.chownow.com/order/... or https://slicelife.com/restaurants/..."
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               disabled={loading}

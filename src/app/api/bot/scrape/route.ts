@@ -13,9 +13,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { url, hotelId, restaurantId, skipModifiers = false } = body;
-    const sourcePlatform = typeof url === "string" && url.includes("chownow.com")
-      ? "chownow"
-      : "toast";
 
     // For new restaurant: url required, hotelId optional (can add to library without hotel)
     // For rescrape: url and restaurantId required
@@ -31,6 +28,7 @@ export async function POST(request: NextRequest) {
 
     // Scrape the menu WITH modifiers by default
     const scrapedMenu = await scrapeMenu(url, { skipModifiers });
+    const sourcePlatform = scrapedMenu.platform;
 
     console.log(`Scraped ${scrapedMenu.items.length} items from ${scrapedMenu.restaurantName}`);
 
@@ -102,9 +100,16 @@ export async function POST(request: NextRequest) {
     } else {
       // Create new restaurant (hotelId is optional - can add directly to library)
       const restaurantGuid = uuidv4();
-      const sourceDescription = url.includes("chownow.com")
-        ? "Menu scraped from ChowNow"
-        : "Menu scraped from Toast";
+      const sourceDescription = (() => {
+        switch (sourcePlatform) {
+          case "chownow":
+            return "Menu scraped from ChowNow";
+          case "toast":
+            return "Menu scraped from Toast";
+          case "slice":
+            return "Menu scraped from Slice";
+        }
+      })();
       const [newRestaurant] = await db.insert(dineInRestaurants).values({
         hotelId: hotelId ? Number(hotelId) : null,
         restaurantGuid,
