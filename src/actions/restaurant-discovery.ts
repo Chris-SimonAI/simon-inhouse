@@ -7,6 +7,7 @@ import { env } from '@/env';
 import { createError, createSuccess } from '@/lib/utils';
 import { detectOrderingPlatformFromWebsite } from '@/lib/restaurant-discovery/platform-detector';
 import { extractOrderingLinksFromWebsiteHtml } from '@/lib/restaurant-discovery/order-link-extractor';
+import { fingerprintOrderingPlatformFromHtml } from '@/lib/restaurant-discovery/platform-fingerprinter';
 import {
   type DiscoveredRestaurant,
   type RestaurantDiscoveryInput,
@@ -300,6 +301,8 @@ export async function runRestaurantDiscovery(input: unknown) {
     let websiteUrl: string | null = null;
     let address: string | null = place.vicinity;
     let orderingLinks: DiscoveredRestaurant['orderingLinks'] = [];
+    let orderingPlatformFingerprint: DiscoveredRestaurant['orderingPlatformFingerprint'] =
+      null;
 
     if (lookupBudget > 0 && websiteLookupsAttempted < lookupBudget) {
       websiteLookupsAttempted += 1;
@@ -339,6 +342,10 @@ export async function runRestaurantDiscovery(input: unknown) {
       orderingLinkLookupsAttempted += 1;
       try {
         const html = await fetchTextWithTimeout(websiteUrl, 12_000);
+        orderingPlatformFingerprint = fingerprintOrderingPlatformFromHtml({
+          websiteUrl,
+          html,
+        });
         orderingLinks = extractOrderingLinksFromWebsiteHtml({
           websiteUrl,
           html,
@@ -363,6 +370,7 @@ export async function runRestaurantDiscovery(input: unknown) {
       websiteUrl,
       websiteHost: safeHostFromUrl(websiteUrl),
       orderingPlatform: platform,
+      orderingPlatformFingerprint,
       orderingLinks,
     });
   }

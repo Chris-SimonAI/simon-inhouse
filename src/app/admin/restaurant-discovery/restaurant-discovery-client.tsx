@@ -472,7 +472,7 @@ export function RestaurantDiscoveryClient() {
                                 {restaurant.userRatingsTotal ?? 'N/A'} reviews
                               </Badge>
                             </div>
-                            <Badge
+                          <Badge
                               variant="outline"
                               className={cn(
                                 'text-slate-700',
@@ -505,6 +505,32 @@ export function RestaurantDiscoveryClient() {
                             <span className="text-slate-400">Not fetched</span>
                           )}
                         </div>
+
+                        {restaurant.orderingPlatformFingerprint ? (
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                            <span className="font-medium">Fingerprint:</span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                restaurant.orderingPlatformFingerprint.primary.id ===
+                                  'toast' &&
+                                  'border-emerald-200 bg-emerald-50 text-emerald-800',
+                                restaurant.orderingPlatformFingerprint.primary.id ===
+                                  'chownow' &&
+                                  'border-blue-200 bg-blue-50 text-blue-800',
+                                restaurant.orderingPlatformFingerprint.primary.id ===
+                                  'slice' &&
+                                  'border-orange-200 bg-orange-50 text-orange-800',
+                              )}
+                              title={
+                                restaurant.orderingPlatformFingerprint.primary.reason
+                              }
+                            >
+                              {restaurant.orderingPlatformFingerprint.primary.label} (
+                              {restaurant.orderingPlatformFingerprint.primary.confidence})
+                            </Badge>
+                          </div>
+                        ) : null}
 
                         {restaurant.orderingLinks.length > 0 ? (
                           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">

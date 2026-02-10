@@ -30,6 +30,11 @@ export type OrderingPlatformSignal = {
   reason: string;
 };
 
+export type OrderingPlatformFingerprint = {
+  primary: OrderingPlatformSignal;
+  signals: OrderingPlatformSignal[];
+};
+
 export type OrderingLinkCandidate = {
   url: string;
   host: string | null;
@@ -51,6 +56,7 @@ export type DiscoveredRestaurant = {
   websiteUrl: string | null;
   websiteHost: string | null;
   orderingPlatform: OrderingPlatformSignal;
+  orderingPlatformFingerprint: OrderingPlatformFingerprint | null;
   orderingLinks: OrderingLinkCandidate[];
 };
 
