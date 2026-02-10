@@ -10,10 +10,23 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { runRestaurantDiscovery } from '@/actions/restaurant-discovery';
+import { runOrderSurfaceProbe } from '@/actions/order-surface-probe';
 import { cn } from '@/lib/utils';
-import { type RestaurantDiscoveryResult } from '@/lib/restaurant-discovery/restaurant-discovery-types';
+import {
+  type OrderingLinkCandidate,
+  type RestaurantDiscoveryResult,
+} from '@/lib/restaurant-discovery/restaurant-discovery-types';
+import { type OrderSurfaceProbeResult } from '@/lib/restaurant-discovery/order-surface-prober';
 
 type DiscoveryRunState = 'idle' | 'loading' | 'done' | 'error';
+
+type ProbeRunState = 'idle' | 'loading' | 'done' | 'error';
+
+type ProbeRun = {
+  state: ProbeRunState;
+  errorMessage?: string;
+  data?: OrderSurfaceProbeResult;
+};
 
 export function RestaurantDiscoveryClient() {
   const [address, setAddress] = useState('');
@@ -23,13 +36,19 @@ export function RestaurantDiscoveryClient() {
   const [maxResults, setMaxResults] = useState('30');
   const [fetchWebsites, setFetchWebsites] = useState(true);
   const [maxWebsiteLookups, setMaxWebsiteLookups] = useState('15');
+  const [discoverOrderingLinks, setDiscoverOrderingLinks] = useState(true);
+  const [maxOrderingLinkLookups, setMaxOrderingLinkLookups] = useState('10');
+  const [maxOrderingCandidatesPerRestaurant, setMaxOrderingCandidatesPerRestaurant] =
+    useState('5');
 
   const [runState, setRunState] = useState<DiscoveryRunState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [data, setData] = useState<RestaurantDiscoveryResult | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isProbing, startProbeTransition] = useTransition();
 
   const [copied, setCopied] = useState(false);
+  const [probeRunsByUrl, setProbeRunsByUrl] = useState<Record<string, ProbeRun>>({});
 
   const parsedNumbers = useMemo(() => {
     const radius = Number(radiusMiles);
@@ -37,6 +56,8 @@ export function RestaurantDiscoveryClient() {
     const reviews = Number(minReviews);
     const max = Number(maxResults);
     const maxLookups = Number(maxWebsiteLookups);
+    const maxOrderingLookups = Number(maxOrderingLinkLookups);
+    const maxCandidates = Number(maxOrderingCandidatesPerRestaurant);
 
     return {
       radiusMiles: Number.isFinite(radius) ? radius : NaN,
@@ -44,8 +65,22 @@ export function RestaurantDiscoveryClient() {
       minReviews: Number.isFinite(reviews) ? reviews : NaN,
       maxResults: Number.isFinite(max) ? max : NaN,
       maxWebsiteLookups: Number.isFinite(maxLookups) ? maxLookups : NaN,
+      maxOrderingLinkLookups: Number.isFinite(maxOrderingLookups)
+        ? maxOrderingLookups
+        : NaN,
+      maxOrderingCandidatesPerRestaurant: Number.isFinite(maxCandidates)
+        ? maxCandidates
+        : NaN,
     };
-  }, [maxResults, maxWebsiteLookups, minRating, minReviews, radiusMiles]);
+  }, [
+    maxOrderingCandidatesPerRestaurant,
+    maxOrderingLinkLookups,
+    maxResults,
+    maxWebsiteLookups,
+    minRating,
+    minReviews,
+    radiusMiles,
+  ]);
 
   const formValid = useMemo(() => {
     if (address.trim().length < 5) {
@@ -75,6 +110,18 @@ export function RestaurantDiscoveryClient() {
     ) {
       return false;
     }
+    if (
+      !Number.isFinite(numbers.maxOrderingLinkLookups) ||
+      numbers.maxOrderingLinkLookups < 0
+    ) {
+      return false;
+    }
+    if (
+      !Number.isFinite(numbers.maxOrderingCandidatesPerRestaurant) ||
+      numbers.maxOrderingCandidatesPerRestaurant <= 0
+    ) {
+      return false;
+    }
 
     return true;
   }, [address, parsedNumbers]);
@@ -87,6 +134,7 @@ export function RestaurantDiscoveryClient() {
     setRunState('loading');
     setErrorMessage(null);
     setData(null);
+    setProbeRunsByUrl({});
 
     const payload = {
       address: address.trim(),
@@ -96,6 +144,11 @@ export function RestaurantDiscoveryClient() {
       maxResults: Math.trunc(parsedNumbers.maxResults),
       fetchWebsites,
       maxWebsiteLookups: Math.trunc(parsedNumbers.maxWebsiteLookups),
+      discoverOrderingLinks: fetchWebsites ? discoverOrderingLinks : false,
+      maxOrderingLinkLookups: Math.trunc(parsedNumbers.maxOrderingLinkLookups),
+      maxOrderingCandidatesPerRestaurant: Math.trunc(
+        parsedNumbers.maxOrderingCandidatesPerRestaurant,
+      ),
     };
 
     startTransition(async () => {
@@ -108,6 +161,44 @@ export function RestaurantDiscoveryClient() {
 
       setRunState('done');
       setData(result.data);
+    });
+  }
+
+  function handleProbe(candidate: OrderingLinkCandidate) {
+    if (isProbing) {
+      return;
+    }
+
+    setProbeRunsByUrl((previous) => ({
+      ...previous,
+      [candidate.url]: { state: 'loading' },
+    }));
+
+    startProbeTransition(async () => {
+      const result = await runOrderSurfaceProbe({
+        url: candidate.url,
+        timeoutMs: 60_000,
+      });
+
+      setProbeRunsByUrl((previous) => {
+        if (!result.ok) {
+          return {
+            ...previous,
+            [candidate.url]: {
+              state: 'error',
+              errorMessage: result.message,
+            },
+          };
+        }
+
+        return {
+          ...previous,
+          [candidate.url]: {
+            state: 'done',
+            data: result.data,
+          },
+        };
+      });
     });
   }
 
@@ -257,6 +348,47 @@ export function RestaurantDiscoveryClient() {
               </div>
             </div>
 
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="discoverOrderingLinks">Discover ordering links (beta)</Label>
+                  <p className="text-xs text-slate-500">
+                    Scans restaurant websites for &quot;Order online&quot; links to whitelabel providers.
+                  </p>
+                </div>
+                <Switch
+                  id="discoverOrderingLinks"
+                  checked={discoverOrderingLinks}
+                  onCheckedChange={setDiscoverOrderingLinks}
+                  disabled={!fetchWebsites}
+                />
+              </div>
+              <div className={cn('grid gap-3 sm:grid-cols-2', !fetchWebsites && 'opacity-50')}>
+                <div className="space-y-2">
+                  <Label htmlFor="maxOrderingLinkLookups">Max site scans</Label>
+                  <Input
+                    id="maxOrderingLinkLookups"
+                    inputMode="numeric"
+                    value={maxOrderingLinkLookups}
+                    onChange={(event) => setMaxOrderingLinkLookups(event.target.value)}
+                    disabled={!fetchWebsites || !discoverOrderingLinks}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="maxOrderingCandidatesPerRestaurant">Max links / restaurant</Label>
+                  <Input
+                    id="maxOrderingCandidatesPerRestaurant"
+                    inputMode="numeric"
+                    value={maxOrderingCandidatesPerRestaurant}
+                    onChange={(event) =>
+                      setMaxOrderingCandidatesPerRestaurant(event.target.value)
+                    }
+                    disabled={!fetchWebsites || !discoverOrderingLinks}
+                  />
+                </div>
+              </div>
+            </div>
+
             {runState === 'error' && errorMessage ? (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                 {errorMessage}
@@ -373,6 +505,136 @@ export function RestaurantDiscoveryClient() {
                             <span className="text-slate-400">Not fetched</span>
                           )}
                         </div>
+
+                        {restaurant.orderingLinks.length > 0 ? (
+                          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              Ordering Links
+                            </div>
+                            <div className="mt-2 space-y-2">
+                              {restaurant.orderingLinks.map((candidate) => {
+                                const probe = probeRunsByUrl[candidate.url];
+                                const probeState: ProbeRunState = probe?.state ?? 'idle';
+                                const probeData = probe?.data;
+
+                                return (
+                                  <div
+                                    key={candidate.url}
+                                    className="rounded-lg border border-slate-200 bg-white p-3"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <a
+                                          href={candidate.url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-sm font-medium text-slate-900 hover:underline break-all"
+                                        >
+                                          {candidate.label}
+                                        </a>
+                                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-600">
+                                          <Badge variant="secondary">
+                                            score {candidate.score}
+                                          </Badge>
+                                          <Badge variant="outline">
+                                            {candidate.platform.label} (
+                                            {candidate.platform.confidence})
+                                          </Badge>
+                                          {candidate.host ? (
+                                            <span className="truncate">
+                                              {candidate.host}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleProbe(candidate)}
+                                        disabled={probeState === 'loading' || isProbing}
+                                      >
+                                        {probeState === 'loading' ? (
+                                          <>
+                                            <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                            Probing
+                                          </>
+                                        ) : (
+                                          'Probe'
+                                        )}
+                                      </Button>
+                                    </div>
+
+                                    {probeState === 'done' && probeData ? (
+                                      <div className="mt-3 grid gap-2 text-xs text-slate-700">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <Badge
+                                            variant="outline"
+                                            className={cn(
+                                              probeData.passed
+                                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                                : 'border-red-200 bg-red-50 text-red-800',
+                                            )}
+                                          >
+                                            {probeData.passed ? 'PASS' : 'FAIL'}
+                                          </Badge>
+                                          <Badge variant="secondary">
+                                            {probeData.providerHint}
+                                          </Badge>
+                                          <span className="text-slate-500">
+                                            {Math.round(probeData.durationMs / 1000)}s
+                                          </span>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2">
+                                          <Badge variant="outline">
+                                            checkout:{' '}
+                                            {probeData.checks.reachedCheckout
+                                              ? 'yes'
+                                              : 'no'}
+                                          </Badge>
+                                          <Badge variant="outline">
+                                            card:{' '}
+                                            {probeData.checks.guestCardEntryVisible
+                                              ? 'yes'
+                                              : 'no'}
+                                          </Badge>
+                                          <Badge variant="outline">
+                                            login required:{' '}
+                                            {probeData.checks.loginRequiredForCard
+                                              ? 'yes'
+                                              : 'no'}
+                                          </Badge>
+                                          <Badge variant="outline">
+                                            wallet-only:{' '}
+                                            {probeData.checks.walletOnly ? 'yes' : 'no'}
+                                          </Badge>
+                                          <Badge variant="outline">
+                                            blocked:{' '}
+                                            {probeData.checks.botBlocked ? 'yes' : 'no'}
+                                          </Badge>
+                                        </div>
+
+                                        {probeData.notes.length > 0 ? (
+                                          <ul className="list-disc pl-5 text-slate-600 space-y-1">
+                                            {probeData.notes.slice(0, 4).map((note) => (
+                                              <li key={note}>{note}</li>
+                                            ))}
+                                          </ul>
+                                        ) : null}
+                                      </div>
+                                    ) : null}
+
+                                    {probeState === 'error' ? (
+                                      <div className="mt-3 text-xs text-red-800">
+                                        {probe?.errorMessage ?? 'Probe failed'}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                     {data.restaurants.length === 0 ? (
@@ -390,4 +652,3 @@ export function RestaurantDiscoveryClient() {
     </div>
   );
 }
-

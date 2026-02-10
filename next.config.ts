@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
     reactCompiler: true,
     useCache: true,
   },
+  turbopack: {
+    // Prevent Turbopack from inferring an incorrect workspace root when multiple lockfiles exist.
+    root: process.cwd(),
+  },
   images: {
     unoptimized: true,
     // allow all domains for now for demo purposes

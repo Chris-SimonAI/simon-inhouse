@@ -6,6 +6,9 @@ export type RestaurantDiscoveryInput = {
   maxResults: number;
   fetchWebsites: boolean;
   maxWebsiteLookups: number;
+  discoverOrderingLinks: boolean;
+  maxOrderingLinkLookups: number;
+  maxOrderingCandidatesPerRestaurant: number;
 };
 
 export type OrderingPlatformId =
@@ -27,6 +30,15 @@ export type OrderingPlatformSignal = {
   reason: string;
 };
 
+export type OrderingLinkCandidate = {
+  url: string;
+  host: string | null;
+  label: string;
+  score: number;
+  platform: OrderingPlatformSignal;
+  source: "website";
+};
+
 export type DiscoveredRestaurant = {
   name: string;
   placeId: string;
@@ -39,6 +51,7 @@ export type DiscoveredRestaurant = {
   websiteUrl: string | null;
   websiteHost: string | null;
   orderingPlatform: OrderingPlatformSignal;
+  orderingLinks: OrderingLinkCandidate[];
 };
 
 export type RestaurantDiscoveryResult = {
@@ -50,7 +63,8 @@ export type RestaurantDiscoveryResult = {
     afterFilters: number;
     websiteLookupsAttempted: number;
     websiteLookupsSucceeded: number;
+    orderingLinkLookupsAttempted: number;
+    orderingLinkLookupsSucceeded: number;
   };
   warnings: string[];
 };
-

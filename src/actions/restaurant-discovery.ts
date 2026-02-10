@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { env } from '@/env';
 import { createError, createSuccess } from '@/lib/utils';
 import { detectOrderingPlatformFromWebsite } from '@/lib/restaurant-discovery/platform-detector';
+import { extractOrderingLinksFromWebsiteHtml } from '@/lib/restaurant-discovery/order-link-extractor';
 import {
   type DiscoveredRestaurant,
   type RestaurantDiscoveryInput,
@@ -20,6 +21,9 @@ const restaurantDiscoverySchema = z.object({
   maxResults: z.number().int().min(1).max(60),
   fetchWebsites: z.boolean(),
   maxWebsiteLookups: z.number().int().min(0).max(25),
+  discoverOrderingLinks: z.boolean(),
+  maxOrderingLinkLookups: z.number().int().min(0).max(25),
+  maxOrderingCandidatesPerRestaurant: z.number().int().min(1).max(10),
 });
 
 type GoogleGeocodeResponse = {
@@ -97,6 +101,35 @@ function clampRestaurants<T>(items: T[], max: number) {
     return items;
   }
   return items.slice(0, max);
+}
+
+async function fetchTextWithTimeout(url: string, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        // Some sites block unknown UAs; this is a best-effort fetch for discovery only.
+        'user-agent':
+          'Mozilla/5.0 (compatible; SimonDiscoveryBot/1.0; +https://simon.ai)',
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const text = await response.text();
+    // Keep memory bounded.
+    return text.slice(0, 1_000_000);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function runRestaurantDiscovery(input: unknown) {
@@ -253,14 +286,20 @@ export async function runRestaurantDiscovery(input: unknown) {
 
   let websiteLookupsAttempted = 0;
   let websiteLookupsSucceeded = 0;
+  let orderingLinkLookupsAttempted = 0;
+  let orderingLinkLookupsSucceeded = 0;
 
   const lookupBudget = request.fetchWebsites ? request.maxWebsiteLookups : 0;
+  const orderingLinkBudget = request.discoverOrderingLinks
+    ? request.maxOrderingLinkLookups
+    : 0;
 
   const restaurants: DiscoveredRestaurant[] = [];
 
   for (const place of capped) {
     let websiteUrl: string | null = null;
     let address: string | null = place.vicinity;
+    let orderingLinks: DiscoveredRestaurant['orderingLinks'] = [];
 
     if (lookupBudget > 0 && websiteLookupsAttempted < lookupBudget) {
       websiteLookupsAttempted += 1;
@@ -292,6 +331,26 @@ export async function runRestaurantDiscovery(input: unknown) {
 
     const platform = detectOrderingPlatformFromWebsite(websiteUrl);
 
+    if (
+      websiteUrl &&
+      orderingLinkBudget > 0 &&
+      orderingLinkLookupsAttempted < orderingLinkBudget
+    ) {
+      orderingLinkLookupsAttempted += 1;
+      try {
+        const html = await fetchTextWithTimeout(websiteUrl, 12_000);
+        orderingLinks = extractOrderingLinksFromWebsiteHtml({
+          websiteUrl,
+          html,
+          maxCandidates: request.maxOrderingCandidatesPerRestaurant,
+        });
+        orderingLinkLookupsSucceeded += 1;
+      } catch (error) {
+        console.warn('Restaurant discovery ordering link fetch failed:', error);
+        warnings.push(`Ordering link scan failed for "${place.name}"`);
+      }
+    }
+
     restaurants.push({
       name: place.name,
       placeId: place.placeId,
@@ -304,6 +363,7 @@ export async function runRestaurantDiscovery(input: unknown) {
       websiteUrl,
       websiteHost: safeHostFromUrl(websiteUrl),
       orderingPlatform: platform,
+      orderingLinks,
     });
   }
 
@@ -321,6 +381,20 @@ export async function runRestaurantDiscovery(input: unknown) {
     );
   }
 
+  if (!request.discoverOrderingLinks) {
+    warnings.push(
+      'Ordering link discovery is disabled. Enable "Discover ordering links" to find provider/whitelabel order pages.',
+    );
+  } else if (orderingLinkBudget === 0) {
+    warnings.push(
+      'Ordering link discovery is enabled but maxOrderingLinkLookups is 0, so no scans were performed.',
+    );
+  } else if (orderingLinkLookupsAttempted < restaurants.length) {
+    warnings.push(
+      `Ordering link scans were limited (${orderingLinkLookupsAttempted}/${restaurants.length}). Increase maxOrderingLinkLookups to scan more restaurants.`,
+    );
+  }
+
   const result: RestaurantDiscoveryResult = {
     input: request,
     geo: {
@@ -334,10 +408,11 @@ export async function runRestaurantDiscovery(input: unknown) {
       afterFilters: restaurants.length,
       websiteLookupsAttempted,
       websiteLookupsSucceeded,
+      orderingLinkLookupsAttempted,
+      orderingLinkLookupsSucceeded,
     },
     warnings,
   };
 
   return createSuccess(result);
 }
-

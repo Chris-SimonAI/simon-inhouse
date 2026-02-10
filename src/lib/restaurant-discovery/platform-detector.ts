@@ -1,5 +1,3 @@
-import "server-only";
-
 import {
   type OrderingPlatformId,
   type OrderingPlatformSignal,
@@ -127,4 +125,3 @@ export function detectOrderingPlatformFromWebsite(
     reason: `Unrecognized domain: ${normalizedHost}`,
   };
 }
-
