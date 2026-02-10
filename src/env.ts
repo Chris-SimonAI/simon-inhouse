@@ -36,6 +36,9 @@ const Env = z.object({
   // Human ops handoff alerts
   OPS_HANDOFF_SLACK_WEBHOOK_URL: z.string().url().optional(),
   OPS_HANDOFF_SMS_NUMBERS: z.string().min(1).optional(),
+  // New order alerts (optional; falls back to handoff channels if unset)
+  OPS_ORDERS_SLACK_WEBHOOK_URL: z.string().url().optional(),
+  OPS_ORDERS_SMS_NUMBERS: z.string().min(1).optional(),
   // Bright Data + proxy scraping
   BRIGHTDATA_API_KEY: z.string().min(1).optional(),
   BRIGHTDATA_WEB_UNLOCKER_ZONE: z.string().min(1).optional(),

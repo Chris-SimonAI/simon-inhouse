@@ -21,6 +21,9 @@ import { revalidateTag } from 'next/cache';
 import { getHotelBySlug } from '@/actions/hotels';
 import { dineInRestaurants, hotels } from '@/db/schemas';
 import { and, inArray } from 'drizzle-orm';
+import { env } from '@/env';
+import { dispatchOrderCreatedAlert } from '@/lib/orders/order-alerts';
+import { buildOrderCreatedAlertPayload } from '@/lib/orders/order-alerts-shared';
 
 export async function createDineInOrder(input: unknown) {
   try {
@@ -68,6 +71,55 @@ export async function createDineInOrder(input: unknown) {
         }).returning();
       })
     );
+
+    // Fire-and-forget: notify ops a new order was created.
+    // Never fail the order flow if notifications fail.
+    try {
+      const [hotelRow] = await db
+        .select({ id: hotels.id, name: hotels.name, slug: hotels.slug })
+        .from(hotels)
+        .where(eq(hotels.id, validatedInput.hotelId))
+        .limit(1);
+
+      const [restaurantRow] = await db
+        .select({ id: dineInRestaurants.id, name: dineInRestaurants.name })
+        .from(dineInRestaurants)
+        .where(eq(dineInRestaurants.id, restaurantResult.data))
+        .limit(1);
+
+      if (hotelRow && restaurantRow) {
+        const payload = buildOrderCreatedAlertPayload({
+          orderId: order.id,
+          orderStatus: order.orderStatus,
+          hotel: { id: hotelRow.id, name: hotelRow.name, slug: hotelRow.slug ?? null },
+          restaurant: { id: restaurantRow.id, name: restaurantRow.name },
+          guest: {
+            name: null,
+            phone: null,
+            email: null,
+            roomNumber: order.roomNumber,
+          },
+          totalAmount: order.totalAmount,
+          metadata: order.metadata,
+          fallbackItems: validatedInput.items.map((it) => ({
+            name: it.itemName,
+            quantity: it.quantity,
+            modifiers: (it.modifierDetails ?? []).flatMap((group) =>
+              group.options.map((opt) => opt.optionName),
+            ),
+          })),
+          adminBaseUrl: env.NEXT_PUBLIC_APP_URL,
+        });
+
+        await dispatchOrderCreatedAlert(payload);
+      }
+    } catch (error) {
+      console.error('[dine-in-orders] order:alert:failed', {
+        env: env.NODE_ENV,
+        orderId: order.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     revalidateTag('orders');
     

@@ -7,6 +7,8 @@ import { dineInOrders, dineInOrderItems, dineInRestaurants, hotels, menuItems, m
 import { eq, inArray } from 'drizzle-orm';
 import { createSuccess, createError } from '@/lib/utils';
 import { env } from '@/env';
+import { dispatchOrderCreatedAlert } from '@/lib/orders/order-alerts';
+import { buildOrderCreatedAlertPayload } from '@/lib/orders/order-alerts-shared';
 
 interface SmsOrderItem {
   menuItemGuid: string;
@@ -229,12 +231,63 @@ export async function createSmsCheckoutSession(
       )
     );
 
-    // 7. Get hotel name for Stripe metadata
+    // 7. Get hotel details for Stripe metadata and ops alerts
     const [hotel] = await db
-      .select({ name: hotels.name })
+      .select({ id: hotels.id, name: hotels.name, slug: hotels.slug })
       .from(hotels)
       .where(eq(hotels.id, input.hotelId))
       .limit(1);
+
+    // 7b. Fire-and-forget: notify ops a new order was created.
+    // Never fail the order flow if notifications fail.
+    try {
+      if (hotel) {
+        const payload = buildOrderCreatedAlertPayload({
+          orderId: order.id,
+          orderStatus: order.orderStatus,
+          hotel: { id: hotel.id, name: hotel.name, slug: hotel.slug ?? null },
+          restaurant: { id: restaurant.id, name: restaurant.name },
+          guest: {
+            name: input.name,
+            phone: input.phone,
+            email: null,
+            roomNumber: input.roomNumber,
+          },
+          totalAmount: order.totalAmount,
+          metadata: order.metadata,
+          fallbackItems: calculatedItems.map((it) => {
+            const modifiers: string[] = [];
+            if (Array.isArray(it.modifierDetails)) {
+              for (const group of it.modifierDetails) {
+                if (group && typeof group === 'object' && 'options' in group) {
+                  const options = (group as { options?: unknown }).options;
+                  if (Array.isArray(options)) {
+                    for (const opt of options) {
+                      if (opt && typeof opt === 'object' && 'optionName' in opt) {
+                        const optionName = (opt as { optionName?: unknown }).optionName;
+                        if (typeof optionName === 'string' && optionName.trim().length > 0) {
+                          modifiers.push(optionName.trim());
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            return { name: it.itemName, quantity: it.quantity, modifiers };
+          }),
+          adminBaseUrl: env.NEXT_PUBLIC_APP_URL,
+        });
+
+        await dispatchOrderCreatedAlert(payload);
+      }
+    } catch (error) {
+      console.error('[sms-payments] order:alert:failed', {
+        env: env.NODE_ENV,
+        orderId: order.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     // 8. Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({

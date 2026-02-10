@@ -17,6 +17,8 @@ import {
   buildCanonicalOrderArtifact,
   canonicalCompilerVersion,
 } from '@/lib/orders/canonical-order-artifact';
+import { dispatchOrderCreatedAlert } from '@/lib/orders/order-alerts';
+import { buildOrderCreatedAlertPayload } from '@/lib/orders/order-alerts-shared';
 
 /**
  * Result of server-side order total calculation
@@ -267,6 +269,50 @@ export async function createSecureOrderAndPaymentIntent(input: unknown) {
       db.select().from(hotels).where(eq(hotels.id, order.hotelId)).limit(1),
       db.select().from(dineInRestaurants).where(eq(dineInRestaurants.id, order.restaurantId)).limit(1)
     ]);
+
+    // 5b. Fire-and-forget: notify ops a new order was created.
+    // Never fail the order flow if notifications fail.
+    try {
+      const hotelRow = hotel[0];
+      const restaurantRow = restaurant[0];
+
+      if (hotelRow && restaurantRow) {
+        const payload = buildOrderCreatedAlertPayload({
+          orderId: order.id,
+          orderStatus: order.orderStatus,
+          hotel: {
+            id: hotelRow.id,
+            name: hotelRow.name,
+            slug: hotelRow.slug ?? null,
+          },
+          restaurant: { id: restaurantRow.id, name: restaurantRow.name },
+          guest: {
+            name: validatedInput.fullName,
+            phone: validatedInput.phoneNumber,
+            email: validatedInput.email,
+            roomNumber: validatedInput.roomNumber,
+          },
+          totalAmount: order.totalAmount,
+          metadata: order.metadata,
+          fallbackItems: calculation.items.map((it) => ({
+            name: it.itemName,
+            quantity: it.quantity,
+            modifiers: it.modifierDetails.flatMap((group) =>
+              group.options.map((opt) => opt.optionName),
+            ),
+          })),
+          adminBaseUrl: env.NEXT_PUBLIC_APP_URL,
+        });
+
+        await dispatchOrderCreatedAlert(payload);
+      }
+    } catch (error) {
+      console.error('[stripe][secureCreate] order:alert:failed', {
+        env: env.NODE_ENV,
+        orderId: order.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     // 6. Create Stripe Payment Intent with server-calculated amount
     const paymentIntentCreateParams = {
