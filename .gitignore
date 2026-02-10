@@ -46,3 +46,6 @@ infra/dist/
 # local-only clones / handoff artifacts
 external-repos/
 handoff/
+
+# local probe output (playwright screenshots / scorecards)
+probe-results/
