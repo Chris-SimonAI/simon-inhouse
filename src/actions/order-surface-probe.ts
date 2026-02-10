@@ -4,10 +4,8 @@ import 'server-only';
 
 import { z } from 'zod';
 import { createError, createSuccess } from '@/lib/utils';
-import {
-  probeOrderSurface,
-  type OrderSurfaceProbeResult,
-} from '@/lib/restaurant-discovery/order-surface-prober';
+import { probeOrderSurface } from '@/lib/restaurant-discovery/order-surface-prober';
+import { type OrderSurfaceProbeResult } from '@/lib/restaurant-discovery/restaurant-discovery-types';
 
 const orderSurfaceProbeSchema = z.object({
   url: z.string().url(),
@@ -33,4 +31,3 @@ export async function runOrderSurfaceProbe(input: unknown) {
     return createError('Probe failed');
   }
 }
-

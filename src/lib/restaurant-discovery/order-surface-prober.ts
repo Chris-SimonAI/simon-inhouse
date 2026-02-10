@@ -2,24 +2,7 @@ import "server-only";
 
 import { chromium } from "playwright";
 
-export type OrderSurfaceProbeResult = {
-  url: string;
-  startedAt: string;
-  durationMs: number;
-  providerHint: "slice" | "toast" | "chownow" | "unknown";
-  passed: boolean;
-  checks: {
-    reachedSite: boolean;
-    botBlocked: boolean;
-    addedItemToCart: boolean;
-    reachedCheckout: boolean;
-    guestCardEntryVisible: boolean;
-    loginRequiredForCard: boolean;
-    walletOnly: boolean;
-  };
-  notes: string[];
-  errorMessage: string | null;
-};
+import { type OrderSurfaceProbeResult } from "./restaurant-discovery-types";
 
 const blockTextPatterns: RegExp[] = [
   /checking your browser/i,
@@ -36,7 +19,7 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function toProviderHint(url: string): OrderSurfaceProbeResult["providerHint"] {
+function toProviderHintFromUrl(url: string): OrderSurfaceProbeResult["providerHint"] {
   const lower = url.toLowerCase();
   if (lower.includes("toasttab.com")) {
     return "toast";
@@ -44,9 +27,32 @@ function toProviderHint(url: string): OrderSurfaceProbeResult["providerHint"] {
   if (lower.includes("chownow.com")) {
     return "chownow";
   }
-  if (lower.includes("slice")) {
+  if (lower.includes("square.site") || lower.includes("squareup.com")) {
+    return "square";
+  }
+  if (lower.includes("slicelife.com") || lower.includes("slice")) {
     return "slice";
   }
+  return "unknown";
+}
+
+function toProviderHintFromText(
+  bodyText: string,
+): OrderSurfaceProbeResult["providerHint"] {
+  const lower = bodyText.toLowerCase();
+  if (lower.includes("toast")) {
+    // Avoid false positives; still let URL decide when possible.
+    return "toast";
+  }
+
+  if (lower.includes("slice may deliver") || lower.includes("slicelife.com")) {
+    return "slice";
+  }
+
+  if (lower.includes("squareup.com") || lower.includes("square")) {
+    return "square";
+  }
+
   return "unknown";
 }
 
@@ -227,7 +233,7 @@ export async function probeOrderSurface(options: {
   const startedAt = nowIso();
   const start = Date.now();
   const notes: string[] = [];
-  const providerHint = toProviderHint(options.url);
+  let providerHint = toProviderHintFromUrl(options.url);
 
   const timeoutMs = options.timeoutMs ?? 60_000;
 
@@ -265,6 +271,7 @@ export async function probeOrderSurface(options: {
     page.setDefaultTimeout(Math.min(timeoutMs, 30_000));
 
     await page.goto(options.url, { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
     result.checks.reachedSite = true;
 
     await bestEffortDismissOverlays(page);
@@ -274,6 +281,19 @@ export async function probeOrderSurface(options: {
       result.checks.botBlocked = true;
       notes.push("Detected block/challenge signals on initial load");
       return result;
+    }
+
+    const bodyText = await page
+      .locator("body")
+      .innerText({ timeout: 4000 })
+      .catch(() => "");
+    if (providerHint === "unknown") {
+      const hintFromText = toProviderHintFromText(bodyText);
+      if (hintFromText !== "unknown") {
+        providerHint = hintFromText;
+        result.providerHint = hintFromText;
+        notes.push(`Provider hint inferred from page text: ${hintFromText}`);
+      }
     }
 
     const added = await tryAddFirstItem(page, notes);
@@ -315,4 +335,3 @@ export async function probeOrderSurface(options: {
 
   return result;
 }
-

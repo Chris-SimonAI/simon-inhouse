@@ -11,12 +11,14 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { runRestaurantDiscovery } from '@/actions/restaurant-discovery';
 import { runOrderSurfaceProbe } from '@/actions/order-surface-probe';
+import { runOrderingLinkDeepScan } from '@/actions/ordering-link-deep-scan';
 import { cn } from '@/lib/utils';
 import {
   type OrderingLinkCandidate,
+  type OrderingLinkDeepScanResult,
+  type OrderSurfaceProbeResult,
   type RestaurantDiscoveryResult,
 } from '@/lib/restaurant-discovery/restaurant-discovery-types';
-import { type OrderSurfaceProbeResult } from '@/lib/restaurant-discovery/order-surface-prober';
 
 type DiscoveryRunState = 'idle' | 'loading' | 'done' | 'error';
 
@@ -26,6 +28,14 @@ type ProbeRun = {
   state: ProbeRunState;
   errorMessage?: string;
   data?: OrderSurfaceProbeResult;
+};
+
+type DeepScanRunState = 'idle' | 'loading' | 'done' | 'error';
+
+type DeepScanRun = {
+  state: DeepScanRunState;
+  errorMessage?: string;
+  data?: OrderingLinkDeepScanResult;
 };
 
 export function RestaurantDiscoveryClient() {
@@ -49,6 +59,9 @@ export function RestaurantDiscoveryClient() {
 
   const [copied, setCopied] = useState(false);
   const [probeRunsByUrl, setProbeRunsByUrl] = useState<Record<string, ProbeRun>>({});
+  const [deepScanByPlaceId, setDeepScanByPlaceId] = useState<Record<string, DeepScanRun>>({});
+  const [directProbeUrl, setDirectProbeUrl] = useState('');
+  const [directProbeRun, setDirectProbeRun] = useState<ProbeRun | null>(null);
 
   const parsedNumbers = useMemo(() => {
     const radius = Number(radiusMiles);
@@ -202,6 +215,66 @@ export function RestaurantDiscoveryClient() {
     });
   }
 
+  function handleDirectProbe() {
+    if (isProbing) {
+      return;
+    }
+
+    const trimmed = directProbeUrl.trim();
+    if (trimmed.length === 0) {
+      return;
+    }
+
+    setDirectProbeRun({ state: 'loading' });
+
+    startProbeTransition(async () => {
+      const result = await runOrderSurfaceProbe({
+        url: trimmed,
+        timeoutMs: 60_000,
+      });
+
+      if (!result.ok) {
+        setDirectProbeRun({ state: 'error', errorMessage: result.message });
+        return;
+      }
+
+      setDirectProbeRun({ state: 'done', data: result.data });
+    });
+  }
+
+  function handleDeepScan(placeId: string, websiteUrl: string) {
+    if (isProbing) {
+      return;
+    }
+
+    setDeepScanByPlaceId((previous) => ({
+      ...previous,
+      [placeId]: { state: 'loading' },
+    }));
+
+    startProbeTransition(async () => {
+      const result = await runOrderingLinkDeepScan({
+        websiteUrl,
+        maxCandidates: Math.trunc(parsedNumbers.maxOrderingCandidatesPerRestaurant),
+        timeoutMs: 60_000,
+      });
+
+      setDeepScanByPlaceId((previous) => {
+        if (!result.ok) {
+          return {
+            ...previous,
+            [placeId]: { state: 'error', errorMessage: result.message },
+          };
+        }
+
+        return {
+          ...previous,
+          [placeId]: { state: 'done', data: result.data },
+        };
+      });
+    });
+  }
+
   async function handleCopyJson() {
     if (!data) {
       return;
@@ -267,6 +340,89 @@ export function RestaurantDiscoveryClient() {
             <CardTitle className="text-base">Search Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium text-slate-900">
+                    Quick Probe (Playwright)
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Paste a direct ordering URL (Slice, Square, Toast, etc.) and run an injectability probe.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={directProbeUrl}
+                  onChange={(event) => setDirectProbeUrl(event.target.value)}
+                  placeholder="https://samopizzamenu.com/..."
+                />
+                <Button
+                  variant="outline"
+                  onClick={handleDirectProbe}
+                  disabled={isProbing || directProbeUrl.trim().length === 0}
+                >
+                  {directProbeRun?.state === 'loading' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Probing
+                    </>
+                  ) : (
+                    'Probe'
+                  )}
+                </Button>
+              </div>
+              {directProbeRun?.state === 'done' && directProbeRun.data ? (
+                <div className="grid gap-2 text-xs text-slate-700">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        directProbeRun.data.passed
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                          : 'border-red-200 bg-red-50 text-red-800',
+                      )}
+                    >
+                      {directProbeRun.data.passed ? 'PASS' : 'FAIL'}
+                    </Badge>
+                    <Badge variant="secondary">{directProbeRun.data.providerHint}</Badge>
+                    <span className="text-slate-500">
+                      {Math.round(directProbeRun.data.durationMs / 1000)}s
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">
+                      checkout: {directProbeRun.data.checks.reachedCheckout ? 'yes' : 'no'}
+                    </Badge>
+                    <Badge variant="outline">
+                      card: {directProbeRun.data.checks.guestCardEntryVisible ? 'yes' : 'no'}
+                    </Badge>
+                    <Badge variant="outline">
+                      login required: {directProbeRun.data.checks.loginRequiredForCard ? 'yes' : 'no'}
+                    </Badge>
+                    <Badge variant="outline">
+                      wallet-only: {directProbeRun.data.checks.walletOnly ? 'yes' : 'no'}
+                    </Badge>
+                    <Badge variant="outline">
+                      blocked: {directProbeRun.data.checks.botBlocked ? 'yes' : 'no'}
+                    </Badge>
+                  </div>
+                  {directProbeRun.data.notes.length > 0 ? (
+                    <ul className="list-disc pl-5 text-slate-600 space-y-1">
+                      {directProbeRun.data.notes.slice(0, 4).map((note) => (
+                        <li key={note}>{note}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+              {directProbeRun?.state === 'error' ? (
+                <p className="text-xs text-red-800">
+                  {directProbeRun.errorMessage ?? 'Probe failed'}
+                </p>
+              ) : null}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="address">Hotel address</Label>
               <Input
@@ -449,6 +605,11 @@ export function RestaurantDiscoveryClient() {
                   <div className="divide-y divide-slate-200">
                     {data.restaurants.map((restaurant) => (
                       <div key={restaurant.placeId} className="p-4">
+                        {deepScanByPlaceId[restaurant.placeId]?.state === 'done' ? (
+                          <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900">
+                            Deep scan completed for this restaurant. Showing updated fingerprint/links below.
+                          </div>
+                        ) : null}
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <a
@@ -532,135 +693,200 @@ export function RestaurantDiscoveryClient() {
                           </div>
                         ) : null}
 
-                        {restaurant.orderingLinks.length > 0 ? (
-                          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              Ordering Links
-                            </div>
-                            <div className="mt-2 space-y-2">
-                              {restaurant.orderingLinks.map((candidate) => {
-                                const probe = probeRunsByUrl[candidate.url];
-                                const probeState: ProbeRunState = probe?.state ?? 'idle';
-                                const probeData = probe?.data;
+                        {(() => {
+                          const deep = deepScanByPlaceId[restaurant.placeId];
+                          const deepData = deep?.data;
+                          const effectiveLinks =
+                            deepData && deepData.orderingLinks.length > 0
+                              ? deepData.orderingLinks
+                              : restaurant.orderingLinks;
+                          const effectiveFingerprint =
+                            deepData?.fingerprint ?? restaurant.orderingPlatformFingerprint;
 
-                                return (
-                                  <div
-                                    key={candidate.url}
-                                    className="rounded-lg border border-slate-200 bg-white p-3"
+                          const shouldShowDeepScanButton =
+                            Boolean(restaurant.websiteUrl) &&
+                            (effectiveLinks.length === 0 && !effectiveFingerprint);
+
+                          return (
+                            <>
+                              {shouldShowDeepScanButton ? (
+                                <div className="mt-4">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleDeepScan(
+                                        restaurant.placeId,
+                                        restaurant.websiteUrl as string,
+                                      )
+                                    }
+                                    disabled={
+                                      isProbing ||
+                                      deep?.state === 'loading' ||
+                                      !restaurant.websiteUrl
+                                    }
                                   >
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="min-w-0">
-                                        <a
-                                          href={candidate.url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="text-sm font-medium text-slate-900 hover:underline break-all"
+                                    {deep?.state === 'loading' ? (
+                                      <>
+                                        <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                        Deep scanning...
+                                      </>
+                                    ) : (
+                                      'Deep scan (Playwright)'
+                                    )}
+                                  </Button>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Uses Playwright to click an Order CTA, then re-runs fingerprinting and ordering link extraction.
+                                  </p>
+                                  {deep?.state === 'error' ? (
+                                    <p className="mt-2 text-xs text-red-800">
+                                      {deep.errorMessage ?? 'Deep scan failed'}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ) : null}
+
+                              {effectiveLinks.length > 0 ? (
+                                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Ordering Links
+                                  </div>
+                                  <div className="mt-2 space-y-2">
+                                    {effectiveLinks.map((candidate) => {
+                                      const probe = probeRunsByUrl[candidate.url];
+                                      const probeState: ProbeRunState =
+                                        probe?.state ?? 'idle';
+                                      const probeData = probe?.data;
+
+                                      return (
+                                        <div
+                                          key={candidate.url}
+                                          className="rounded-lg border border-slate-200 bg-white p-3"
                                         >
-                                          {candidate.label}
-                                        </a>
-                                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-600">
-                                          <Badge variant="secondary">
-                                            score {candidate.score}
-                                          </Badge>
-                                          <Badge variant="outline">
-                                            {candidate.platform.label} (
-                                            {candidate.platform.confidence})
-                                          </Badge>
-                                          {candidate.host ? (
-                                            <span className="truncate">
-                                              {candidate.host}
-                                            </span>
+                                          <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                              <a
+                                                href={candidate.url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-sm font-medium text-slate-900 hover:underline break-all"
+                                              >
+                                                {candidate.label}
+                                              </a>
+                                              <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-600">
+                                                <Badge variant="secondary">
+                                                  score {candidate.score}
+                                                </Badge>
+                                                <Badge variant="outline">
+                                                  {candidate.platform.label} (
+                                                  {candidate.platform.confidence})
+                                                </Badge>
+                                                {candidate.host ? (
+                                                  <span className="truncate">
+                                                    {candidate.host}
+                                                  </span>
+                                                ) : null}
+                                              </div>
+                                            </div>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => handleProbe(candidate)}
+                                              disabled={
+                                                probeState === 'loading' || isProbing
+                                              }
+                                            >
+                                              {probeState === 'loading' ? (
+                                                <>
+                                                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                                  Probing
+                                                </>
+                                              ) : (
+                                                'Probe'
+                                              )}
+                                            </Button>
+                                          </div>
+
+                                          {probeState === 'done' && probeData ? (
+                                            <div className="mt-3 grid gap-2 text-xs text-slate-700">
+                                              <div className="flex flex-wrap items-center gap-2">
+                                                <Badge
+                                                  variant="outline"
+                                                  className={cn(
+                                                    probeData.passed
+                                                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                                      : 'border-red-200 bg-red-50 text-red-800',
+                                                  )}
+                                                >
+                                                  {probeData.passed ? 'PASS' : 'FAIL'}
+                                                </Badge>
+                                                <Badge variant="secondary">
+                                                  {probeData.providerHint}
+                                                </Badge>
+                                                <span className="text-slate-500">
+                                                  {Math.round(probeData.durationMs / 1000)}s
+                                                </span>
+                                              </div>
+
+                                              <div className="flex flex-wrap gap-2">
+                                                <Badge variant="outline">
+                                                  checkout:{' '}
+                                                  {probeData.checks.reachedCheckout
+                                                    ? 'yes'
+                                                    : 'no'}
+                                                </Badge>
+                                                <Badge variant="outline">
+                                                  card:{' '}
+                                                  {probeData.checks.guestCardEntryVisible
+                                                    ? 'yes'
+                                                    : 'no'}
+                                                </Badge>
+                                                <Badge variant="outline">
+                                                  login required:{' '}
+                                                  {probeData.checks.loginRequiredForCard
+                                                    ? 'yes'
+                                                    : 'no'}
+                                                </Badge>
+                                                <Badge variant="outline">
+                                                  wallet-only:{' '}
+                                                  {probeData.checks.walletOnly
+                                                    ? 'yes'
+                                                    : 'no'}
+                                                </Badge>
+                                                <Badge variant="outline">
+                                                  blocked:{' '}
+                                                  {probeData.checks.botBlocked
+                                                    ? 'yes'
+                                                    : 'no'}
+                                                </Badge>
+                                              </div>
+
+                                              {probeData.notes.length > 0 ? (
+                                                <ul className="list-disc pl-5 text-slate-600 space-y-1">
+                                                  {probeData.notes
+                                                    .slice(0, 4)
+                                                    .map((note) => (
+                                                      <li key={note}>{note}</li>
+                                                    ))}
+                                                </ul>
+                                              ) : null}
+                                            </div>
+                                          ) : null}
+
+                                          {probeState === 'error' ? (
+                                            <div className="mt-3 text-xs text-red-800">
+                                              {probe?.errorMessage ?? 'Probe failed'}
+                                            </div>
                                           ) : null}
                                         </div>
-                                      </div>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleProbe(candidate)}
-                                        disabled={probeState === 'loading' || isProbing}
-                                      >
-                                        {probeState === 'loading' ? (
-                                          <>
-                                            <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                                            Probing
-                                          </>
-                                        ) : (
-                                          'Probe'
-                                        )}
-                                      </Button>
-                                    </div>
-
-                                    {probeState === 'done' && probeData ? (
-                                      <div className="mt-3 grid gap-2 text-xs text-slate-700">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <Badge
-                                            variant="outline"
-                                            className={cn(
-                                              probeData.passed
-                                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                                                : 'border-red-200 bg-red-50 text-red-800',
-                                            )}
-                                          >
-                                            {probeData.passed ? 'PASS' : 'FAIL'}
-                                          </Badge>
-                                          <Badge variant="secondary">
-                                            {probeData.providerHint}
-                                          </Badge>
-                                          <span className="text-slate-500">
-                                            {Math.round(probeData.durationMs / 1000)}s
-                                          </span>
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-2">
-                                          <Badge variant="outline">
-                                            checkout:{' '}
-                                            {probeData.checks.reachedCheckout
-                                              ? 'yes'
-                                              : 'no'}
-                                          </Badge>
-                                          <Badge variant="outline">
-                                            card:{' '}
-                                            {probeData.checks.guestCardEntryVisible
-                                              ? 'yes'
-                                              : 'no'}
-                                          </Badge>
-                                          <Badge variant="outline">
-                                            login required:{' '}
-                                            {probeData.checks.loginRequiredForCard
-                                              ? 'yes'
-                                              : 'no'}
-                                          </Badge>
-                                          <Badge variant="outline">
-                                            wallet-only:{' '}
-                                            {probeData.checks.walletOnly ? 'yes' : 'no'}
-                                          </Badge>
-                                          <Badge variant="outline">
-                                            blocked:{' '}
-                                            {probeData.checks.botBlocked ? 'yes' : 'no'}
-                                          </Badge>
-                                        </div>
-
-                                        {probeData.notes.length > 0 ? (
-                                          <ul className="list-disc pl-5 text-slate-600 space-y-1">
-                                            {probeData.notes.slice(0, 4).map((note) => (
-                                              <li key={note}>{note}</li>
-                                            ))}
-                                          </ul>
-                                        ) : null}
-                                      </div>
-                                    ) : null}
-
-                                    {probeState === 'error' ? (
-                                      <div className="mt-3 text-xs text-red-800">
-                                        {probe?.errorMessage ?? 'Probe failed'}
-                                      </div>
-                                    ) : null}
+                                      );
+                                    })}
                                   </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ) : null}
+                                </div>
+                              ) : null}
+                            </>
+                          );
+                        })()}
                       </div>
                     ))}
                     {data.restaurants.length === 0 ? (

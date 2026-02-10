@@ -74,3 +74,36 @@ export type RestaurantDiscoveryResult = {
   };
   warnings: string[];
 };
+
+// These result types are shared between Server Actions and Client Components.
+// Keep them in this file (no `server-only`) so client code can safely import the types.
+export type OrderSurfaceProbeResult = {
+  url: string;
+  startedAt: string;
+  durationMs: number;
+  providerHint: "slice" | "toast" | "chownow" | "square" | "unknown";
+  passed: boolean;
+  checks: {
+    reachedSite: boolean;
+    botBlocked: boolean;
+    addedItemToCart: boolean;
+    reachedCheckout: boolean;
+    guestCardEntryVisible: boolean;
+    loginRequiredForCard: boolean;
+    walletOnly: boolean;
+  };
+  notes: string[];
+  errorMessage: string | null;
+};
+
+export type OrderingLinkDeepScanResult = {
+  inputUrl: string;
+  finalUrl: string;
+  startedAt: string;
+  durationMs: number;
+  clickedOrderCta: boolean;
+  fingerprint: OrderingPlatformFingerprint | null;
+  orderingLinks: OrderingLinkCandidate[];
+  notes: string[];
+  errorMessage: string | null;
+};
